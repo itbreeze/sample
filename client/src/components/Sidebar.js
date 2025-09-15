@@ -3,10 +3,26 @@ import UserProfile from './UserProfile';
 import './Sidebar.css';
 import { Menu, PanelLeftClose, PanelRightClose } from 'lucide-react';
 
-function Sidebar({ user, isOpen, setIsOpen, menuItems, activeMenuItem, onMenuItemClick }) {
+function Sidebar({ 
+  user, 
+  isOpen, 
+  setIsOpen, 
+  menuItems, 
+  activeMenuItem, 
+  onMenuItemClick,
+  isFileLoaded // isFileLoaded prop 추가
+}) {
   const [isHovered, setIsHovered] = useState(false);
 
+  // 비활성화할 메뉴 아이템 ID 목록
+  const disabledMenuItems = ['equipments', 'pipeLayers', 'layers'];
+
   const handleMenuClick = (id) => {
+    // 비활성화된 메뉴는 클릭 무시
+    if (!isFileLoaded && disabledMenuItems.includes(id)) {
+      return;
+    }
+
     if (activeMenuItem === id) {
       setIsOpen(false);
       onMenuItemClick(null);
@@ -23,6 +39,7 @@ function Sidebar({ user, isOpen, setIsOpen, menuItems, activeMenuItem, onMenuIte
     if (!newIsOpenState) {
       onMenuItemClick(null);
     } else {
+      // 상세검색이 활성화되어 있지 않고, 메뉴 아이템이 있을 경우 첫 번째 메뉴를 활성화
       if (!activeMenuItem && menuItems.length > 0) {
         onMenuItemClick(menuItems[0].id);
       }
@@ -52,21 +69,25 @@ function Sidebar({ user, isOpen, setIsOpen, menuItems, activeMenuItem, onMenuIte
 
       {/* 메뉴 아이템 내비게이션 */}
       <nav className="sidebar-nav">
-        {menuItems.map(item => (
-          <div
-            key={item.id}
-            className={`sidebar-menu-item ${activeMenuItem === item.id ? 'active' : ''}`}
-            onClick={() => handleMenuClick(item.id)}
-            title={!isOpen ? item.label : ''}
-          >
-            <div className="item-icon">{item.icon}</div>
-            <span className="menu-label">{item.label}</span>
-          </div>
-        ))}
+        {menuItems.map(item => {
+          // 파일 로드 상태와 메뉴 ID에 따라 비활성화 여부 결정
+          const isDisabled = !isFileLoaded && disabledMenuItems.includes(item.id);
+          return (
+            <div
+              key={item.id}
+              className={`sidebar-menu-item ${activeMenuItem === item.id ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+              onClick={() => handleMenuClick(item.id)}
+              title={!isOpen ? item.label : ''}
+            >
+              <div className="item-icon">{item.icon}</div>
+              <span className="menu-label">{item.label}</span>
+            </div>
+          );
+        })}
       </nav>
 
-    <UserProfile user={user} isOpen={isOpen} />
-
+      {/* 하단 사용자 프로필 */}
+      <UserProfile user={user} isOpen={isOpen} />
     </aside>
   );
 }

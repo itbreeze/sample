@@ -5,11 +5,12 @@ import logo from '../assets/images/logo.png';
 import { Tabs } from './utils/Tabs';
 import SearchBar from './Search/SearchBar';
 
-function Header({ tabItems, activeTab, setActiveTab }) {
+// onLogoClick prop을 추가로 받도록 수정
+function Header({ tabItems, activeTab, setActiveTab, onLogoClick }) {
   return (
     <header className="app-header">
-      {/* 1. 로고 영역 */}
-      <div className="header-left">
+      {/* 1. 로고 영역 - 클릭 이벤트를 추가하고 커서 스타일을 변경 */}
+      <div className="header-left" onClick={onLogoClick} style={{ cursor: 'pointer' }}>
         <img src={logo} className="header-logo" alt="logo" />
       </div>
 

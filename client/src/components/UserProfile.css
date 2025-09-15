@@ -1,12 +1,16 @@
 /* 사용자 프로필 전체 컨테이너 */
 .user-profile-container {
-  display: flex;
+  display: none;
   align-items: center;
   width: 100%;
   padding: 10px 0;
   border-top: 1px solid #dee2e6;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.user-profile-container.open {
+  display: flex;
 }
 
 /* 사용자 아이콘 래퍼 */

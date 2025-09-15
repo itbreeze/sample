@@ -102,7 +102,7 @@
 }
 
 /* -----------------------------
-    States (Open, Hover, Active)
+    States (Open, Hover, Active, Disabled)
 ----------------------------- */
 
 /* --- Open State --- */
@@ -144,10 +144,11 @@
 
 /* --- Hover State --- */
 .sidebar-toggle:hover,
-.app-sidebar.open .sidebar-menu-item:hover,
-.app-sidebar:not(.open) .sidebar-menu-item:hover {
+.app-sidebar.open .sidebar-menu-item:not(.disabled):hover,
+.app-sidebar:not(.open) .sidebar-menu-item:not(.disabled):hover {
   color: #0d6efd;
 }
+
 
 .sidebar-toggle:hover {
   cursor: e-resize;
@@ -171,4 +172,9 @@
 
 .app-sidebar:not(.open) .sidebar-menu-item.active::after {
   content: none;
+}
+
+/* --- Disabled State --- */
+.sidebar-menu-item.disabled {
+  display: none; /* 메뉴 아이템을 완전히 숨김 */
 }
