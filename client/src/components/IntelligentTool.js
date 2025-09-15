@@ -43,8 +43,8 @@ function IntelligentTool() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeMenuItem, setActiveMenuItem] = useState('search');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 초기값을 false로 변경
+  const [activeMenuItem, setActiveMenuItem] = useState(null); // 초기값을 null로 변경
   const [openFiles, setOpenFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
   const [isFileLoaded, setIsFileLoaded] = useState(false);
@@ -187,4 +187,3 @@ function IntelligentTool() {
 }
 
 export default IntelligentTool;
-
