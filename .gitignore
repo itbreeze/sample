@@ -1,0 +1,13 @@
+# Node modules
+client/node_modules/
+server/node_modules/
+
+# 빌드/배포용 정적 파일
+client/public
+
+# 환경 설정 파일
+server/.env
+
+# 바이너리/유틸/도면 파일
+server/utils/fileConverter/
+server/viewer_doc/

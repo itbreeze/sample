@@ -1,0 +1,195 @@
+/* src/components/Search/Search.css */
+
+/* Search Bar Container */
+.search-container {
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  border-radius: 20px;
+  border: 1px solid #dee2e6;
+  background-color: #fff;
+  transition: all 0.2s;
+  position: relative;
+  z-index: 10;
+}
+
+.search-container.expanded {
+  background-color: #fff;
+  box-shadow: 0 4px 6px rgba(32, 33, 36, 0.15);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+}
+
+.search-icon {
+  color: #5f6368;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.search-container input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background-color: transparent;
+  font-size: 14px;
+}
+
+.loading-spinner {
+  color: #1967d2;
+  animation: spin 1s linear infinite;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 드롭다운 전체 영역 */
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: -1px;
+  width: calc(100%);
+  background-color: #fff;
+  box-shadow: 0 4px 6px rgba(32, 33, 36, 0.15);
+  border: 1px solid #dee2e6;
+  border-top: none;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.search-container.expanded .search-dropdown {
+  max-height: 50px;
+  opacity: 1;
+}
+
+.search-container.expanded .search-dropdown.with-preview {
+  max-height: 350px;
+}
+
+
+/* 하단 액션 영역 (칩 버튼) */
+.search-actions {
+  display: flex;
+  padding: 8px 12px;
+}
+
+.chip-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip.active,
+.chip:hover {
+  color: #1967d2;
+  background-color: #e8f0fe;
+  border-color: #d2e3fc;
+}
+
+/* 미리보기 패널 */
+.search-preview {
+  padding: 8px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  min-height: 50px;
+}
+
+.preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #5f6368;
+  gap: 8px;
+  min-height: inherit;
+}
+
+.preview-loading .loading-spinner.large {
+  width: 30px;
+  height: 30px;
+}
+
+.preview-no-results-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #5f6368;
+  min-height: inherit;
+}
+
+
+.preview-item {
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.preview-item:hover {
+  background-color: #f1f3f4;
+}
+
+.preview-main-info,
+.preview-sub-info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-main-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.preview-icon {
+  color: #5f6368;
+}
+
+.preview-sub-info {
+  font-size: 12px;
+  color: #5f6368;
+  padding-left: 32px;
+}
+
+.search-preview mark {
+  background-color: transparent;
+  color: #0d6efd;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: bold;
+  text-decoration: underline;
+}

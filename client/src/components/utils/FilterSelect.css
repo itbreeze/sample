@@ -1,0 +1,19 @@
+.combo-container {
+    position: relative;
+    width: 100%;      
+    height: 100%;
+}
+
+.filter-select {
+    width: 100%;   
+    height: 100%;   
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #fff;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+

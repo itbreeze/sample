@@ -1,0 +1,17 @@
+/* 공통 탭 리스트 스타일 */
+.tab-list {
+  display: flex;
+  white-space: nowrap;
+}
+
+/* 공통 탭 아이템 스타일 */
+.tab-item {
+  position: relative;
+  padding: 8px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  transition: color 0.2s;
+  overflow: hidden;
+}

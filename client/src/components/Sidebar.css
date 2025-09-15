@@ -1,0 +1,174 @@
+/* -----------------------------
+    Layout
+----------------------------- */
+.content-wrapper {
+  display: flex;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.app-sidebar {
+  width: 60px;
+  background-color: #fff;
+  border-right: 1px solid #dee2e6;
+  padding: 10px 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column; /* 세로 정렬 */
+  align-items: center; /* 닫혔을 때 중앙 정렬 */
+  justify-content: space-between; /* 메뉴와 프로필을 양 끝으로 */
+  transition: width 0.3s ease, align-items 0.3s ease;
+}
+
+.sidebar-panel-container {
+  width: 0;
+  flex-shrink: 0;
+  background-color: #fff;
+  border-right: 1px solid #dee2e6;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out;
+}
+
+/* -----------------------------
+    Components
+----------------------------- */
+.sidebar-toggle,
+.sidebar-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* 닫혔을 때 중앙 정렬 */
+  width: 40px;
+  height: 40px;
+  border-radius: 0;
+  position: relative;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: padding-left 0.3s ease, width 0.3s ease, justify-content 0.3s ease;
+}
+
+.sidebar-toggle {
+  margin: 16px 0;
+  background-color: transparent;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  align-items: center; /* 닫혔을 때 중앙 정렬 */
+  flex-grow: 1; /* 남은 공간을 차지하여 프로필을 하단으로 밀어냄 */
+  padding-bottom: 20px; /* 프로필과의 간격 확보 */
+}
+
+.menu-label {
+  display: inline-block;
+  margin-left: 12px;
+  transition: opacity 0.3s ease, width 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ---------------------------------
+    [참고] UserProfile 분리 전 스타일
+--------------------------------- */
+.sidebar-user-profile {
+  padding: 10px;
+  width: 100%;
+  border-top: 1px solid #dee2e6;
+  text-align: center;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  opacity: 0; /* 닫혔을 때 숨김 */
+  max-height: 0; /* 닫혔을 때 높이 0 */
+  overflow: hidden; /* 내용 숨김 */
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+  white-space: nowrap;
+  align-items: flex-start; /* 확장 시 텍스트 좌측 정렬 */
+  padding-left: 10px; /* 확장 시 패딩 */
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.user-position {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* -----------------------------
+    States (Open, Hover, Active)
+----------------------------- */
+
+/* --- Open State --- */
+.app-sidebar.open {
+  width: 200px;
+  align-items: flex-start; /* 확장 시 메뉴 아이템 좌측 정렬 */
+}
+
+/* [참고] UserProfile 분리 전 .app-sidebar.open 하위의 user-info 스타일 */
+.app-sidebar.open .user-info {
+  opacity: 1;
+  max-height: 50px; /* 정보가 들어갈 적당한 높이 */
+}
+
+.app-sidebar.open .sidebar-toggle {
+  align-self: flex-end;
+  margin-right: 8px;
+}
+
+.app-sidebar.open .sidebar-nav {
+  align-items: stretch;
+}
+
+.app-sidebar.open .sidebar-menu-item {
+  justify-content: flex-start;
+  width: 100%;
+  padding-left: 16px;
+}
+
+.app-sidebar:not(.open) .menu-label {
+  opacity: 0;
+  width: 0;
+  margin-left: 0;
+}
+
+.sidebar-panel-container.open {
+  width: 300px;
+}
+
+/* --- Hover State --- */
+.sidebar-toggle:hover,
+.app-sidebar.open .sidebar-menu-item:hover,
+.app-sidebar:not(.open) .sidebar-menu-item:hover {
+  color: #0d6efd;
+}
+
+.sidebar-toggle:hover {
+  cursor: e-resize;
+}
+
+/* --- Active State --- */
+.sidebar-menu-item.active {
+  color: #0d6efd;
+}
+
+.app-sidebar.open .sidebar-menu-item.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background-color: #0d6efd;
+  border-radius: 0;
+}
+
+.app-sidebar:not(.open) .sidebar-menu-item.active::after {
+  content: none;
+}
