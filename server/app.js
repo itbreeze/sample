@@ -1,7 +1,8 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
+const cors = require('cors'); 
 const cookieParser = require('cookie-parser');
+const path = require('path');
 
 const { identifyUser } = require('./middleware/auth');
 const userRoutes = require('./routes/users');
@@ -12,22 +13,30 @@ const app = express();
 
 // CORS 설정
 const allowedOrigins = ['http://localhost:3000'];
-app.use(cors({
+app.use(
+  cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            const msg = 'CORS 정책: 허용되지 않은 origin';
-            callback(new Error(msg), false);
-        }
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        const msg = 'CORS 정책: 허용되지 않은 사용자 IP';
+        callback(new Error(msg), false);
+      }
     },
     credentials: true,
-}));
+  })
+);
 
 // 공통 미들웨어
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// 정적 파일 제공 (viewer_doc 폴더)
+app.use(
+  '/viewer_doc',
+  express.static(path.join(__dirname, '..', 'viewer_doc'))
+);
 
 // API 라우터 연결
 app.use('/api', identifyUser);

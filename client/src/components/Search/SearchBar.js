@@ -1,9 +1,9 @@
 // src/components/Search/SearchBar.js
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import SearchInput from './SearchInput';
 import SearchChips from './SearchChips';
 import SearchPreview from './SearchPreview';
+import { searchPreview } from '../../services/search';
 import { FileText, HardDrive } from 'lucide-react';
 import './Search.css';
 
@@ -17,11 +17,25 @@ function SearchBar() {
   const searchContainerRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // 🔹 chip 옵션 배열 정의
   const chipOptions = [
-    { id: '도면', icon: <FileText size={14} />, label: '도면명/도면번호', placeholder: '도면명 혹은 도면번호 입력' },
-    { id: '설비번호', icon: <HardDrive size={14} />, label: '태그명/설비번호', placeholder: '태그명 또는 설비번호 입력' },
-    { id: '통지오더', icon: <HardDrive size={14} />, label: '통지/오더', placeholder: '통지번호 또는 오더번호 입력' },
+    {
+      id: '도면',
+      icon: <FileText size={14} />,
+      label: '도면명/도면번호',
+      placeholder: '도면명 혹은 도면번호 입력',
+    },
+    {
+      id: '설비번호',
+      icon: <HardDrive size={14} />,
+      label: '태그명/설비번호',
+      placeholder: '태그명 또는 설비번호 입력',
+    },
+    {
+      id: '통지오더',
+      icon: <HardDrive size={14} />,
+      label: '통지/오더',
+      placeholder: '통지번호 또는 오더번호 입력',
+    },
   ];
 
   // 🔹 정규식 escape 함수
@@ -90,24 +104,27 @@ function SearchBar() {
 
   const handleSearchContainerFocus = () => setSearchExpanded(true);
   const handleSearchContainerBlur = (e) => {
-    if (searchContainerRef.current && !searchContainerRef.current.contains(e.relatedTarget)) {
+    if (
+      searchContainerRef.current &&
+      !searchContainerRef.current.contains(e.relatedTarget)
+    ) {
       setSearchExpanded(false);
     }
   };
   const handleSearchContainerMouseEnter = () => setSearchExpanded(true);
   const handleSearchContainerMouseLeave = () => {
-    if (searchContainerRef.current && !searchContainerRef.current.contains(document.activeElement)) {
+    if (
+      searchContainerRef.current &&
+      !searchContainerRef.current.contains(document.activeElement)
+    ) {
       setSearchExpanded(false);
     }
   };
 
   const handleSearchPreview = async () => {
     try {
-      const response = await axios.post('/api/search', {
-        searchType: activeChip,
-        searchTerm: searchTerm,
-      });
-      setPreviewResults(response.data);
+      const data = await searchPreview(activeChip, searchTerm);
+      setPreviewResults(data);
     } catch (err) {
       console.error('미리보기 검색 실패:', err);
       setPreviewResults([]);

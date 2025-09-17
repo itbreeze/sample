@@ -9,7 +9,7 @@
   display: flex;
   flex-grow: 1;
   /* Header를 제외한 나머지 공간 모두 차지 */
-  overflow: hidden;
+  /* overflow: hidden; */
   /* 스크롤바 관리 */
 }
 

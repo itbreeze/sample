@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { FolderOpen, FolderClosed, FileText } from "lucide-react";
+import { getDocumentList, selectDocument } from '../services/documents'; 
 import "./DrawingDocuments.css";
 
 // ----------------- 트리 빌드 -----------------
@@ -43,19 +44,16 @@ const TreeNode = ({ node, filter, onFileSelect = () => { } }) => {
     displayName = node.NAME || "(No Name)";
   }
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (node.TYPE === "DOC") {
-      fetch("http://localhost:4000/folders/selectDocument", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: node.ID, docVr: node.DOCVR })
-      })
-        .then(res => res.json())
-        .then(data => {
-          console.log("서버 전송 성공:", data);
-          onFileSelect(data);
-        })
-        .catch(err => console.error("서버 전송 실패:", err));
+      try {
+        // 분리된 API 서비스 함수를 사용하여 문서 정보 요청
+        const data = await selectDocument(node.ID, node.DOCVR);
+        console.log("서버 전송 성공:", data);
+        onFileSelect(data);
+      } catch (err) {
+        console.error("서버 전송 실패:", err);
+      }
     } else if (hasChildren) {
       setExpanded(!expanded);
     }
@@ -123,17 +121,19 @@ const DrawingDocuments = ({ filter, onFileSelect }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:4000/folders")
-      .then(res => res.json())
-      .then(data => {
+    const fetchDocuments = async () => {
+      try {
+        // 분리된 API 서비스 함수를 사용하여 문서 목록 요청
+        const data = await getDocumentList();
         setTree(buildTree(data));
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error("Fetch error:", err);
         setTree([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    fetchDocuments();
   }, []);
 
   if (loading) {

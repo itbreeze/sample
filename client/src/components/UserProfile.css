@@ -27,7 +27,7 @@
 .user-info {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   white-space: nowrap;
   
   /* 기본적으로 숨김 처리 */

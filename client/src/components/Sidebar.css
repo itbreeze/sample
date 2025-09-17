@@ -1,11 +1,6 @@
 /* -----------------------------
     Layout
 ----------------------------- */
-.content-wrapper {
-  display: flex;
-  flex-grow: 1;
-  overflow: hidden;
-}
 
 .app-sidebar {
   width: 60px;
@@ -20,14 +15,7 @@
   transition: width 0.3s ease, align-items 0.3s ease;
 }
 
-.sidebar-panel-container {
-  width: 0;
-  flex-shrink: 0;
-  background-color: #fff;
-  border-right: 1px solid #dee2e6;
-  overflow: hidden;
-  transition: width 0.3s ease-in-out;
-}
+
 
 /* -----------------------------
     Components
@@ -138,9 +126,23 @@
   margin-left: 0;
 }
 
-.sidebar-panel-container.open {
-  width: 300px;
+.sidebar-panel-container {
+  width: 0;
+  flex-shrink: 0;
+  background-color: #fff;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out;
 }
+
+.sidebar-panel-container.open {
+  width: 300px; /* 고정 너비 패널을 위한 너비 */
+}
+
+.panel-resizer:active {
+  background-color: #0d6efd; /* 드래그하는 동안 색상 유지 */
+}
+
+
 
 /* --- Hover State --- */
 .sidebar-toggle:hover,
