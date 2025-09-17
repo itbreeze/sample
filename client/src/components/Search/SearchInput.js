@@ -1,7 +1,7 @@
 // src/components/Search/SearchInput.js
 import React from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import './Search.css'; // SearchBar와 공유할 CSS 파일 (나중에 생성)
+import './Search.css'; 
 
 function SearchInput({ value, onChange, placeholder, isLoading, inputRef, onFocus, onBlur }) {
   return (

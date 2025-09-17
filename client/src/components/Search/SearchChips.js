@@ -1,29 +1,33 @@
 // src/components/Search/SearchChips.js
 import React from 'react';
 import { FileText, HardDrive } from 'lucide-react';
-import './Search.css'; // SearchBar와 공유할 CSS 파일
+import './Search.css';
 
-function SearchChips({ activeChip, onChipClick }) {
+// chip 데이터 배열 정의
+const chipOptions = [
+  { id: '도면', icon: <FileText size={14} />, label: '도면명/도면번호' },
+  { id: '설비번호', icon: <HardDrive size={14} />, label: '태그명/설비번호' },
+  { id: '통지오더', icon: <HardDrive size={14} />, label: '통지/오더' },
+];
+
+function SearchChips({ activeChip, onChipClick, chipOptions }) {
   return (
     <div className="search-actions">
       <div className="chip-buttons">
-        <button
-          className={`chip ${activeChip === '도면' ? 'active' : ''}`}
-          onClick={(e) => onChipClick('도면', e)}
-        >
-          <FileText size={14} />
-          <span>도면명/도면번호</span>
-        </button>
-        <button
-          className={`chip ${activeChip === '설비번호' ? 'active' : ''}`}
-          onClick={(e) => onChipClick('설비번호', e)}
-        >
-          <HardDrive size={14} />
-          <span>태그명/설비번호</span>
-        </button>
+        {chipOptions.map(({ id, icon, label }) => (
+          <button
+            key={id}
+            className={`chip ${activeChip === id ? 'active' : ''}`}
+            onClick={(e) => onChipClick(id, e)}
+          >
+            {icon}
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
+
 
 export default SearchChips;
