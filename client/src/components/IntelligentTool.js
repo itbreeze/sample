@@ -178,7 +178,6 @@ function IntelligentTool() {
           isFileLoaded={isFileLoaded}
         />
 
-        {/* ResizablePanel로 Panel 감싸기 */}
         {showSearchPanel && (
           <ResizablePanel
             key="search-panel"
