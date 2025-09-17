@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GripVertical } from 'lucide-react';
 import './ResizablePanel.css';
-import Tooltip from './common/Tooltip'; // Tooltip 컴포넌트의 실제 경로로 수정해주세요.
+import Tooltip from './common/Tooltip'; 
 
 const ResizablePanel = ({
   children,
