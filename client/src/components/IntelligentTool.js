@@ -1,3 +1,4 @@
+// client/src/components/IntelligentTool.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './IntelligentTool.css';
@@ -6,8 +7,9 @@ import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText } from 
 import Header from './Header';
 import Sidebar from './Sidebar';
 import MainView from './MainView';
-import { Panel } from './utils/Panel';
+import { Panel } from '../components/utils/Panel';
 import DrawingDocuments from './DrawingDocuments';
+import ResizablePanel from './ResizablePanel'; // ResizablePanel 추가
 
 // Axios 기본 설정
 axios.defaults.baseURL = 'http://localhost:4000';
@@ -39,12 +41,26 @@ const sidebarMenus = {
 // 상세검색 패널 탭 및 컨텐츠 정의
 const NotImplemented = () => <div style={{ padding: '20px', textAlign: 'center' }}>🚧 준비 중인 기능입니다.</div>;
 
+// 설비목록 패널 탭 및 컨텐츠 정의 (예시)
+const equipmentTabs = [
+  {
+    id: "equipmentList",
+    label: "설비목록",
+    content: () => <NotImplemented />,
+  },
+  {
+    id: "searchEquipment",
+    label: "설비상세검색",
+    content: () => <NotImplemented />,
+  },
+];
+
 function IntelligentTool() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeMenuItem, setActiveMenuItem] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 초기값을 false로 변경
+  const [activeMenuItem, setActiveMenuItem] = useState(null); // 초기값을 null로 변경
   const [openFiles, setOpenFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
   const [isFileLoaded, setIsFileLoaded] = useState(false);
@@ -52,18 +68,19 @@ function IntelligentTool() {
   // 로고 클릭 시 사이드바를 최소화하는 함수
   const handleLogoClick = () => {
     setIsSidebarOpen(false);
-    setActiveMenuItem(null);
+    setActiveMenuItem(null); // 사이드바 패널도 닫기
   };
 
   // 파일 선택 또는 추가
   const handleFileSelect = (file) => {
+    // 이미 열려있는 파일인지 확인
     if (!openFiles.some(f => f.DOCNO === file.DOCNO)) {
       setOpenFiles([...openFiles, file]);
     }
     setActiveFileId(file.DOCNO);
     setIsFileLoaded(true);
   };
-  
+
   // 탭 클릭
   const handleTabClick = (docno) => {
     setActiveFileId(docno);
@@ -74,6 +91,7 @@ function IntelligentTool() {
     const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
     setOpenFiles(newOpenFiles);
 
+    // 닫힌 탭이 현재 활성 탭이었다면, 다른 탭을 활성화
     if (activeFileId === docnoToClose) {
       if (newOpenFiles.length > 0) {
         setActiveFileId(newOpenFiles[newOpenFiles.length - 1].DOCNO);
@@ -87,7 +105,7 @@ function IntelligentTool() {
   // 탭 순서 변경 핸들러
   const handleTabReorder = (newFiles, draggedFileId) => {
     setOpenFiles(newFiles);
-    setActiveFileId(draggedFileId);
+    setActiveFileId(draggedFileId); // 드래그한 탭을 활성화
   };
 
   const searchTabs = [
@@ -137,6 +155,9 @@ function IntelligentTool() {
     );
   }
 
+  const showSearchPanel = activeMenuItem === 'search';
+  const showEquipmentsPanel = activeMenuItem === 'equipments';
+
   return (
     <div className="tool-page-layout">
       <Header
@@ -149,7 +170,7 @@ function IntelligentTool() {
       <div className="content-wrapper">
         <Sidebar
           isOpen={isSidebarOpen}
-          setIsOpen={setIsSidebarOpen} // ◀◀◀ 이 prop을 추가하여 상태 변경 함수를 전달합니다.
+          setIsOpen={setIsSidebarOpen}
           menuItems={sidebarMenus[activeTab] || []}
           activeMenuItem={activeMenuItem}
           onMenuItemClick={setActiveMenuItem}
@@ -157,19 +178,27 @@ function IntelligentTool() {
           isFileLoaded={isFileLoaded}
         />
 
-        <div className={`sidebar-panel-container ${activeMenuItem === 'search' ? 'open' : ''}`}>
-          {activeMenuItem === 'search' && (
+        {/* ResizablePanel로 Panel 감싸기 */}
+        {showSearchPanel && (
+          <ResizablePanel
+            key="search-panel"
+            initialWidth={300}
+            minWidth={300}
+            maxWidth={800}
+          >
             <Panel
               tabs={searchTabs}
               defaultTab="documentList"
               showFilterTabs={["documentList"]}
             />
-          )}
-        </div>
+          </ResizablePanel>
+        )}
 
-        <div className={`sidebar-panel-container ${activeMenuItem === 'equipments' ? 'open' : ''}`}>
-          {activeMenuItem === 'equipments' && <Panel />}
-        </div>
+        {showEquipmentsPanel && (
+          <ResizablePanel>
+            <Panel tabs={equipmentTabs} />
+          </ResizablePanel>
+        )}
 
         <MainView
           currentTab={tabItems.find(tab => tab.id === activeTab)}
