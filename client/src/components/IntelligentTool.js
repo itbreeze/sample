@@ -6,9 +6,8 @@ import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText } from 
 import Header from './Header';
 import Sidebar from './Sidebar';
 import MainView from './MainView';
-import { Panel } from '../components/utils/Panel';
+import { Panel } from './utils/Panel';
 import DrawingDocuments from './DrawingDocuments';
-import ResizablePanel from './ResizablePanel'; // import 이름 및 경로 수정
 
 // Axios 기본 설정
 axios.defaults.baseURL = 'http://localhost:4000';
@@ -50,21 +49,6 @@ function IntelligentTool() {
   const [activeFileId, setActiveFileId] = useState(null);
   const [isFileLoaded, setIsFileLoaded] = useState(false);
 
-  // 패널 리셋을 위한 key 상태
-  const [panelKey, setPanelKey] = useState(1);
-
-  // 사이드바 메뉴 클릭 핸들러
-  const handleMenuItemClick = (id) => {
-    // 이미 열려있는 메뉴를 다시 클릭하면 패널을 닫음
-    if (activeMenuItem === id) {
-      setActiveMenuItem(null);
-    } else {
-      // 다른 메뉴를 클릭하면, 해당 메뉴를 활성화하고 key를 업데이트
-      setActiveMenuItem(id);
-      setPanelKey(prevKey => prevKey + 1);
-    }
-  };
-
   // 로고 클릭 시 사이드바를 최소화하는 함수
   const handleLogoClick = () => {
     setIsSidebarOpen(false);
@@ -79,7 +63,7 @@ function IntelligentTool() {
     setActiveFileId(file.DOCNO);
     setIsFileLoaded(true);
   };
-
+  
   // 탭 클릭
   const handleTabClick = (docno) => {
     setActiveFileId(docno);
@@ -165,36 +149,27 @@ function IntelligentTool() {
       <div className="content-wrapper">
         <Sidebar
           isOpen={isSidebarOpen}
-          setIsOpen={setIsSidebarOpen}
+          setIsOpen={setIsSidebarOpen} // ◀◀◀ 이 prop을 추가하여 상태 변경 함수를 전달합니다.
           menuItems={sidebarMenus[activeTab] || []}
           activeMenuItem={activeMenuItem}
-          onMenuItemClick={handleMenuItemClick}
+          onMenuItemClick={setActiveMenuItem}
           user={user}
           isFileLoaded={isFileLoaded}
         />
 
-        {/* '상세검색' 메뉴가 활성화되었을 때 ResizableButtonPanel 렌더링 */}
-        {activeMenuItem === 'search' && (
-          <ResizablePanel
-            key="search-panel"
-            initialWidth={300}
-            minWidth={300}
-            maxWidth={800}
-          >
+        <div className={`sidebar-panel-container ${activeMenuItem === 'search' ? 'open' : ''}`}>
+          {activeMenuItem === 'search' && (
             <Panel
               tabs={searchTabs}
               defaultTab="documentList"
               showFilterTabs={["documentList"]}
             />
-          </ResizablePanel>
-        )}
+          )}
+        </div>
 
-        {/* '설비목록' 패널은 리사이즈 기능이 없는 일반 패널로 렌더링 */}
-        {activeMenuItem === 'equipments' && (
-          <div className={`sidebar-panel-container ${activeMenuItem === 'equipments' ? 'open' : ''}`}>
-            <Panel />
-          </div>
-        )}
+        <div className={`sidebar-panel-container ${activeMenuItem === 'equipments' ? 'open' : ''}`}>
+          {activeMenuItem === 'equipments' && <Panel />}
+        </div>
 
         <MainView
           currentTab={tabItems.find(tab => tab.id === activeTab)}

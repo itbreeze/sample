@@ -1,25 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GripVertical } from 'lucide-react';
-import './ResizablePanel.css'; // 통합된 CSS 파일을 import
+import './ResizablePanel.css';
+import Tooltip from './common/Tooltip'; // Tooltip 컴포넌트의 실제 경로로 수정해주세요.
 
-/**
- * 리사이즈 핸들 UI를 담당하는 내부 컴포넌트
- * (title 속성은 커스텀 툴팁으로 대체되므로 제거합니다)
- */
-const ResizeHandle = ({ resizerProps }) => {
-  return (
-    <div
-      className="panel-resizer-handle"
-      {...resizerProps}
-    >
-      <GripVertical size={16} />
-    </div>
-  );
-};
-
-/**
- * 드래그 및 더블클릭으로 크기 조절이 가능한 패널 컴포넌트
- */
 const ResizablePanel = ({
   children,
   initialWidth = 300,
@@ -29,59 +12,72 @@ const ResizablePanel = ({
   const panelRef = useRef(null);
   const [width, setWidth] = useState(initialWidth);
   const [isResizing, setIsResizing] = useState(false);
-  
-  // --- ▼ 커스텀 툴팁 상태 및 핸들러 ▼ ---
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
-  const showTooltip = () => setIsTooltipVisible(true);
-  const hideTooltip = () => setIsTooltipVisible(false);
 
+  // 더블클릭 핸들러
   const handleDoubleClick = useCallback(() => {
     setWidth(currentWidth =>
       currentWidth < maxWidth - 10 ? maxWidth : minWidth
     );
   }, [minWidth, maxWidth]);
 
+  // 마우스 다운 핸들러
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
     setIsResizing(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
   }, []);
 
+  // 마우스 업 핸들러 (전역)
   const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
-    document.body.style.cursor = 'auto';
-    document.body.style.userSelect = 'auto';
-  }, []);
-
-  const handleMouseMove = useCallback((e) => {
-    if (isResizing && panelRef.current) {
-      const panelLeft = panelRef.current.getBoundingClientRect().left;
-      let newWidth = e.clientX - panelLeft;
-
-      if (newWidth < minWidth) newWidth = minWidth;
-      if (newWidth > maxWidth) newWidth = maxWidth;
-      
-      setWidth(newWidth);
+    if (isResizing) {
+      setIsResizing(false);
     }
-  }, [isResizing, minWidth, maxWidth, panelRef]);
+  }, [isResizing]);
 
+  // 마우스 이동 핸들러 (전역)
+  const handleMouseMove = useCallback((e) => {
+    // isResizing 상태가 아닐 때는 함수를 즉시 종료
+    if (!isResizing || !panelRef.current) return;
+    
+    const panelLeft = panelRef.current.getBoundingClientRect().left;
+    let newWidth = e.clientX - panelLeft;
+
+    // 최소/최대 너비 제한
+    if (newWidth < minWidth) newWidth = minWidth;
+    if (newWidth > maxWidth) newWidth = maxWidth;
+    
+    setWidth(newWidth);
+  }, [isResizing, minWidth, maxWidth]);
+
+  // isResizing 상태에 따라 전역 이벤트 리스너를 추가/제거하고 마우스 커서 스타일을 변경
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    if (isResizing) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      document.body.style.cursor = 'auto';
+      document.body.style.userSelect = 'auto';
+    }
+    
+    // 컴포넌트가 언마운트될 때 이벤트 리스너를 정리
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [handleMouseMove, handleMouseUp]);
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  const resizerProps = {
-    onMouseDown: handleMouseDown,
-    onDoubleClick: handleDoubleClick,
-    onMouseEnter: showTooltip, // ◀ 마우스 오버 이벤트 연결
-    onMouseLeave: hideTooltip, // ◀ 마우스 아웃 이벤트 연결
-  };
-
+  // 툴팁에 표시될 내용
+  const resizeHelp = (
+    <div>
+      <strong>❓ 도움말</strong>
+      <hr />
+      드래그: 크기 조절<br />
+      더블클릭: 최대/최소화
+    </div>
+  );
+  
   return (
     <div
       ref={panelRef}
@@ -91,17 +87,21 @@ const ResizablePanel = ({
       <div className="resizable-panel-content">
         {children}
       </div>
-      <ResizeHandle resizerProps={resizerProps} />
 
-      {/* --- ▼ 툴팁 UI를 렌더링하는 부분 ▼ --- */}
-      {isTooltipVisible && (
-        <div className="panel-resizer-tooltip">
-          <strong>❓ 도움말</strong>
-          <hr />
-          드래그: 크기 조절<br />
-          더블클릭: 최대/최소화
-        </div>
-      )}
+      <div className="panel-resizer-wrapper">
+        <div
+          className="panel-resizer-handle"
+          onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
+          onMouseEnter={() => setIsTooltipVisible(true)}
+          onMouseLeave={() => setIsTooltipVisible(false)}
+        >
+          <GripVertical size={16} />
+        </div>        
+        <Tooltip position="right" show={isTooltipVisible}>
+          {resizeHelp}
+        </Tooltip>
+      </div>
     </div>
   );
 };

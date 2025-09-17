@@ -1,11 +1,14 @@
+/* src/components/ResizablePanel.css */
+
 /* 패널 컨테이너 스타일 */
 .resizable-panel-container {
   position: relative;
   display: flex;
   flex-shrink: 0;
-  background-color: #fff;
-  overflow: visible;
-  border-right: 1px solid #dee2e6;
+  background-color: var(--background-color);
+  overflow: visible; /* 핸들과 툴팁이 잘리지 않도록 visible로 설정 */
+  border-right: 1px solid var(--border-color);
+  z-index: 10;
 }
 
 .resizable-panel-content {
@@ -15,75 +18,34 @@
   display: flex;
 }
 
-/* 핸들 버튼 스타일 (위치 정밀 조정) */
-.panel-resizer-handle {
+/* 툴팁과 핸들을 감싸는 위치 지정용 래퍼 */
+.panel-resizer-wrapper {
   position: absolute;
   top: 50%;
   left: 100%;
   transform: translate(-50%, -50%);
+  z-index: 20;
+  /* Tooltip 컨테이너가 inline-block이므로, 래퍼 자체는 크기를 가질 필요가 없습니다. */
+}
 
+/* 핸들 자체의 시각적 스타일 (위치 관련 속성 없음) */
+.panel-resizer-handle {
   width: 24px;
-  height: 48px;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
+  height: 70px;
+  background-color: var(--background-color-light);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: col-resize;
-  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6c757d;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease; 
+  color: var(--text-color-secondary);
+  box-shadow: 0 2px 4px var(--shadow-color);
 }
 
 .panel-resizer-handle:hover {
-  background-color: #e9ecef;
-  color: #0d6efd;
-}
-
-/* 커스텀 툴팁 스타일 */
-.panel-resizer-tooltip {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 15px);
-  transform: translateY(-50%);
-
-  background-color: #fff;
-  color: #333;
-  border: 1px solid #dee2e6;
-  padding: 10px 15px;
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: nowrap;
-  z-index: 30;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  pointer-events: none;
-
-  opacity: 0;
-  animation: tooltip-fade-in 0.2s ease forwards;
-}
-
-.panel-resizer-tooltip hr {
-  border: none;
-  border-top: 1px solid #e9ecef;
-  margin: 6px 0;
-}
-
-.panel-resizer-tooltip::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: 100%;
-  transform: translateY(-50%);
-  border: 7px solid transparent;
-  border-right-color: #fff;
-}
-
-@keyframes tooltip-fade-in {
-  from { opacity: 0; transform: translateY(-50%) translateX(-5px); }
-  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+  background-color: var(--background-color-secondary);
+  color: var(--primary-color);
 }
 
 /* 태블릿 및 작은 PC 화면을 위한 반응형 스타일 */
@@ -92,15 +54,5 @@
     width: 22px;
     height: 40px;
     border-radius: 5px;
-  }
-
-  .panel-resizer-tooltip {
-    padding: 8px 12px;
-    font-size: 12px;
-    left: calc(100% + 12px);
-  }
-
-  .panel-resizer-tooltip::before {
-    border-width: 6px;
   }
 }

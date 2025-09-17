@@ -1,19 +1,12 @@
 /* src/components/Header.css */
-
-/* -----------------------------
-    Layout
------------------------------ */
 .app-header {
   display: flex;
   align-items: center;
   height: 50px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #dee2e6;
+  background-color: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
-/* --- 각 구역 스타일 --- */
-
-/* 1. 로고 영역 (사이드바 최소화 너비에 맞춤) */
 .header-left {
   width: 60px;
   flex-shrink: 0;
@@ -27,7 +20,6 @@
   max-width: 100%;
 }
 
-/* 2. 탭 영역 Wrapper */
 .header-tabs-wrapper {
   flex-grow: 1;
   display: flex;
@@ -35,10 +27,10 @@
   height: 100%;
 }
 
-/* Tabs 컴포넌트 자체의 스타일 */
 .header-tabs {
   flex: 1;
 }
+
 .header-tabs .tab-list {
   margin-left: 40px;
   display: flex;
@@ -53,7 +45,7 @@
   padding-bottom: 8px;
   font-size: 15px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-color-primary);
   cursor: pointer;
   height: 100%;
   display: flex;
@@ -61,7 +53,7 @@
 }
 
 .header-tabs .tab-item.active {
-  color: #0d6efd;
+  color: var(--primary-color);
 }
 
 .header-tabs .tab-item.active::after {
@@ -71,10 +63,9 @@
   left: 0;
   width: 100%;
   height: 3px;
-  background-color: #0d6efd;
+  background-color: var(--primary-color);
 }
 
-/* 3. 검색바 영역 Wrapper */
 .header-search-wrapper {
   flex-grow: 0;
   flex-shrink: 0;
@@ -82,12 +73,11 @@
   align-items: center;
   margin-left: 20px;
   margin-right: 40px;
-  width: 600px; 
+  width: 600px;
 }
 
-/* SearchBar 컴포넌트의 최상위 .search-container에 직접 적용 */
 .search-container {
-  flex-grow: 1; /* header-search-wrapper 내에서 공간을 최대한 채움 */
-  flex-shrink: 1; /* 필요시 축소될 수 있음 */
-  width: 100%; /* 부모 header-search-wrapper의 너비를 따름 */
+  flex-grow: 1;
+  flex-shrink: 1;
+  width: 100%;
 }

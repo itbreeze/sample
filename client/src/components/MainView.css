@@ -1,7 +1,8 @@
+/* src/components/MainView.css */
 .app-main-view {
   flex-grow: 1;
   overflow: auto;
-  background-color: #f0f2f5;
+  background-color: var(--hover-background-color);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9,10 +10,9 @@
   border-radius: 0;
 }
 
-/* 초기 안내 메시지 스타일 */
 .initial-view-content {
   text-align: center;
-  color: #555;
+  color: var(--text-color-light);
 }
 
 .initial-view-content h2 {
@@ -25,12 +25,11 @@
   line-height: 1.6;
 }
 
-/* 뷰어 모드 스타일 */
 .main-view-content.viewer-mode {
   width: 100%;
   height: 100%;
-  background-color: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  background-color: var(--background-color);
+  box-shadow: 0 2px 10px var(--shadow-color);
   max-width: 100%;
   max-height: 100%;
   display: flex;
@@ -42,12 +41,12 @@
 .viewer-header {
   flex-shrink: 0;
   padding: 8px 12px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  background-color: var(--background-color-light);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--font-size-base);
 }
 
 .viewer-header h3 {
@@ -60,22 +59,21 @@
   flex-grow: 1;
   padding: 15px;
   margin: 0;
-  background-color: #282c34;
-  color: #abb2bf;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 14px;
+  background-color: var(--background-color-dark);
+  color: var(--text-color-code);
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-base);
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-y: auto;
 }
 
-/* --- 탭 UI 스타일 --- */
 .view-tabs-container {
   display: flex;
   flex-shrink: 0;
-  background-color: #e9ecef;
+  background-color: var(--background-color-secondary);
   padding-left: 10px;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--border-color-dark);
 }
 
 .view-tab {
@@ -84,8 +82,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px 8px 15px;
-  background-color: #f0f2f5;
-  border: 1px solid #ccc;
+  background-color: var(--hover-background-color);
+  border: 1px solid var(--border-color-dark);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   cursor: pointer;
@@ -93,25 +91,23 @@
   max-width: 150px;
   font-size: 13px;
   color: #495057;
-  transition: all 0.2s ease;
+  transition: none; /* Animation removed */
   margin-right: 0px;
 }
 
-/* 드래그 중인 탭 스타일 */
 .view-tab.dragging {
   opacity: 0.5;
 }
 
-
 .view-tab.active {
-  background-color: #ffffff;
+  background-color: var(--background-color);
   color: #000;
   z-index: 2;
-  border-bottom-color: #ffffff;
+  border-bottom-color: var(--background-color);
 }
 
 .view-tab:not(.active):hover {
-  background-color: #e2e6ea;
+  background-color: var(--hover-background-color-dark);
 }
 
 .tab-title {
@@ -131,18 +127,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6c757d;
+  color: var(--text-color-secondary);
 }
 
 .close-tab-btn:hover {
-  background-color: #dee2e6;
+  background-color: var(--border-color);
   color: #212529;
 }
 
-/* 뷰어 컨텐츠 영역 */
 .viewer-content-area {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* flex-grow가 제대로 작동하도록 설정 */
+  min-height: 0;
 }

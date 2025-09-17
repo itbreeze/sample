@@ -1,0 +1,77 @@
+/* src/components/common/Tooltip/Tooltip.css */
+
+.tooltip-box {
+  position: absolute;
+  background-color: var(--background-color, #fff);
+  color: var(--text-color-primary, #333);
+  border: 1px solid var(--border-color, #dee2e6);
+  text-align: left;
+  border-radius: 6px;
+  padding: 8px 12px;
+  z-index: 100;
+  white-space: nowrap; /* 항상 한 줄로 표시 */
+  font-size: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* 툴팁 화살표 및 위치 스타일 */
+.tooltip-box::after {
+  content: '';
+  position: absolute;
+  border-width: 5px;
+  border-style: solid;
+}
+
+.tooltip-box.top {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+}
+.tooltip-box.top::after {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-color: var(--background-color, #fff) transparent transparent transparent;
+}
+
+.tooltip-box.bottom {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+}
+.tooltip-box.bottom::after {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-color: transparent transparent var(--background-color, #fff) transparent;
+}
+
+.tooltip-box.left {
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  margin-right: 8px;
+}
+.tooltip-box.left::after {
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  margin-left: -1px;
+  border-color: transparent transparent transparent var(--background-color, #fff);
+}
+
+.tooltip-box.right {
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  margin-left: 8px;
+}
+.tooltip-box.right::after {
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  margin-right: -1px;
+  border-color: transparent var(--background-color, #fff) transparent transparent;
+}

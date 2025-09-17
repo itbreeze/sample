@@ -1,4 +1,4 @@
-/* 전체 레이아웃 */
+/* src/components/IntelligentTool.css */
 .tool-page-layout {
   display: flex;
   flex-direction: column;
@@ -8,39 +8,25 @@
 .content-wrapper {
   display: flex;
   flex-grow: 1;
-  /* Header를 제외한 나머지 공간 모두 차지 */
-  /* overflow: hidden; */
-  /* 스크롤바 관리 */
+  overflow: visible;
 }
 
-/* 로딩 컨테이너 스타일 */
 .loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background-color: #f0f2f5;
+  background-color: var(--hover-background-color);
   font-family: sans-serif;
 }
 
-/* 스피너 스타일 */
 .spinner {
   border: 8px solid #f3f3f3;
-  border-top: 8px solid #0d6efd;
+  border-top: 8px solid var(--primary-color);
   border-radius: 50%;
   width: 60px;
   height: 60px;
-  animation: spin 1.5s linear infinite;
   margin-bottom: 20px;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
+  /* animation: spin 1.5s linear infinite; - Animation removed for optimization */
 }
