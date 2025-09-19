@@ -3,12 +3,12 @@ import UserProfile from './UserProfile';
 import './Sidebar.css';
 import { Menu, PanelLeftClose, PanelRightClose } from 'lucide-react';
 
-function Sidebar({ 
-  user, 
-  isOpen, 
-  setIsOpen, 
-  menuItems, 
-  activeMenuItem, 
+function Sidebar({
+  user,
+  isOpen,
+  setIsOpen,
+  menuItems,
+  activeMenuItem,
   onMenuItemClick,
   isFileLoaded // isFileLoaded prop 추가
 }) {
@@ -38,11 +38,6 @@ function Sidebar({
 
     if (!newIsOpenState) {
       onMenuItemClick(null);
-    } else {
-      // 상세검색이 활성화되어 있지 않고, 메뉴 아이템이 있을 경우 첫 번째 메뉴를 활성화
-      if (!activeMenuItem && menuItems.length > 0) {
-        onMenuItemClick(menuItems[0].id);
-      }
     }
     setIsHovered(false);
   };

@@ -11,7 +11,7 @@
 }
 
 /* --- 이하 스타일은 이전과 동일 --- */
-.view-tabs-container {
+.view-tabs-container {  
   display: flex;
   flex-shrink: 0;
   background-color: var(--background-color-secondary);

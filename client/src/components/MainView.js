@@ -1,5 +1,5 @@
 import React from 'react';
-import CanvasViewer from './CanvasViewer'; // ◀◀ import 이름 변경
+import CanvasViewer from './CanvasViewer'; 
 import './MainView.css';
 
 const MainView = (props) => {
