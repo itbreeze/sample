@@ -1,4 +1,3 @@
-// client/src/components/IntelligentTool.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './IntelligentTool.css';
@@ -157,6 +156,11 @@ function IntelligentTool() {
 
   const showSearchPanel = activeMenuItem === 'search';
   const showEquipmentsPanel = activeMenuItem === 'equipments';
+  const showBookmarkPanel = activeMenuItem === 'bookmark';
+  const showMyDocsPanel = activeMenuItem === 'mydocs';
+
+  const isPanelOpen = showSearchPanel || showEquipmentsPanel || showBookmarkPanel || showMyDocsPanel;
+
 
   return (
     <div className="tool-page-layout">
@@ -178,24 +182,29 @@ function IntelligentTool() {
           isFileLoaded={isFileLoaded}
         />
 
-        {showSearchPanel && (
+        {isPanelOpen && (
           <ResizablePanel
-            key="search-panel"
+            key={activeMenuItem} // activeMenuItem이 변경될 때 ResizablePanel을 다시 렌더링
             initialWidth={300}
             minWidth={300}
             maxWidth={800}
           >
-            <Panel
-              tabs={searchTabs}
-              defaultTab="documentList"
-              showFilterTabs={["documentList"]}
-            />
-          </ResizablePanel>
-        )}
-
-        {showEquipmentsPanel && (
-          <ResizablePanel>
-            <Panel tabs={equipmentTabs} />
+            {showSearchPanel && (
+              <Panel
+                tabs={searchTabs}
+                defaultTab="documentList"
+                showFilterTabs={["documentList"]}
+              />
+            )}
+            {showEquipmentsPanel && (
+              <Panel
+                tabs={equipmentTabs}
+                defaultTab="equipmentList"
+              />
+            )}
+             {(showBookmarkPanel || showMyDocsPanel) && (
+              <Panel />
+            )}
           </ResizablePanel>
         )}
 
