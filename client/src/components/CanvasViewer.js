@@ -118,7 +118,14 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
         {activeFile ? (
           <>
             <div className="viewer-header">
-              <h3>[{activeFile.DOCNUMBER}] {activeFile.DOCNM}</h3>
+              <h3 className="viewer-title">[{activeFile.DOCNUMBER}] {activeFile.DOCNM}</h3>
+              <button
+                className="viewer-close-btn"
+                onClick={() => onTabClose(activeFile.DOCNO)}
+                title="Close"
+              >
+                <CloseIcon size={18} />
+              </button>
             </div>
             {/* 현재는 파일 데이터를 JSON으로 표시 */}
             <pre className="server-response-view">

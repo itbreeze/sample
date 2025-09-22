@@ -8,7 +8,7 @@ import Sidebar from './Sidebar';
 import MainView from './MainView';
 import { Panel } from '../components/utils/Panel';
 import DrawingDocuments from './DrawingDocuments';
-import ResizablePanel from './ResizablePanel'; // ResizablePanel 추가
+import ResizablePanel from './ResizablePanel';
 
 // Axios 기본 설정
 axios.defaults.baseURL = 'http://localhost:4000';
@@ -54,25 +54,69 @@ const equipmentTabs = [
   },
 ];
 
+const buildTree = (items) => {
+    const map = {};
+    const roots = [];
+    if (!items) return roots;
+
+    items.forEach(item => {
+      map[item.ID] = { ...item, CHILDREN: [] };
+    });
+
+    items.forEach(item => {
+      if (item.PARENTID && map[item.PARENTID]) {
+        map[item.PARENTID].CHILDREN.push(map[item.ID]);
+      } else {
+        roots.push(map[item.ID]);
+      }
+    });
+    return roots;
+  };
+
+const findPathToNode = (nodes, nodeId, path = []) => {
+    for (const node of nodes) {
+        const newPath = [...path, node.ID];
+        if (node.ID === nodeId) {
+            return newPath;
+        }
+        if (node.CHILDREN) {
+            const result = findPathToNode(node.CHILDREN, nodeId, newPath);
+            if (result.length) {
+                return result;
+            }
+        }
+    }
+    return [];
+};
+
 function IntelligentTool() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 초기값을 false로 변경
-  const [activeMenuItem, setActiveMenuItem] = useState(null); // 초기값을 null로 변경
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [openFiles, setOpenFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
   const [isFileLoaded, setIsFileLoaded] = useState(false);
+  const [documentTree, setDocumentTree] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [expandedNodes, setExpandedNodes] = useState(new Set());
 
-  // 로고 클릭 시 사이드바를 최소화하는 함수
   const handleLogoClick = () => {
     setIsSidebarOpen(false);
-    setActiveMenuItem(null); // 사이드바 패널도 닫기
+    setActiveMenuItem(null);
+  };
+  
+  const handleMainViewClick = (e) => {
+    // .view-tab 클래스 또는 그 자식 요소를 클릭한 경우 사이드바를 닫지 않음
+    if (e.target.closest('.view-tab')) {
+      return;
+    }
+    setIsSidebarOpen(false);
+    setActiveMenuItem(null);
   };
 
-  // 파일 선택 또는 추가
   const handleFileSelect = (file) => {
-    // 이미 열려있는 파일인지 확인
     if (!openFiles.some(f => f.DOCNO === file.DOCNO)) {
       setOpenFiles([...openFiles, file]);
     }
@@ -80,17 +124,14 @@ function IntelligentTool() {
     setIsFileLoaded(true);
   };
 
-  // 탭 클릭
   const handleTabClick = (docno) => {
     setActiveFileId(docno);
   };
 
-  // 탭 닫기
   const handleTabClose = (docnoToClose) => {
     const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
     setOpenFiles(newOpenFiles);
 
-    // 닫힌 탭이 현재 활성 탭이었다면, 다른 탭을 활성화
     if (activeFileId === docnoToClose) {
       if (newOpenFiles.length > 0) {
         setActiveFileId(newOpenFiles[newOpenFiles.length - 1].DOCNO);
@@ -101,17 +142,36 @@ function IntelligentTool() {
     }
   };
 
-  // 탭 순서 변경 핸들러
   const handleTabReorder = (newFiles, draggedFileId) => {
     setOpenFiles(newFiles);
-    setActiveFileId(draggedFileId); // 드래그한 탭을 활성화
+    setActiveFileId(draggedFileId);
+  };
+  
+  const handleNodeToggle = (nodeId) => {
+    setExpandedNodes(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(nodeId)) {
+            newSet.delete(nodeId);
+        } else {
+            newSet.add(nodeId);
+        }
+        return newSet;
+    });
   };
 
   const searchTabs = [
     {
       id: "documentList",
       label: "도면목록",
-      content: (filter) => <DrawingDocuments filter={filter} onFileSelect={handleFileSelect} />,
+      content: (filter) => <DrawingDocuments 
+                                filter={filter} 
+                                onFileSelect={handleFileSelect}
+                                tree={documentTree}
+                                loading={documentsLoading}
+                                activeFileId={activeFileId}
+                                expandedNodes={expandedNodes}
+                                onNodeToggle={handleNodeToggle}
+                             />,
     },
     {
       id: "searchDrawing",
@@ -144,6 +204,41 @@ function IntelligentTool() {
     };
     checkUserAccess();
   }, []);
+
+  useEffect(() => {
+    const fetchDocumentTree = async () => {
+        setDocumentsLoading(true);
+        try {
+            const response = await fetch("http://localhost:4000/folders");
+            const data = await response.json();
+            setDocumentTree(buildTree(data));
+        } catch (err) {
+            console.error("Fetch error:", err);
+            setDocumentTree([]);
+        } finally {
+            setDocumentsLoading(false);
+        }
+    };
+    fetchDocumentTree();
+  }, []);
+
+  useEffect(() => {
+    if (!activeFileId || documentTree.length === 0) return;
+
+    const path = findPathToNode(documentTree, activeFileId);
+    if (path.length > 0) {
+      // Set a new Set with only the path to the current active file
+      const newExpanded = new Set(path.slice(0, -1));
+      setExpandedNodes(newExpanded);
+    }
+  }, [activeFileId, documentTree]);
+
+  // 열려있는 파일이 없으면 도면 목록 상태를 초기화합니다.
+  useEffect(() => {
+    if (openFiles.length === 0) {
+      setExpandedNodes(new Set());
+    }
+  }, [openFiles]);
 
   if (loading) {
     return (
@@ -184,7 +279,7 @@ function IntelligentTool() {
 
         {isPanelOpen && (
           <ResizablePanel
-            key={activeMenuItem} // activeMenuItem이 변경될 때 ResizablePanel을 다시 렌더링
+            key={activeMenuItem}
             initialWidth={300}
             minWidth={300}
             maxWidth={800}
@@ -215,6 +310,7 @@ function IntelligentTool() {
           onTabClick={handleTabClick}
           onTabClose={handleTabClose}
           onTabReorder={handleTabReorder}
+          onMainViewClick={handleMainViewClick}
         />
       </div>
     </div>

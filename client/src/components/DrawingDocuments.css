@@ -25,15 +25,19 @@
     border-radius: 4px; /* 둥근 모서리 */
 }
 
-/* ▼▼▼ [수정] 마우스 오버 스타일 (배경색 제거) ▼▼▼ */
+
 .tree-node-header:not(.active):hover {
     color: var(--primary-color);
 }
 
-/* ▼▼▼ [수정] 선택됨(active) 스타일 (배경색 제거) ▼▼▼ */
 .tree-node-header.active {
+    background-color: var(--primary-color-light);
     color: var(--primary-color);
     font-weight: 600;
+}
+
+.tree-node-header.open {
+    color: var(--primary-color);
 }
 
 .tree-children {

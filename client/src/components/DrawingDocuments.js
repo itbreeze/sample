@@ -1,32 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { FolderOpen, FolderClosed, FileText } from "lucide-react";
 import "./DrawingDocuments.css";
 
 // --- Helper Functions (컴포넌트 외부에 정의) ---
-
-/**
- * 평탄한 아이템 목록으로 트리 구조를 만듭니다.
- * @param {Array} items - DB에서 가져온 폴더 및 문서 목록
- * @returns {Array} - 트리 구조화된 데이터
- */
-const buildTree = (items) => {
-  const map = {};
-  const roots = [];
-  if (!items) return roots; // 데이터가 없으면 빈 배열 반환
-
-  items.forEach(item => {
-    map[item.ID] = { ...item, CHILDREN: [] };
-  });
-
-  items.forEach(item => {
-    if (item.PARENTID && map[item.PARENTID]) {
-      map[item.PARENTID].CHILDREN.push(map[item.ID]);
-    } else {
-      roots.push(map[item.ID]);
-    }
-  });
-  return roots;
-};
 
 /**
  * 특정 노드 하위의 모든 문서(DOC) 개수를 재귀적으로 계산합니다.
@@ -70,10 +46,24 @@ const filterTree = (nodes, filter) => {
 
 // --- TreeNode Component ---
 
-const TreeNode = ({ node, filter, onFileSelect, selectedId, setSelectedId, depth, initialExpandDepth }) => {
-  const [expanded, setExpanded] = useState(depth < initialExpandDepth);
+const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNodes, onNodeToggle }) => {
+  const nodeRef = useRef(null);
+  const isExpanded = expandedNodes.has(node.ID);
   const hasChildren = node.CHILDREN && node.CHILDREN.length > 0;
   const docCount = countDocs(node);
+
+  // 현재 노드가 활성화된 파일인지 확인
+  const isActive = node.ID === activeFileId;
+
+  // 활성화된 파일이 변경될 때 스크롤을 해당 위치로 이동
+  useEffect(() => {
+    if (isActive && nodeRef.current) {
+      nodeRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [isActive]);
 
   let displayName = "";
   if (node.TYPE === "DOC") {
@@ -85,7 +75,6 @@ const TreeNode = ({ node, filter, onFileSelect, selectedId, setSelectedId, depth
   }
 
   const handleClick = () => {
-    setSelectedId(node.ID);
     if (node.TYPE === "DOC") {
       fetch("http://localhost:4000/folders/selectDocument", {
         method: "POST",
@@ -96,21 +85,28 @@ const TreeNode = ({ node, filter, onFileSelect, selectedId, setSelectedId, depth
         .then(data => onFileSelect(data))
         .catch(err => console.error("서버 전송 실패:", err));
     } else if (hasChildren) {
-      setExpanded(!expanded);
+        onNodeToggle(node.ID);
     }
   };
+
+  // 활성화된 탭만 하이라이트하도록 클래스명 수정
+  const headerClasses = [
+    'tree-node-header',
+    isActive ? 'active' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <li className="tree-node">
       <div 
-        className={`tree-node-header ${node.ID === selectedId ? 'active' : ''}`} 
+        ref={nodeRef}
+        className={headerClasses}
         onClick={handleClick}
         title={displayName}
       >
         {node.TYPE === "DOC" ? (
           <FileText style={{ flexShrink: 0, width: "16px", height: "16px" }} />
         ) : hasChildren ? (
-          expanded ? <FolderOpen style={{ flexShrink: 0, width: "16px", height: "16px" }} />
+          isExpanded ? <FolderOpen style={{ flexShrink: 0, width: "16px", height: "16px" }} />
             : <FolderClosed style={{ flexShrink: 0, width: "16px", height: "16px" }} />
         ) : (
           <FolderClosed style={{ flexShrink: 0, width: "16px", height: "16px" }} />
@@ -126,7 +122,7 @@ const TreeNode = ({ node, filter, onFileSelect, selectedId, setSelectedId, depth
         {node.TYPE !== "DOC" && docCount > 0 && <span> ({docCount})</span>}
       </div>
 
-      {expanded && hasChildren && (
+      {isExpanded && hasChildren && (
         <ul className="tree-children">
           {node.CHILDREN.map(child => (
             <TreeNode 
@@ -134,10 +130,10 @@ const TreeNode = ({ node, filter, onFileSelect, selectedId, setSelectedId, depth
               node={child} 
               filter={filter} 
               onFileSelect={onFileSelect} 
-              selectedId={selectedId}
-              setSelectedId={setSelectedId}
+              activeFileId={activeFileId}
               depth={depth + 1}
-              initialExpandDepth={initialExpandDepth}
+              expandedNodes={expandedNodes}
+              onNodeToggle={onNodeToggle}
             />
           ))}
         </ul>
@@ -149,24 +145,7 @@ const TreeNode = ({ node, filter, onFileSelect, selectedId, setSelectedId, depth
 
 // --- Main Component ---
 
-const DrawingDocuments = ({ filter, onFileSelect, initialExpandDepth = 1 }) => {
-  const [tree, setTree] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState(null);
-
-  useEffect(() => {
-    fetch("http://localhost:4000/folders")
-      .then(res => res.json())
-      .then(data => {
-        setTree(buildTree(data));
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Fetch error:", err);
-        setTree([]);
-        setLoading(false);
-      });
-  }, []);
+const DrawingDocuments = ({ filter, onFileSelect, tree, loading, activeFileId, expandedNodes, onNodeToggle }) => {
 
   if (loading) {
     return (
@@ -181,7 +160,7 @@ const DrawingDocuments = ({ filter, onFileSelect, initialExpandDepth = 1 }) => {
   }
 
   const filteredTree = filterTree(tree, filter) || [];
-
+  
   return (
     <ul className="tree-list">
       {filteredTree.map(node => (
@@ -190,10 +169,10 @@ const DrawingDocuments = ({ filter, onFileSelect, initialExpandDepth = 1 }) => {
           node={node} 
           filter={filter} 
           onFileSelect={onFileSelect}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
+          activeFileId={activeFileId}
           depth={0}
-          initialExpandDepth={initialExpandDepth}
+          expandedNodes={expandedNodes}
+          onNodeToggle={onNodeToggle}
         />
       ))}
     </ul>
