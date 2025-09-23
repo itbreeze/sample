@@ -6,12 +6,11 @@ const path = require('path');
 
 const { identifyUser } = require('./middleware/auth');
 const userRoutes = require('./routes/users');
-const folderRoutes = require('./routes/folders');
+const documentRoutes = require('./routes/documentRoutes');
 const searchRoutes = require('./routes/search');
 
 const app = express();
 
-// CORS 설정
 const allowedOrigins = ['http://localhost:3000'];
 app.use(
   cors({
@@ -27,21 +26,18 @@ app.use(
   })
 );
 
-// 공통 미들웨어
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// 정적 파일 제공 (viewer_doc 폴더)
 app.use(
   '/viewer_doc',
   express.static(path.join(__dirname, 'viewer_doc')) 
 );
 
-// API 라우터 연결
 app.use('/api', identifyUser);
 app.use('/api/users', userRoutes);
-app.use('/folders', folderRoutes);
+app.use('/folders', documentRoutes);
 app.use('/api/search', searchRoutes);
 
 module.exports = app;

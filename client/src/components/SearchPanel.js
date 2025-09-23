@@ -1,6 +1,6 @@
 import React from "react";
 import { Panel } from "./utils/Panel";
-import DrawingDocuments from "./DrawingDocuments";
+import DrawingList from "./DrawingList";
 
 // 샘플 컴포넌트
 const DrawingSearch = ({ filter }) => (
@@ -12,7 +12,7 @@ const searchTabs = [
   {
     id: "documentList",
     label: "도면목록",
-    content: (filter) => <DrawingDocuments filter={filter} />,
+    content: (filter) => <DrawingList filter={filter} />,
   },
   {
     id: "searchDrawing",

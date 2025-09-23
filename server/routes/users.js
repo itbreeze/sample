@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const oracleClient = require('../utils/dataBase/oracleClient');
+const dbClient = require('../utils/dataBase/dbClient');
 
 const formatDateObject = (dateObj) => {
     if (!dateObj) return '';
@@ -24,7 +24,7 @@ router.get('/profile', async (req, res) => {
                    EMGRD_NM AS "positionName", DEPT_NAME AS "department" , DEPT_CODE AS "departCode"
             FROM PT_INSA WHERE TRIM(PERNR) = :userId
         `;
-        const users = await oracleClient.executeQuery(infoSql, [userId]);
+        const users = await dbClient.executeQuery(infoSql, [userId]);
 
         if (users.length === 0) {
             return res.status(404).json({ message: `${userId} 사용자 정보를 찾을 수 없습니다.` });
@@ -49,7 +49,7 @@ router.get('/profile', async (req, res) => {
                 FROM IDS_USER
                 WHERE TRIM(USERID) = :userId
             `;
-            const validationResult = await oracleClient.executeQuery(validationSql, [userId]);
+            const validationResult = await dbClient.executeQuery(validationSql, [userId]);
             const permissionInfo = validationResult.length > 0 ? validationResult[0] : null;
 
             if (!permissionInfo) {

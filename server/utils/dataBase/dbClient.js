@@ -1,6 +1,5 @@
 const oracledb = require("oracledb");
 
-// NODE_ENV 값에 따라 DB 설정 선택
 const env = process.env.NODE_ENV || 'development';
 let dbConfigStr;
 
@@ -11,14 +10,12 @@ switch (env) {
   case 'kospo':
     dbConfigStr = process.env.KOSPO_DB_CFG;
     break;
-  // --- 신규 환경 설정 추가 위치 ---
   default:
     console.warn(`[DB] NODE_ENV "${env}"에 대한 설정 없음. 'development' 설정 사용.`);
     dbConfigStr = process.env.DEV_DB_CFG;
     break;
 }
 
-// DB 설정 존재 여부 확인
 if (!dbConfigStr) {
   console.error(`'${env}' 환경의 DB 설정이 .env 파일에 없습니다.`);
   process.exit(1);
@@ -41,8 +38,6 @@ async function initPool() {
       console.log("Oracle DB Pool already initialized");
       return;
     }
-
-    // oracledb.initOracleClient({libDir: 'C:\\oracle\\instantclient_21_3'}); // Windows Instant Client 경로 (필요시 주석 해제)
     
     pool = await oracledb.createPool({
       user: dbConfig.user,
@@ -64,19 +59,15 @@ async function initPool() {
 async function executeQuery(sql, binds = [], options = {}) {
   let connection;
   try {
-    // Pool이 없으면 초기화
     if (!poolInitialized || !pool) {
       console.log("Pool not initialized, initializing...");
       await initPool();
     }
 
-    // console.log('executeQuery SQL:', sql);
-    // console.log('executeQuery binds:', binds);
-
     connection = await pool.getConnection();
     const result = await connection.execute(sql, binds, {
       ...options,
-      outFormat: oracledb.OUT_FORMAT_OBJECT, // 결과 포맷: {컬럼명: 값} 객체
+      outFormat: oracledb.OUT_FORMAT_OBJECT,
     });
     
     return result.rows;
@@ -108,7 +99,6 @@ async function closePool() {
   }
 }
 
-// Pool 상태 확인
 function isPoolReady() {
   return poolInitialized && pool;
 }

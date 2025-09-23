@@ -1,5 +1,5 @@
 import React from 'react';
-import CanvasViewer from './CanvasViewer'; 
+import ViewerContainer from './ViewerContainer'; 
 import './MainView.css';
 
 const MainView = ({ onMainViewClick, ...props }) => {
@@ -16,7 +16,7 @@ const MainView = ({ onMainViewClick, ...props }) => {
 
   return (
     <main className="app-main-view" onClick={onMainViewClick}>
-      <CanvasViewer {...props} />
+      <ViewerContainer {...props} />
     </main>
   );
 };

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require("express");
 const router = express.Router();
-const oracleClient = require('../utils/dataBase/oracleClient');
+const dbClient = require('../utils/dataBase/dbClient');
 const path = require("path");
 const fs = require("fs");
 const { execSync } = require('child_process');
@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {
       WHERE D.CURRENT_YN = '001'
       ORDER BY "PLANTCODE", "ID"
     `;
-    const getDocumentList = await oracleClient.executeQuery(sql);
+    const getDocumentList = await dbClient.executeQuery(sql);
     res.json(getDocumentList);
   } catch (err) {
     console.error("API Error:", err);
@@ -59,7 +59,7 @@ router.post("/selectDocument", async (req, res) => {
                    LEFT JOIN IDS_FOLDER F
                    ON D.FOLID=F.FOLID
                    WHERE S.FOLDER_TYPE='003' AND D.CURRENT_YN='001' AND D.DOCNO = :docId AND D.DOCVR = :docVr`;
-    const results = await oracleClient.executeQuery(sql, [docId, docVr]);
+    const results = await dbClient.executeQuery(sql, [docId, docVr]);
 
     if (!results.length)
       return res.status(404).json({ error: "DOC 파일이 없습니다." });

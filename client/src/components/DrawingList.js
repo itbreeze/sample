@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { FolderOpen, FolderClosed, FileText } from "lucide-react";
-import "./DrawingDocuments.css";
+import "./DrawingList.css";
 
 const countDocs = (node) => {
   let count = node.TYPE === "DOC" ? 1 : 0;
@@ -113,7 +113,7 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
   );
 };
 
-const DrawingDocuments = ({ filter, onFileSelect, tree, loading, activeFileId, expandedNodes, onNodeToggle }) => {
+const DrawingList = ({ filter, onFileSelect, tree, loading, activeFileId, expandedNodes, onNodeToggle }) => {
 
   if (loading) {
     return (
@@ -147,4 +147,4 @@ const DrawingDocuments = ({ filter, onFileSelect, tree, loading, activeFileId, e
   );
 };
 
-export default DrawingDocuments;
+export default DrawingList;

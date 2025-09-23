@@ -1,14 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import './ViewerCanvas.css';
+import './DwgDisplay.css';
 
-// -----------------------
-// 파일 캐시 (ArrayBuffer 저장)
-// -----------------------
 const fileCache = new Map();
 
-// -----------------------
-// VisualizeJS 초기화
-// -----------------------
 const initializeVisualizeJS = async () => {
     if (!window.getVisualizeLibInst) {
         throw new Error('VisualizeJS가 로드되지 않았습니다. public 폴더에 Visualize.js 파일이 있는지 확인하세요.');
@@ -26,9 +20,6 @@ const initializeVisualizeJS = async () => {
     });
 };
 
-// -----------------------
-// 뷰어 생성 (수정됨)
-// -----------------------
 const createViewer = async (lib, canvas) => {
     return new Promise((resolve, reject) => {
         lib.postRun.push(async () => {
@@ -42,12 +33,8 @@ const createViewer = async (lib, canvas) => {
 
                 lib.Viewer.initRender(canvas.width, canvas.height, true);
                 
-                // 1. create()는 인자 없이 호출합니다.
                 const viewer = lib.Viewer.create();
-
-                // 2. regenAll() 호출을 제거합니다.
-                // viewer.regenAll(); 
-
+                
                 resolve(viewer);
             } catch (err) {
                 reject(err);
@@ -56,7 +43,6 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-// ... (attachWheelZoom, attachPan, makeDxfList, attachClickInfo, resizeCanvas 함수는 변경 없음) ...
 const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
     if (!viewer || !canvas) return () => {};
     const onWheel = (event) => {
@@ -74,6 +60,7 @@ const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
 };
+
 const attachPan = (viewer, canvas) => {
     if (!viewer || !canvas) return () => {};
     let isPanning = false;
@@ -81,7 +68,7 @@ const attachPan = (viewer, canvas) => {
     const defaultCursor = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\"><rect width=\"16\" height=\"16\" fill=\"none\" stroke=\"black\" stroke-width=\"2\"/></svg>') 8 8, auto";
     canvas.style.cursor = defaultCursor;
     const onMouseDown = (event) => {
-        if (event.button === 1) {
+        if (event.button === 1) { // Middle mouse button
             event.preventDefault();
             isPanning = true;
             lastMouseX = event.clientX;
@@ -117,6 +104,7 @@ const attachPan = (viewer, canvas) => {
         window.removeEventListener('mouseup', onMouseUpOrLeave);
     };
 };
+
 function makeDxfList(entityId) {
     if (!entityId) return null;
     let obj = null;
@@ -134,6 +122,7 @@ function makeDxfList(entityId) {
         handle: obj.getNativeDatabaseHandle()
     };
 }
+
 const attachClickInfo = (viewer, canvas) => {
     if (!viewer || !canvas) return () => {};
     const onClick = (event) => {
@@ -164,10 +153,9 @@ const attachClickInfo = (viewer, canvas) => {
     canvas.addEventListener("click", onClick);
     return () => canvas.removeEventListener("click", onClick);
 };
+
 function resizeCanvas(viewer, canvas, container) {
-    if (!viewer || !canvas || !container) {
-        return;
-    }
+    if (!viewer || !canvas || !container) return;
     try {
         const width = container.clientWidth;
         const height = container.clientHeight;
@@ -183,14 +171,12 @@ function resizeCanvas(viewer, canvas, container) {
     }
 }
 
-// -----------------------
-// 메인 컴포넌트
-// -----------------------
-const ViewerCanvas = ({ filePath, onReady }) => {
+const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onReady }) => {
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
     const [errorMessage, setErrorMessage] = useState(null);
+    const [isDrawingLoading, setIsDrawingLoading] = useState(true);
 
     useEffect(() => {
         if (!filePath) return;
@@ -201,6 +187,7 @@ const ViewerCanvas = ({ filePath, onReady }) => {
 
         const init = async () => {
             try {
+                setIsDrawingLoading(true);
                 if (!isMounted || !canvasRef.current || !containerRef.current) return;
                 
                 const libInstance = await initializeVisualizeJS();
@@ -228,13 +215,19 @@ const ViewerCanvas = ({ filePath, onReady }) => {
 
                 if (viewerRef.current.clear) viewerRef.current.clear();
                 await viewerRef.current.parseVsfx(arrayBuffer);
-                viewerRef.current.setExperimentalFunctionalityFlag('gpu_select', false);
+                
                 viewerRef.current.setEnableSceneGraph(true);
+                viewerRef.current.setExperimentalFunctionalityFlag('gpu_select', false);
                 viewerRef.current.setEnableAnimation(false);
                 
                 resizeCanvas(viewerRef.current, canvasRef.current, containerRef.current);
-                viewerRef.current.zoomExtents();
-                
+
+                if (initialViewState && viewerRef.current.setView) {
+                    viewerRef.current.setView(initialViewState);
+                } else {
+                    viewerRef.current.zoomExtents();
+                }
+
                 if (onReady) onReady(filePath);
 
                 cleanupFunctions.push(attachWheelZoom(viewerRef.current, canvasRef.current));
@@ -248,6 +241,10 @@ const ViewerCanvas = ({ filePath, onReady }) => {
                 if (isMounted) {
                     console.error(err);
                     setErrorMessage(err.message);
+                }
+            } finally {
+                if(isMounted) {
+                    setIsDrawingLoading(false);
                 }
             }
         };
@@ -278,6 +275,11 @@ const ViewerCanvas = ({ filePath, onReady }) => {
             }
             cleanupFunctions.forEach(cleanup => cleanup());
             if (viewerRef.current) {
+                if (onViewStateChange && typeof viewerRef.current.getView === 'function') {
+                    const currentView = viewerRef.current.getView();
+                    onViewStateChange(currentView);
+                }
+
                 viewerRef.current.destroy?.();
                 viewerRef.current = null;
             }
@@ -285,10 +287,15 @@ const ViewerCanvas = ({ filePath, onReady }) => {
                 script.removeEventListener('load', handleScriptLoad);
             }
         };
-    }, [filePath, onReady]);
+    }, [filePath, onReady, initialViewState, onViewStateChange]);
 
     return (
         <div ref={containerRef} className="viewer-app-container">
+            {isDrawingLoading && (
+                <div className="loading-overlay">
+                    <div className="spinner"></div>
+                </div>
+            )}
             <div className="viewer-canvas-container">
                 <canvas ref={canvasRef} id="viewerCanvas" />
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
@@ -297,4 +304,4 @@ const ViewerCanvas = ({ filePath, onReady }) => {
     );
 };
 
-export default ViewerCanvas;
+export default DwgDisplay;

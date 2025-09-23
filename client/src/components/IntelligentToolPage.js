@@ -1,23 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './IntelligentTool.css';
+import './IntelligentToolPage.css'
 import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText } from 'lucide-react';
-
 import Header from './Header';
 import Sidebar from './Sidebar';
 import MainView from './MainView';
 import { Panel } from '../components/utils/Panel';
-import DrawingDocuments from './DrawingDocuments';
+import DrawingList from './DrawingList';
 import ResizablePanel from './ResizablePanel';
 
 axios.defaults.baseURL = 'http://localhost:4000';
 axios.defaults.withCredentials = true;
 
-// --- 설정 변수 ---
-// -1: 모두 접기, 0: 최상위(레벨 0)만 펼침, 1: 2레벨까지 펼침, ...
 const DEFAULT_EXPAND_LEVEL = 0;
 
-// --- Helper Functions ---
 const buildTree = (items) => {
   const map = {};
   const roots = [];
@@ -92,11 +88,9 @@ const equipmentTabs = [
     { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },
 ];
 
-// --- resize 이벤트 트리거 함수 ---
 const triggerResize = () => {
-  // document.getElementById 또는 ref 체크
   const viewerContainer = document.getElementById("viewer-container");
-  if (!viewerContainer) return; // ✅ Canvas나 뷰어가 없으면 종료
+  if (!viewerContainer) return;
 
   let resizeEvent;
   if (typeof Event === "function") {
@@ -108,7 +102,7 @@ const triggerResize = () => {
   window.dispatchEvent(resizeEvent);
 };
 
-function IntelligentTool() {
+function IntelligentToolPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
@@ -116,6 +110,7 @@ function IntelligentTool() {
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [openFiles, setOpenFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
+  const [viewStates, setViewStates] = useState({});
   const [isFileLoaded, setIsFileLoaded] = useState(false);
   const [documentTree, setDocumentTree] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
@@ -149,6 +144,13 @@ function IntelligentTool() {
   const handleTabClose = (docnoToClose) => {
     const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
     setOpenFiles(newOpenFiles);
+    
+    setViewStates(prev => {
+      const newStates = { ...prev };
+      delete newStates[docnoToClose];
+      return newStates;
+    });
+
     if (activeFileId === docnoToClose) {
       if (newOpenFiles.length > 0) {
         setActiveFileId(newOpenFiles[newOpenFiles.length - 1].DOCNO);
@@ -176,11 +178,15 @@ function IntelligentTool() {
     });
   };
 
+  const handleViewStateChange = (docno, viewState) => {
+    setViewStates(prev => ({ ...prev, [docno]: viewState }));
+  };
+
   const searchTabs = [
     {
       id: "documentList",
       label: "도면목록",
-      content: (filter) => <DrawingDocuments
+      content: (filter) => <DrawingList
                                 filter={filter}
                                 onFileSelect={handleFileSelect}
                                 tree={documentTree}
@@ -242,7 +248,6 @@ function IntelligentTool() {
     fetchDocumentTree();
   }, []);
 
-  // ★★★★★ 수정된 핵심 로직 ★★★★★
   useEffect(() => {
     if (!activeFileId) {
       setInitialExpand(documentTree);
@@ -258,9 +263,8 @@ function IntelligentTool() {
     }
   }, [activeFileId, documentTree]);
 
-  // 패널/사이드바 열림 시 resize 이벤트 트리거
  useEffect(() => {
-  if (!isFileLoaded) return; // ✅ 파일이 로드되어야 실행
+  if (!isFileLoaded) return;
   const timer = setTimeout(() => {
     triggerResize();
   }, 150);
@@ -337,10 +341,12 @@ function IntelligentTool() {
           onTabClose={handleTabClose}
           onTabReorder={handleTabReorder}
           onMainViewClick={handleMainViewClick}
+          viewStates={viewStates}
+          onViewStateChange={handleViewStateChange}
         />
       </div>
     </div>
   );
 }
 
-export default IntelligentTool;
+export default IntelligentToolPage;

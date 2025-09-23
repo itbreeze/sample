@@ -1,11 +1,11 @@
 const app = require('./app');
-const oracleClient = require('./utils/dataBase/oracleClient');
+const dbClient = require('./utils/dataBase/dbClient');
 
 const port = process.env.PORT || 4000;
 
 const startServer = async () => {
     try {
-        await oracleClient.initPool();
+        await dbClient.initPool();
         app.listen(port, () => {
             console.log(`Server running at http://localhost:${port}`);
         });

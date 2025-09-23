@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { executeQuery } = require('../utils/dataBase/oracleClient');
+const { executeQuery } = require('../utils/dataBase/dbClient');
 
 // POST /api/search
 router.post('/', async (req, res) => {

@@ -1,34 +1,30 @@
 import React, { useRef, useState } from 'react';
-import { X as CloseIcon, MoreHorizontal } from 'lucide-react'; // MoreHorizontal 아이콘 추가
-import './CanvasViewer.css';
-import TabListModal from './TabListModal'; // 모달 컴포넌트 import
-import ViewerCanvas from './viewer/ViewerCanvas'; // 👈 1. 새로 만든 뷰어 컴포넌트 import
+import { X as CloseIcon, MoreHorizontal } from 'lucide-react';
+import './ViewerContainer.css';
+import TabListModal from './TabListModal';
+import DwgDisplay from './viewer/DwgDisplay';
 
-const MAX_VISIBLE_TABS = 5; // 화면에 보여질 최대 탭 수
+const MAX_VISIBLE_TABS = 5;
 
-const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, onTabReorder }) => {
+const ViewerContainer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, onTabReorder, viewStates, onViewStateChange }) => {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [dragging, setDragging] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false); // 모달 상태 추가
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 드래그 시작
   const handleDragStart = (e, file) => {
     dragItem.current = file;
     setDragging(true);
   };
 
-  // 드래그 중 다른 요소 위로 이동
   const handleDragOver = (e) => {
-    e.preventDefault(); // 필수: 드롭을 허용하기 위함
+    e.preventDefault();
   };
 
-  // 드래그 중인 요소가 다른 요소 위로 들어갔을 때
   const handleDragEnter = (e, targetFile) => {
     dragOverItem.current = targetFile;
   };
   
-  // 드롭 발생
   const handleDrop = (e) => {
     e.preventDefault();
     if (dragItem.current && dragOverItem.current && dragItem.current.DOCNO !== dragOverItem.current.DOCNO) {
@@ -45,14 +41,12 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
     handleDragEnd();
   };
 
-  // 드래그 종료 (스타일 정리)
   const handleDragEnd = () => {
     dragItem.current = null;
     dragOverItem.current = null;
     setDragging(false);
   };
 
-  // 모달에서 탭 선택 시 처리
   const handleSelectFromModal = (docno) => {
     const newFiles = [...openFiles];
     const selectedFileIndex = newFiles.findIndex(f => f.DOCNO === docno);
@@ -66,7 +60,6 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
 
   const activeFile = openFiles.find(file => file.DOCNO === activeFileId);
 
-  // 화면에 표시될 탭과 숨겨질 탭을 계산합니다.
   const visibleFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(0, MAX_VISIBLE_TABS) : openFiles;
   const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : [];
 
@@ -109,7 +102,7 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
       
       <TabListModal
         isOpen={isModalOpen}
-        files={hiddenFiles} // 숨겨진 파일 목록만 모달에 전달합니다.
+        files={hiddenFiles}
         onClose={() => setIsModalOpen(false)}
         onSelectTab={handleSelectFromModal}
         onCloseTab={onTabClose}
@@ -117,7 +110,12 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
 
       <div className="viewer-content-area">
         {activeFile ? (
-          <ViewerCanvas key={activeFile.DOCNO} filePath={activeFile.tmpFile} />
+          <DwgDisplay
+            key={activeFile.DOCNO}
+            filePath={activeFile.tmpFile}
+            initialViewState={viewStates[activeFile.DOCNO]}
+            onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
+          />
         ) : (
           <div className="initial-view-content">
             <p>표시할 도면을 선택해주세요.</p>
@@ -128,4 +126,4 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
   );
 };
 
-export default CanvasViewer;
+export default ViewerContainer;
