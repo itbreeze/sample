@@ -55,7 +55,6 @@ export const attachPan = (viewer, canvas) => {
             } else {
                 // 첫 번째 클릭 또는 싱글 클릭으로 판정
                 lastMiddleClickTime = now;
-
                 // 기존 Pan 기능 로직 시작
                 isPanning = true;
                 lastMouseX = event.clientX;
