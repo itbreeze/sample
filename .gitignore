@@ -11,3 +11,6 @@ server/.env
 # 바이너리/유틸/도면 파일
 server/utils/fileConverter/
 server/viewer_doc/
+
+server/package-lock.json
+client/package-lock.json
