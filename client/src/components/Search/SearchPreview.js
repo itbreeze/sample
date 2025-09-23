@@ -15,31 +15,20 @@ function SearchPreview({
 }) {
   if (!showPreview) return null;
 
-  // 🔹 클릭 핸들러 개선
+  // ─── 클릭 핸들러 ─────────────────────────────
   const handleItemClick = (e, result) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('🖱️ 미리보기 아이템 클릭됨:', result);
-    console.log('🔗 onItemClick 함수 존재 여부:', typeof onItemClick);
-    
-    if (onItemClick) {
-      onItemClick(result);
-    } else {
-      console.error('❌ onItemClick 함수가 전달되지 않았습니다');
-    }
+    if (onItemClick) onItemClick(result);
   };
 
   const handleViewAllClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('🔍 전체 목록 보기 클릭됨');
-    if (onViewAllResults) {
-      onViewAllResults();
-    }
+    if (onViewAllResults) onViewAllResults();
   };
 
+  // ─── 렌더링 ────────────────────────────────
   return (
     <div className="search-preview">
       {isLoading ? (
@@ -49,7 +38,7 @@ function SearchPreview({
         </div>
       ) : results.length > 0 ? (
         <div className="preview-items-wrapper">
-          {/* 🔹 전체 목록 보기 버튼 */}
+          {/* 전체 목록 보기 버튼 */}
           <div className="preview-view-all">
             <button 
               className="view-all-button"
@@ -60,14 +49,16 @@ function SearchPreview({
               <span>전체 목록 보기 ({results.length}개 이상)</span>
             </button>
           </div>
+
+          {/* 검색 결과 목록 */}
           {results.map((result) => (
             <div
               key={`${result.KEY}-${result.DOCNO || result.EQUIPMENT}`}
               className="preview-item"
               onClick={(e) => handleItemClick(e, result)}
-              onMouseDown={(e) => e.preventDefault()} // 🔹 마우스 다운 이벤트 처리
-              role="button" // 🔹 접근성 개선
-              tabIndex={0} // 🔹 키보드 접근성
+              onMouseDown={(e) => e.preventDefault()} // 마우스 다운 이벤트 방지
+              role="button" 
+              tabIndex={0} 
             >
               <div className="preview-main-info">
                 <span className="preview-icon">
