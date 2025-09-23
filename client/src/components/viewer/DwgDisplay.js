@@ -63,24 +63,41 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
     const isInitialZoomDone = useRef(false);
+    const currentFilePathRef = useRef(null); // 현재 로드된 파일 경로 추적
     
     const [errorMessage, setErrorMessage] = useState(null);
     const [isViewerReady, setIsViewerReady] = useState(false);
     const [isCanvasVisible, setIsCanvasVisible] = useState(false);
+    const [isLoadingNewFile, setIsLoadingNewFile] = useState(false); // 신규 파일 로딩 상태
 
     useEffect(() => {
         if (!filePath) return;
 
+        // 🔹 신규 파일인지 확인
+        const isNewFile = currentFilePathRef.current !== filePath;
+        
         let isMounted = true;
         
-        setIsViewerReady(false);
-        setIsCanvasVisible(false);
+        // 신규 파일인 경우에만 로딩 상태 표시
+        if (isNewFile) {
+            setIsLoadingNewFile(true);
+            setIsViewerReady(false);
+            setIsCanvasVisible(false);
+        }
 
         const init = async () => {
             let cleanupFunctions = [];
             try {
                 isInitialZoomDone.current = false;
                 if (!isMounted || !canvasRef.current) return;
+                
+                // 기존 뷰어가 있고 같은 파일이면 재사용
+                if (viewerRef.current && !isNewFile) {
+                    setIsViewerReady(true);
+                    setIsCanvasVisible(true);
+                    setIsLoadingNewFile(false);
+                    return [];
+                }
                 
                 const libInstance = await initializeVisualizeJS();
                 if (!isMounted) return;
@@ -115,9 +132,16 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
                 cleanupFunctions.push(attachPan(viewerRef.current, canvasRef.current) || (() => {}));
                 cleanupFunctions.push(attachClickInfo(viewerRef.current, canvasRef.current) || (() => {}));
 
+                // 현재 파일 경로 업데이트
+                currentFilePathRef.current = filePath;
+                
                 setIsViewerReady(true);
+                setIsLoadingNewFile(false); // 로딩 완료
             } catch (err) {
-                if (isMounted) setErrorMessage(err.message);
+                if (isMounted) {
+                    setErrorMessage(err.message);
+                    setIsLoadingNewFile(false);
+                }
             }
             
             return cleanupFunctions;
@@ -140,7 +164,12 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
             script.src = '/Visualize.js';
             script.async = true;
             script.addEventListener('load', handleScriptLoad);
-            script.onerror = () => { if (isMounted) setErrorMessage('Visualize.js 로드 실패'); };
+            script.onerror = () => { 
+                if (isMounted) {
+                    setErrorMessage('Visualize.js 로드 실패');
+                    setIsLoadingNewFile(false);
+                }
+            };
             document.body.appendChild(script);
         } else if (window.getVisualizeLibInst) {
             handleScriptLoad();
@@ -151,6 +180,15 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
         return () => {
             isMounted = false;
             activeCleanups.forEach(cleanup => cleanup());
+            if (script) {
+                script.removeEventListener('load', handleScriptLoad);
+            }
+        };
+    }, [filePath, onViewerReady]);
+
+    // 🔹 컴포넌트 언마운트 시에만 뷰어 정리
+    useEffect(() => {
+        return () => {
             if (viewerRef.current) {
                 // 🔹 컴포넌트 언마운트 시 뷰 상태 저장
                 if (onViewStateChange) {
@@ -161,12 +199,10 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
                 }
                 viewerRef.current.destroy?.();
                 viewerRef.current = null;
-            }
-            if (script) {
-                script.removeEventListener('load', handleScriptLoad);
+                currentFilePathRef.current = null;
             }
         };
-    }, [filePath, onViewStateChange, onViewerReady]);
+    }, []);
 
     useEffect(() => {
         const viewer = viewerRef.current;
@@ -217,7 +253,8 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
 
     return (
         <div className="viewer-app-container">
-            {!isCanvasVisible && (
+            {/* 🔹 신규 파일 로딩 중에만 스피너 표시 */}
+            {isLoadingNewFile && (
                 <div className="loading-overlay">
                     <div className="spinner"></div>
                     <div className="loading-text">도면 로딩 중...</div>

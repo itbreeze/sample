@@ -1,18 +1,25 @@
+/* client/src/components/ViewerContainer.css */
+
 .canvas-viewer-container {
   width: 100%;
   height: 100%;
   background-color: var(--background-color);
-  box-shadow: 0 2px 10px var(--shadow-color);
+  /* box-shadow 제거 → GPU 부하 감소 */
+  /* box-shadow: 0 2px 10px var(--shadow-color); */
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  /* 가상화 환경: 강제 하드웨어 가속 제거 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .view-tabs-container {
   display: flex;
   flex-shrink: 0;
   background-color: var(--background-color-secondary);
-  padding-left: 0px;
+  padding-left: 0;
   border-bottom: 1px solid var(--border-color-dark);
 }
 
@@ -21,21 +28,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px 8px 15px;
+  padding: 6px 10px; /* padding 줄여 렌더링 부담 감소 */
   background-color: var(--hover-background-color);
   border: 1px solid var(--border-color-dark);
   border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  min-width: 0;
-  flex: 1 1 0;
+  border-radius: 6px 6px 0 0;
   font-size: 13px;
   color: #495057;
+
+  flex: 1 1 0;
+  min-width: 100px; /* 기본 최소 크기 축소 */
+  text-rendering: optimizeLegibility; /* 글자 가독성 보정 */
 }
 
+/* 더보기 버튼 */
 .view-tab.more-tabs-btn {
-  flex: 0 0 50px;
+  flex: 0 0 40px !important;
   justify-content: center;
-  padding: 8px 12px;
+  padding: 6px 8px;
+  min-width: 40px;
+  max-width: 40px;
 }
 
 .view-tab.active {
@@ -53,7 +65,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-right: 8px;
+  margin-right: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .close-tab-btn {
@@ -67,6 +81,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text-color-secondary);
+  flex-shrink: 0;
 }
 
 .close-tab-btn:hover {
@@ -80,13 +95,15 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* 가상화 환경 최적화: 애니메이션 제거 */
+  transition: none !important;
 }
 
-.viewer-header {
+.viewer-header {  
   flex-shrink: 0;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background-color: var(--background-color-light);
-  border-bottom: 1px solid var(--border-color);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   font-size: var(--font-size-base);
@@ -94,7 +111,7 @@
 
 .viewer-title {
   margin: 0;
-  font-size: 1em;
+  font-size: 0.95em;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -103,8 +120,8 @@
 
 .viewer-close-btn {
   position: absolute;
-  top: 45px;
-  right: 25px;
+  top: 40px;
+  right: 20px;
   z-index: 10;
   background: none;
   border: none;
@@ -114,17 +131,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ccc;
+  color: #999;
 }
 
 .viewer-close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background-color: rgba(200, 200, 200, 0.2);
+  color: #333;
 }
 
 .server-response-view {
+  
   flex-grow: 1;
-  padding: 15px;
+  padding: 12px;
   margin: 0;
   background-color: var(--background-color-dark);
   color: var(--text-color-code);
@@ -133,4 +151,32 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-y: auto;
+
+  /* 가상화 환경 스크롤 최적화 */
+  -webkit-overflow-scrolling: auto;
+}
+
+/* 반응형 */
+@media (max-width: 1200px) {
+  .view-tab {
+    min-width: 70px;
+  }
+  
+  .view-tab.more-tabs-btn {
+    flex: 0 0 35px !important;
+    min-width: 35px;
+    max-width: 35px;
+  }
+}
+
+@media (max-width: 768px) {
+  .view-tab {
+    min-width: 55px;
+  }
+  
+  .view-tab.more-tabs-btn {
+    flex: 0 0 30px !important;
+    min-width: 30px;
+    max-width: 30px;
+  }
 }

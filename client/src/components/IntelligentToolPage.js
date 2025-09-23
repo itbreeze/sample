@@ -82,7 +82,7 @@ const getCurrentViewState = (viewer) => {
   } catch (error) {
     console.warn('뷰 상태 추출 실패:', error);
   }
-  
+
   if (view.delete) view.delete();
   return null;
 };
@@ -170,11 +170,21 @@ function IntelligentToolPage() {
     }));
   }, []);
 
-  // 🔹 도면 선택
   const handleFileSelect = (file) => {
-    if (!openFiles.some(f => f.DOCNO === file.DOCNO)) {
-      setOpenFiles([...openFiles, file]);
+    // 이미 열린 파일인지 확인
+    const existingFileIndex = openFiles.findIndex(f => f.DOCNO === file.DOCNO);
+
+    if (existingFileIndex !== -1) {
+      // 이미 열린 파일이라면 맨 앞으로 이동
+      const updatedFiles = [...openFiles];
+      const [existingFile] = updatedFiles.splice(existingFileIndex, 1);
+      updatedFiles.unshift(existingFile); // 맨 앞에 추가
+      setOpenFiles(updatedFiles);
+    } else {
+      // 새 파일이라면 맨 앞에 추가
+      setOpenFiles([file, ...openFiles]); // 맨 앞에 추가
     }
+
     setActiveFileId(file.DOCNO);
     setIsFileLoaded(true);
   };
