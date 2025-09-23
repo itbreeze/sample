@@ -1,9 +1,19 @@
-.viewer-app-container,
-.viewer-canvas-container {
+/* client/src/components/viewer/DwgDisplay.css */
+
+.viewer-app-container {
     width: 100%;
     height: 100%;
     position: relative;
     overflow: hidden;
+    background-color: #f0f0f0;
+}
+
+.viewer-canvas-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 #viewerCanvas {
@@ -12,41 +22,54 @@
     display: block;
 }
 
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column; /* 아이템을 세로로 정렬 */
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border-left-color: #09f;
+    animation: spin 1s ease infinite;
+}
+
+
+.loading-text {
+    margin-top: 16px; /* 스피너와의 간격 */
+    font-size: 14px;
+    color: #555;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 .error-message {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: rgba(255, 0, 0, 0.8);
-    color: white;
-    padding: 10px 20px;
+    background-color: #ffdddd;
+    color: #d8000c;
+    padding: 15px;
     border-radius: 5px;
-    z-index: 100;
-}
-
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loading-overlay .spinner {
-  border: 8px solid #f3f3f3;
-  border-top: 8px solid var(--primary-color);
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  animation: spin 1s linear infinite;
+    border: 1px solid #d8000c;
 }

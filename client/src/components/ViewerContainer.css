@@ -26,7 +26,6 @@
   border: 1px solid var(--border-color-dark);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  cursor: pointer;
   min-width: 10px;
   width: 250px;
   font-size: 13px;

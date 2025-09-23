@@ -59,7 +59,7 @@ const getCurrentViewState = (viewer) => {
 };
 
 // --- React Component ---
-const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize }) => {
+const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerReady, viewerSize }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
     const isInitialZoomDone = useRef(false);
@@ -88,6 +88,11 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize 
                 const viewerInstance = await createViewer(libInstance, canvasRef.current);
                 if (!isMounted) { viewerInstance?.destroy(); return; }
                 viewerRef.current = viewerInstance;
+
+                // 🔹 뷰어 준비 완료 콜백
+                if (onViewerReady) {
+                    onViewerReady(viewerInstance);
+                }
 
                 let arrayBuffer;
                 if (fileCache.has(filePath)) {
@@ -147,6 +152,7 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize 
             isMounted = false;
             activeCleanups.forEach(cleanup => cleanup());
             if (viewerRef.current) {
+                // 🔹 컴포넌트 언마운트 시 뷰 상태 저장
                 if (onViewStateChange) {
                     const lastState = getCurrentViewState(viewerRef.current);
                     if (lastState) {
@@ -160,7 +166,7 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize 
                 script.removeEventListener('load', handleScriptLoad);
             }
         };
-    }, [filePath, onViewStateChange]);
+    }, [filePath, onViewStateChange, onViewerReady]);
 
     useEffect(() => {
         const viewer = viewerRef.current;
@@ -182,6 +188,7 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize 
         
         if (!isInitialZoomDone.current) {
             if (initialViewState) {
+                // 🔹 저장된 뷰 상태 복원
                 const view = viewer.activeView;
                 if (view) {
                     if (initialViewState.position && initialViewState.target && initialViewState.upVector) {
@@ -197,6 +204,7 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize 
                     view.delete();
                 }
             } else {
+                // 🔹 초기 줌 익스텐트
                 viewer.zoomExtents?.();
             }
             isInitialZoomDone.current = true;
@@ -212,6 +220,7 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize 
             {!isCanvasVisible && (
                 <div className="loading-overlay">
                     <div className="spinner"></div>
+                    <div className="loading-text">도면 로딩 중...</div>
                 </div>
             )}
             <div className="viewer-canvas-container" style={{ visibility: isCanvasVisible ? 'visible' : 'hidden' }}>

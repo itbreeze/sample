@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './IntelligentToolPage.css'
 import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText } from 'lucide-react';
@@ -60,6 +60,33 @@ const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
   return ids;
 };
 
+// 뷰 상태 추출 유틸리티
+const getCurrentViewState = (viewer) => {
+  if (!viewer) return null;
+  const view = viewer.activeView;
+  if (!view) return null;
+
+  try {
+    if (view.position && view.target && view.upVector) {
+      const viewParams = {
+        position: view.position.toArray(),
+        target: view.target.toArray(),
+        upVector: view.upVector.toArray(),
+        fieldWidth: view.fieldWidth,
+        fieldHeight: view.fieldHeight,
+        projection: view.projection,
+      };
+      view.delete();
+      return viewParams;
+    }
+  } catch (error) {
+    console.warn('뷰 상태 추출 실패:', error);
+  }
+  
+  if (view.delete) view.delete();
+  return null;
+};
+
 // 상단 탭 정의
 const tabItems = [
   { id: 'drawing', label: 'P&ID' },
@@ -115,7 +142,7 @@ function IntelligentToolPage() {
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [openFiles, setOpenFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
-  const [viewStates, setViewStates] = useState({});
+  const [viewStates, setViewStates] = useState({}); // 메모리에만 저장
   const [isFileLoaded, setIsFileLoaded] = useState(false);
   const [documentTree, setDocumentTree] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
@@ -132,6 +159,18 @@ function IntelligentToolPage() {
     setActiveMenuItem(null);
   };
 
+  // 🔹 뷰 상태 변경 (간단한 메모리 저장만)
+  const handleViewStateChange = useCallback((docno, viewState) => {
+    setViewStates(prev => ({
+      ...prev,
+      [docno]: {
+        ...viewState,
+        timestamp: Date.now()
+      }
+    }));
+  }, []);
+
+  // 🔹 도면 선택
   const handleFileSelect = (file) => {
     if (!openFiles.some(f => f.DOCNO === file.DOCNO)) {
       setOpenFiles([...openFiles, file]);
@@ -140,12 +179,31 @@ function IntelligentToolPage() {
     setIsFileLoaded(true);
   };
 
-  const handleTabClick = (docno) => setActiveFileId(docno);
+  // 🔹 탭 클릭 시 현재 뷰 상태 저장
+  const handleTabClick = useCallback((docno) => {
+    if (docno === activeFileId) return;
 
+    // 현재 활성 뷰어의 상태를 즉시 저장
+    if (window.currentViewerInstance && activeFileId) {
+      try {
+        const currentState = getCurrentViewState(window.currentViewerInstance);
+        if (currentState) {
+          handleViewStateChange(activeFileId, currentState);
+        }
+      } catch (error) {
+        console.warn('뷰 상태 저장 실패:', error);
+      }
+    }
+
+    setActiveFileId(docno);
+  }, [activeFileId, handleViewStateChange]);
+
+  // 🔹 탭 닫기 (뷰 상태도 함께 정리)
   const handleTabClose = (docnoToClose) => {
     const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
     setOpenFiles(newOpenFiles);
 
+    // 해당 도면의 뷰 상태 정리
     setViewStates(prev => {
       const newStates = { ...prev };
       delete newStates[docnoToClose];
@@ -162,6 +220,7 @@ function IntelligentToolPage() {
     }
   };
 
+  // 🔹 탭 순서 변경
   const handleTabReorder = (newFiles, draggedFileId) => {
     setOpenFiles(newFiles);
     setActiveFileId(draggedFileId);
@@ -174,10 +233,6 @@ function IntelligentToolPage() {
       else newSet.add(nodeId);
       return newSet;
     });
-  };
-
-  const handleViewStateChange = (docno, viewState) => {
-    setViewStates(prev => ({ ...prev, [docno]: viewState }));
   };
 
   const searchTabs = [
