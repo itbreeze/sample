@@ -26,10 +26,16 @@
   border: 1px solid var(--border-color-dark);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  min-width: 10px;
-  width: 250px;
+  min-width: 0;
+  flex: 1 1 0;
   font-size: 13px;
   color: #495057;
+}
+
+.view-tab.more-tabs-btn {
+  flex: 0 0 50px;
+  justify-content: center;
+  padding: 8px 12px;
 }
 
 .view-tab.active {

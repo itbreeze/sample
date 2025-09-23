@@ -76,7 +76,6 @@ const ViewerContainer = ({
   // 🔹 뷰어 준비 완료
   const handleViewerReady = useCallback((viewerInstance) => {
     viewerInstanceRef.current = viewerInstance;
-    window.currentViewerInstance = viewerInstance; // 전역 참조
   }, []);
 
   // 🔹 ResizeObserver
