@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import './IntelligentToolPage.css'
 import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText } from 'lucide-react';
@@ -60,7 +60,7 @@ const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
   return ids;
 };
 
-// 뷰 상태 추출 유틸리티
+// 뷰 상태 추출 유틸리티 (기존 유지)
 const getCurrentViewState = (viewer) => {
   if (!viewer) return null;
   const view = viewer.activeView;
@@ -142,11 +142,16 @@ function IntelligentToolPage() {
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [openFiles, setOpenFiles] = useState([]);
   const [activeFileId, setActiveFileId] = useState(null);
-  const [viewStates, setViewStates] = useState({}); // 메모리에만 저장
+  const [viewStates, setViewStates] = useState({}); // 기존 뷰 상태 관리 유지
   const [isFileLoaded, setIsFileLoaded] = useState(false);
   const [documentTree, setDocumentTree] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
+  
+  // 🔹 탭 전환 최적화를 위한 상태 추가
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
+  const tabSwitchTimeoutRef = useRef(null);
+  const currentViewerInstanceRef = useRef(null);
 
   const handleLogoClick = () => {
     setIsSidebarOpen(false);
@@ -159,7 +164,7 @@ function IntelligentToolPage() {
     setActiveMenuItem(null);
   };
 
-  // 🔹 뷰 상태 변경 (간단한 메모리 저장만)
+  // 🔹 뷰 상태 변경 핸들러 (기존 유지하되 최적화)
   const handleViewStateChange = useCallback((docno, viewState) => {
     setViewStates(prev => ({
       ...prev,
@@ -189,14 +194,21 @@ function IntelligentToolPage() {
     setIsFileLoaded(true);
   };
 
-  // 🔹 탭 클릭 시 현재 뷰 상태 저장
+  // 🔹 개선된 탭 클릭 핸들러 (기존 기능 유지하되 최적화)
   const handleTabClick = useCallback((docno) => {
-    if (docno === activeFileId) return;
+    if (docno === activeFileId || isTabSwitching) return;
 
-    // 현재 활성 뷰어의 상태를 즉시 저장
-    if (window.currentViewerInstance && activeFileId) {
+    setIsTabSwitching(true);
+    
+    // 이전 탭 전환 타이머 정리
+    if (tabSwitchTimeoutRef.current) {
+      clearTimeout(tabSwitchTimeoutRef.current);
+    }
+
+    // 현재 활성 뷰어의 상태를 즉시 저장 (기존 로직 유지)
+    if (currentViewerInstanceRef.current && activeFileId) {
       try {
-        const currentState = getCurrentViewState(window.currentViewerInstance);
+        const currentState = getCurrentViewState(currentViewerInstanceRef.current);
         if (currentState) {
           handleViewStateChange(activeFileId, currentState);
         }
@@ -206,9 +218,15 @@ function IntelligentToolPage() {
     }
 
     setActiveFileId(docno);
-  }, [activeFileId, handleViewStateChange]);
+    
+    // 탭 전환 완료 표시 (뷰어 로딩 시간 고려)
+    tabSwitchTimeoutRef.current = setTimeout(() => {
+      setIsTabSwitching(false);
+    }, 300);
 
-  // 🔹 탭 닫기 (뷰 상태도 함께 정리)
+  }, [activeFileId, handleViewStateChange, isTabSwitching]);
+
+  // 🔹 탭 닫기 (기존 로직 유지하되 최적화)
   const handleTabClose = (docnoToClose) => {
     const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
     setOpenFiles(newOpenFiles);
@@ -230,11 +248,18 @@ function IntelligentToolPage() {
     }
   };
 
-  // 🔹 탭 순서 변경
+  // 🔹 탭 순서 변경 (기존 유지)
   const handleTabReorder = (newFiles, draggedFileId) => {
     setOpenFiles(newFiles);
     setActiveFileId(draggedFileId);
   };
+
+  // 🔹 뷰어 준비 완료 콜백 추가
+  const handleViewerReady = useCallback((viewerInstance) => {
+    currentViewerInstanceRef.current = viewerInstance;
+    // 전역 window 객체에도 설정 (기존 호환성 유지)
+    window.currentViewerInstance = viewerInstance;
+  }, []);
 
   const handleNodeToggle = (nodeId) => {
     setExpandedNodes(prev => {
@@ -333,6 +358,15 @@ function IntelligentToolPage() {
     return () => clearTimeout(timer);
   }, [isSidebarOpen, activeMenuItem, isFileLoaded]);
 
+  // 🔹 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      if (tabSwitchTimeoutRef.current) {
+        clearTimeout(tabSwitchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -389,8 +423,10 @@ function IntelligentToolPage() {
           onTabClose={handleTabClose}
           onTabReorder={handleTabReorder}
           onMainViewClick={handleMainViewClick}
-          viewStates={viewStates}
-          onViewStateChange={handleViewStateChange}
+          viewStates={viewStates} // 기존 뷰 상태 관리 유지
+          onViewStateChange={handleViewStateChange} // 기존 뷰 상태 변경 핸들러 유지
+          onViewerReady={handleViewerReady} // 뷰어 준비 완료 콜백 추가
+          isTabSwitching={isTabSwitching} // 탭 전환 상태 전달
         />
       </div>
     </div>

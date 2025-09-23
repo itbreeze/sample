@@ -4,44 +4,41 @@
   width: 100%;
   height: 100%;
   background-color: var(--background-color);
-  /* box-shadow 제거 → GPU 부하 감소 */
-  /* box-shadow: 0 2px 10px var(--shadow-color); */
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  /* 가상화 환경: 강제 하드웨어 가속 제거 */
   transform: translateZ(0);
   backface-visibility: hidden;
 }
 
 .view-tabs-container {
   display: flex;
-  flex-shrink: 0;
-  background-color: var(--background-color-secondary);
-  padding-left: 0;
-  border-bottom: 1px solid var(--border-color-dark);
+  background-color: var(--background-color-light);
+  /* 헤더 배경과 동일 */
+  overflow: hidden;
+  border-bottom: none;
+  /* 분리선 제거 */
 }
 
 .view-tab {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px; /* padding 줄여 렌더링 부담 감소 */
-  background-color: var(--hover-background-color);
+  padding: 6px 10px;
+  background-color: var(--background-color-light);
   border: 1px solid var(--border-color-dark);
   border-bottom: none;
-  border-radius: 6px 6px 0 0;
+  border-radius: 6px 6px 0px 0px;
   font-size: 13px;
   color: #495057;
-
   flex: 1 1 0;
-  min-width: 100px; /* 기본 최소 크기 축소 */
-  text-rendering: optimizeLegibility; /* 글자 가독성 보정 */
+  max-width: 20%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* 더보기 버튼 */
 .view-tab.more-tabs-btn {
   flex: 0 0 40px !important;
   justify-content: center;
@@ -61,7 +58,7 @@
   background-color: var(--hover-background-color-dark);
 }
 
-.tab-title {  
+.tab-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -95,15 +92,15 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* 가상화 환경 최적화: 애니메이션 제거 */
   transition: none !important;
 }
 
-.viewer-header {  
+.viewer-header {
   flex-shrink: 0;
   padding: 6px 10px;
-  background-color: var(--background-color-light);
-  border: 1px solid var(--border-color);
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color-dark);
+  border-top: none;
   display: flex;
   align-items: center;
   font-size: var(--font-size-base);
@@ -140,7 +137,6 @@
 }
 
 .server-response-view {
-  
   flex-grow: 1;
   padding: 12px;
   margin: 0;
@@ -151,17 +147,14 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-y: auto;
-
-  /* 가상화 환경 스크롤 최적화 */
   -webkit-overflow-scrolling: auto;
 }
 
-/* 반응형 */
 @media (max-width: 1200px) {
   .view-tab {
     min-width: 70px;
   }
-  
+
   .view-tab.more-tabs-btn {
     flex: 0 0 35px !important;
     min-width: 35px;
@@ -173,7 +166,7 @@
   .view-tab {
     min-width: 55px;
   }
-  
+
   .view-tab.more-tabs-btn {
     flex: 0 0 30px !important;
     min-width: 30px;
