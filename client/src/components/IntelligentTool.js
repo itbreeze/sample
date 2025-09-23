@@ -10,84 +10,87 @@ import { Panel } from '../components/utils/Panel';
 import DrawingDocuments from './DrawingDocuments';
 import ResizablePanel from './ResizablePanel';
 
-// Axios 기본 설정
 axios.defaults.baseURL = 'http://localhost:4000';
 axios.defaults.withCredentials = true;
 
-// 탭 데이터 정의
-const tabItems = [
-  { id: 'drawing', label: 'P&ID' },
-  { id: 'sample02', label: '지능화' },
-  { id: 'sample03', label: '지능화 승계' },
-  { id: 'pld', label: 'PLD' },
-];
+// --- 설정 변수 ---
+// -1: 모두 접기, 0: 최상위(레벨 0)만 펼침, 1: 2레벨까지 펼침, ...
+const DEFAULT_EXPAND_LEVEL = 0; 
 
-// 탭별 사이드바 메뉴 데이터 정의
-const sidebarMenus = {
-  drawing: [
-    { id: 'search', icon: <Search size={20} />, label: '상세검색' },
-    { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },
-    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서' },
-    { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
-    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '유체색' },
-    { id: 'layers', icon: <Layers size={20} />, label: '레이어' },
-  ],
-  sample02: [{ id: 'sample02', icon: <FileText size={20} />, label: 'Sample Menu' }],
-  sample03: [{ id: 'sample03', icon: <FileText size={20} />, label: 'Sample Menu' }],
-  pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD Menu' }]
-};
-
-// 상세검색 패널 탭 및 컨텐츠 정의
-const NotImplemented = () => <div style={{ padding: '20px', textAlign: 'center' }}>🚧 준비 중인 기능입니다.</div>;
-
-// 설비목록 패널 탭 및 컨텐츠 정의 (예시)
-const equipmentTabs = [
-  {
-    id: "equipmentList",
-    label: "설비목록",
-    content: () => <NotImplemented />,
-  },
-  {
-    id: "searchEquipment",
-    label: "설비상세검색",
-    content: () => <NotImplemented />,
-  },
-];
-
+// --- Helper Functions ---
 const buildTree = (items) => {
-    const map = {};
-    const roots = [];
-    if (!items) return roots;
-
-    items.forEach(item => {
-      map[item.ID] = { ...item, CHILDREN: [] };
-    });
-
-    items.forEach(item => {
-      if (item.PARENTID && map[item.PARENTID]) {
-        map[item.PARENTID].CHILDREN.push(map[item.ID]);
-      } else {
-        roots.push(map[item.ID]);
-      }
-    });
-    return roots;
-  };
+  const map = {};
+  const roots = [];
+  if (!items) return roots;
+  items.forEach(item => {
+    map[item.ID] = { ...item, CHILDREN: [] };
+  });
+  items.forEach(item => {
+    if (item.PARENTID && map[item.PARENTID]) {
+      map[item.PARENTID].CHILDREN.push(map[item.ID]);
+    } else {
+      roots.push(map[item.ID]);
+    }
+  });
+  return roots;
+};
 
 const findPathToNode = (nodes, nodeId, path = []) => {
-    for (const node of nodes) {
-        const newPath = [...path, node.ID];
-        if (node.ID === nodeId) {
-            return newPath;
-        }
-        if (node.CHILDREN) {
-            const result = findPathToNode(node.CHILDREN, nodeId, newPath);
-            if (result.length) {
-                return result;
-            }
-        }
+  for (const node of nodes) {
+    const newPath = [...path, node.ID];
+    if (node.ID === nodeId) {
+      return newPath;
     }
-    return [];
+    if (node.CHILDREN) {
+      const result = findPathToNode(node.CHILDREN, nodeId, newPath);
+      if (result.length) {
+        return result;
+      }
+    }
+  }
+  return [];
 };
+
+const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
+  if (currentLevel > maxLevel) return [];
+  let ids = [];
+  for (const node of nodes) {
+    if (node.TYPE === 'FOLDER' && node.CHILDREN && node.CHILDREN.length > 0) {
+      ids.push(node.ID);
+      const childIds = collectIdsToLevel(node.CHILDREN, maxLevel, currentLevel + 1);
+      ids = ids.concat(childIds);
+    }
+  }
+  return ids;
+};
+
+const tabItems = [
+    { id: 'drawing', label: 'P&ID' },
+    { id: 'sample02', label: '지능화' },
+    { id: 'sample03', label: '지능화 승계' },
+    { id: 'pld', label: 'PLD' },
+];
+  
+const sidebarMenus = {
+    drawing: [
+      { id: 'search', icon: <Search size={20} />, label: '상세검색' },
+      { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },
+      { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서' },
+      { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
+      { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '유체색' },
+      { id: 'layers', icon: <Layers size={20} />, label: '레이어' },
+    ],
+    sample02: [{ id: 'sample02', icon: <FileText size={20} />, label: 'Sample Menu' }],
+    sample03: [{ id: 'sample03', icon: <FileText size={20} />, label: 'Sample Menu' }],
+    pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD Menu' }]
+};
+
+const NotImplemented = () => <div style={{ padding: '20px', textAlign: 'center' }}>🚧 준비 중인 기능입니다.</div>;
+
+const equipmentTabs = [
+    { id: "equipmentList", label: "설비목록", content: () => <NotImplemented /> },
+    { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },
+];
 
 function IntelligentTool() {
   const [loading, setLoading] = useState(true);
@@ -108,7 +111,6 @@ function IntelligentTool() {
   };
   
   const handleMainViewClick = (e) => {
-    // .view-tab 클래스 또는 그 자식 요소를 클릭한 경우 사이드바를 닫지 않음
     if (e.target.closest('.view-tab')) {
       return;
     }
@@ -131,7 +133,6 @@ function IntelligentTool() {
   const handleTabClose = (docnoToClose) => {
     const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
     setOpenFiles(newOpenFiles);
-
     if (activeFileId === docnoToClose) {
       if (newOpenFiles.length > 0) {
         setActiveFileId(newOpenFiles[newOpenFiles.length - 1].DOCNO);
@@ -173,18 +174,19 @@ function IntelligentTool() {
                                 onNodeToggle={handleNodeToggle}
                              />,
     },
-    {
-      id: "searchDrawing",
-      label: "도면상세검색",
-      content: () => <NotImplemented />,
-    },
-    {
-      id: "searchEquipment",
-      label: "설비상세검색",
-      content: () => <NotImplemented />,
-    },
+    { id: "searchDrawing", label: "도면상세검색", content: () => <NotImplemented /> },
+    { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },
   ];
 
+  const setInitialExpand = (tree) => {
+    if (tree && tree.length > 0) {
+      const idsToExpand = collectIdsToLevel(tree, DEFAULT_EXPAND_LEVEL);
+      setExpandedNodes(new Set(idsToExpand));
+    } else {
+      setExpandedNodes(new Set());
+    }
+  };
+  
   useEffect(() => {
     setActiveMenuItem(null);
   }, [activeTab]);
@@ -204,14 +206,16 @@ function IntelligentTool() {
     };
     checkUserAccess();
   }, []);
-
+  
   useEffect(() => {
     const fetchDocumentTree = async () => {
         setDocumentsLoading(true);
         try {
             const response = await fetch("http://localhost:4000/folders");
             const data = await response.json();
-            setDocumentTree(buildTree(data));
+            const treeData = buildTree(data);
+            setDocumentTree(treeData);
+            setInitialExpand(treeData);
         } catch (err) {
             console.error("Fetch error:", err);
             setDocumentTree([]);
@@ -222,23 +226,23 @@ function IntelligentTool() {
     fetchDocumentTree();
   }, []);
 
+  // ★★★★★ 수정된 핵심 로직 ★★★★★
   useEffect(() => {
-    if (!activeFileId || documentTree.length === 0) return;
+    // 활성 파일이 없으면 초기 상태로 되돌림 (모든 탭 닫혔을 때)
+    if (!activeFileId) {
+      setInitialExpand(documentTree);
+      return;
+    }
 
-    const path = findPathToNode(documentTree, activeFileId);
-    if (path.length > 0) {
-      // Set a new Set with only the path to the current active file
-      const newExpanded = new Set(path.slice(0, -1));
-      setExpandedNodes(newExpanded);
+    // 활성 파일이 있고, 트리 데이터가 있을 때 경로를 찾아서 펼침
+    if (documentTree.length > 0) {
+      const path = findPathToNode(documentTree, activeFileId);
+      if (path.length > 0) {
+        const pathToExpand = new Set(path.slice(0, -1));
+        setExpandedNodes(pathToExpand);
+      }
     }
   }, [activeFileId, documentTree]);
-
-  // 열려있는 파일이 없으면 도면 목록 상태를 초기화합니다.
-  useEffect(() => {
-    if (openFiles.length === 0) {
-      setExpandedNodes(new Set());
-    }
-  }, [openFiles]);
 
   if (loading) {
     return (
@@ -253,9 +257,7 @@ function IntelligentTool() {
   const showEquipmentsPanel = activeMenuItem === 'equipments';
   const showBookmarkPanel = activeMenuItem === 'bookmark';
   const showMyDocsPanel = activeMenuItem === 'mydocs';
-
   const isPanelOpen = showSearchPanel || showEquipmentsPanel || showBookmarkPanel || showMyDocsPanel;
-
 
   return (
     <div className="tool-page-layout">

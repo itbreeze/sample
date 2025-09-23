@@ -1,4 +1,3 @@
-
 require('dotenv').config();
 const express = require("express");
 const router = express.Router();
@@ -7,12 +6,8 @@ const path = require("path");
 const fs = require("fs");
 const { execSync } = require('child_process');
 
-
-
 const VIEWER_FOLDER = path.resolve(process.env.VIEWER_DOC_FOLDER);
 const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);
-
-
 
 router.get("/", async (req, res) => {
   try {
@@ -21,9 +16,9 @@ router.get("/", async (req, res) => {
         FD.FOLID     AS "ID",
         FD.FOLPT     AS "PARENTID",
         FD.FOLNM     AS "NAME",
-        NULL         AS "DOCNAME",  -- DOC 전용 값은 NULL
-        NULL         AS "DOCNUM",   -- DOC 전용 값은 NULL
-        NULL         AS "DOCVR",    -- DOC 전용 값은 NULL
+        NULL         AS "DOCNAME",
+        NULL         AS "DOCNUM",
+        NULL         AS "DOCVR",
         'FOLDER'     AS "TYPE",
         FD.PLANTCODE AS "PLANTCODE"
       FROM IDS_FOLDER FD
@@ -35,9 +30,9 @@ router.get("/", async (req, res) => {
         D.DOCNO     AS "ID",
         D.FOLID     AS "PARENTID",
         NULL        AS "NAME",       
-        D.DOCNM     AS "DOCNAME",    -- DOC 전용
-        D.DOCNUMBER AS "DOCNUM",     -- DOC 전용
-        D.DOCVR     AS "DOCVR",      -- DOC 전용
+        D.DOCNM     AS "DOCNAME",
+        D.DOCNUMBER AS "DOCNUM",
+        D.DOCVR     AS "DOCVR",
         'DOC'       AS "TYPE",
         D.PLANTCODE AS "PLANTCODE"
       FROM IDS_DOC D
@@ -54,14 +49,16 @@ router.get("/", async (req, res) => {
 
 
 router.post("/selectDocument", async (req, res) => {
-
   const { docId, docVr } = req.body;
-  
   let tmpFile;
 
   try {
-    const sql = `SELECT DOCNO,DOCNM,DOCNUMBER,DOCVR,REGDT,REGID,USERID,PLANTCODE,ISPSM,DOCCT 
-                 FROM IDS_DOC WHERE DOCNO = :docId AND DOCVR = :docVr`;
+    const sql = `SELECT S.PLANTNM,F.HOGI_GUBUN,D.DOCNO,D.DOCNM,D.DOCNUMBER,D.DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
+                 FROM IDS_DOC D LEFT JOIN IDS_SITE S
+                   ON D.PLANTCODE=S.PLANTCODE
+                   LEFT JOIN IDS_FOLDER F
+                   ON D.FOLID=F.FOLID
+                   WHERE S.FOLDER_TYPE='003' AND D.CURRENT_YN='001' AND D.DOCNO = :docId AND D.DOCVR = :docVr`;
     const results = await oracleClient.executeQuery(sql, [docId, docVr]);
 
     if (!results.length)
@@ -75,15 +72,15 @@ router.post("/selectDocument", async (req, res) => {
     tmpFile = path.join(VIEWER_FOLDER, `${hostFile}.dwg`);
     const outputPath = path.join(VIEWER_FOLDER, `${hostFile}.vsfx`);
 
-    // LOB → Buffer 저장
     const buffer = await doc.DOCCT.getData();
     fs.writeFileSync(tmpFile, buffer);
 
-    // FileConverter 실행
     const cmdLine = `"${CONVERTER_PATH}" "${tmpFile}" "${outputPath}" --multithreading=true`;
     execSync(cmdLine, { stdio: "ignore" });
 
     const docResponse = {
+      PLANTNM:doc.PLANTNM,
+      UNIT:doc.HOGI_GUBUN,
       DOCNO: doc.DOCNO,
       DOCNM: doc.DOCNM,
       DOCNUMBER: doc.DOCNUMBER,
@@ -110,7 +107,5 @@ router.post("/selectDocument", async (req, res) => {
     }
   }
 });
-
-
 
 module.exports = router;

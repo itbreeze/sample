@@ -1,12 +1,9 @@
-/* src/components/ResizablePanel.css */
-
-/* 패널 컨테이너 스타일 */
 .resizable-panel-container {
   position: relative;
   display: flex;
   flex-shrink: 0;
   background-color: var(--background-color);
-  overflow: visible; /* 핸들과 툴팁이 잘리지 않도록 visible로 설정 */
+  overflow: visible;
   border-right: 1px solid var(--border-color);
   z-index: 10;
 }
@@ -18,17 +15,14 @@
   display: flex;
 }
 
-/* 툴팁과 핸들을 감싸는 위치 지정용 래퍼 */
 .panel-resizer-wrapper {
   position: absolute;
   top: 50%;
   left: 100%;
   transform: translate(-50%, -50%);
   z-index: 20;
-  /* Tooltip 컨테이너가 inline-block이므로, 래퍼 자체는 크기를 가질 필요가 없습니다. */
 }
 
-/* 핸들 자체의 시각적 스타일 (위치 관련 속성 없음) */
 .panel-resizer-handle {
   width: 24px;
   height: 70px;
@@ -48,7 +42,6 @@
   color: var(--primary-color);
 }
 
-/* 태블릿 및 작은 PC 화면을 위한 반응형 스타일 */
 @media (max-width: 1024px) {
   .panel-resizer-handle {
     width: 22px;

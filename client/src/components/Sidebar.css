@@ -1,4 +1,3 @@
-/* src/components/Sidebar.css */
 .content-wrapper {
   display: flex;
   flex-grow: 1;
@@ -15,7 +14,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  transition: none; /* Animation removed */
+  transition: none;
 }
 
 .sidebar-panel-container {
@@ -24,7 +23,7 @@
   background-color: var(--background-color);
   border-right: 1px solid var(--border-color);
   overflow: visible;
-  transition: none; /* Animation removed */
+  transition: none;
 }
 
 .sidebar-toggle,
@@ -38,7 +37,7 @@
   position: relative;
   cursor: pointer;
   box-sizing: border-box;
-  transition: none; /* Animation removed */
+  transition: none;
 }
 
 .sidebar-toggle {
@@ -59,7 +58,7 @@
 .menu-label {
   display: inline-block;
   margin-left: 12px;
-  transition: none; /* Animation removed */
+  transition: none;
   white-space: nowrap;
   overflow: hidden;
 }

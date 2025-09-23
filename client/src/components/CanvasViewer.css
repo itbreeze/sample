@@ -1,5 +1,4 @@
-/* 뷰어 전체 컨테이너 스타일 */
-.canvas-viewer-container { /* ◀ 클래스명 변경 */
+.canvas-viewer-container {
   width: 100%;
   height: 100%;
   background-color: var(--background-color);
@@ -9,14 +8,14 @@
   overflow: hidden;
 }
 
-/* --- 이하 스타일은 이전과 동일 --- */
 .view-tabs-container {
   display: flex;
   flex-shrink: 0;
   background-color: var(--background-color-secondary);
-  padding-left: 10px;
+  padding-left: 0px;
   border-bottom: 1px solid var(--border-color-dark);
 }
+
 .view-tab {
   position: relative;
   display: flex;
@@ -28,43 +27,56 @@
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   cursor: pointer;
-  min-width: 150px;
-  max-width: 150px;
+  min-width: 10px;
+  width: 250px;
   font-size: 13px;
   color: #495057;
 }
+
 .view-tab.active {
   background-color: var(--background-color);
   color: #000;
   z-index: 2;
   border-bottom-color: var(--background-color);
 }
+
 .view-tab:not(.active):hover {
   background-color: var(--hover-background-color-dark);
 }
-.tab-title {
+
+.tab-title {  
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-right: 8px;
 }
+
 .close-tab-btn {
-  background: none; border: none; cursor: pointer;
-  padding: 2px; margin-left: auto; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-color-secondary);
 }
+
 .close-tab-btn:hover {
   background-color: var(--border-color);
   color: #212529;
 }
+
 .viewer-content-area {
-  position: relative; 
+  position: relative;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
+
 .viewer-header {
   flex-shrink: 0;
   padding: 8px 12px;
@@ -88,7 +100,7 @@
   position: absolute;
   top: 45px;
   right: 25px;
-  z-index: 10;  
+  z-index: 10;
   background: none;
   border: none;
   cursor: pointer;
@@ -97,7 +109,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ccc; 
+  color: #ccc;
 }
 
 .viewer-close-btn:hover {

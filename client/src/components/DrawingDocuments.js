@@ -1,14 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { FolderOpen, FolderClosed, FileText } from "lucide-react";
 import "./DrawingDocuments.css";
 
-// --- Helper Functions (컴포넌트 외부에 정의) ---
-
-/**
- * 특정 노드 하위의 모든 문서(DOC) 개수를 재귀적으로 계산합니다.
- * @param {object} node - 트리 노드
- * @returns {number} - 문서 개수
- */
 const countDocs = (node) => {
   let count = node.TYPE === "DOC" ? 1 : 0;
   if (node.CHILDREN && node.CHILDREN.length > 0) {
@@ -17,12 +10,6 @@ const countDocs = (node) => {
   return count;
 };
 
-/**
- * 트리를 필터링하고 빈 폴더를 제거하는 재귀 함수
- * @param {Array} nodes - 필터링할 노드 배열
- * @param {string} filter - 필터 종류 ('All', 'DrawingName', 'DrawingNumber')
- * @returns {Array} - 필터링된 트리 데이터
- */
 const filterTree = (nodes, filter) => {
   if (filter === 'All' || !nodes) return nodes;
 
@@ -43,27 +30,12 @@ const filterTree = (nodes, filter) => {
   }, []);
 };
 
-
-// --- TreeNode Component ---
-
 const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNodes, onNodeToggle }) => {
   const nodeRef = useRef(null);
   const isExpanded = expandedNodes.has(node.ID);
   const hasChildren = node.CHILDREN && node.CHILDREN.length > 0;
   const docCount = countDocs(node);
-
-  // 현재 노드가 활성화된 파일인지 확인
   const isActive = node.ID === activeFileId;
-
-  // 활성화된 파일이 변경될 때 스크롤을 해당 위치로 이동
-  useEffect(() => {
-    if (isActive && nodeRef.current) {
-      nodeRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }
-  }, [isActive]);
 
   let displayName = "";
   if (node.TYPE === "DOC") {
@@ -89,7 +61,6 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
     }
   };
 
-  // 활성화된 탭만 하이라이트하도록 클래스명 수정
   const headerClasses = [
     'tree-node-header',
     isActive ? 'active' : '',
@@ -141,9 +112,6 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
     </li>
   );
 };
-
-
-// --- Main Component ---
 
 const DrawingDocuments = ({ filter, onFileSelect, tree, loading, activeFileId, expandedNodes, onNodeToggle }) => {
 

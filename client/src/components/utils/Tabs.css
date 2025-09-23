@@ -1,4 +1,3 @@
-/* src/components/utils/Tabs.css */
 .tab-list {
   display: flex;
   white-space: nowrap;
@@ -11,6 +10,6 @@
   font-weight: 500;
   color: var(--text-color-primary);
   cursor: pointer;
-  transition: none; /* Animation removed */
+  transition: none;
   overflow: hidden;
 }

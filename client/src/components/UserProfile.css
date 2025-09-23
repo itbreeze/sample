@@ -1,4 +1,3 @@
-/* src/components/UserProfile.css */
 .user-profile-container {
   display: none;
   align-items: center;
@@ -28,7 +27,7 @@
   white-space: nowrap;
   opacity: 0;
   max-width: 0;
-  transition: none; /* Animation removed */
+  transition: none;
 }
 
 .user-profile-container.open .user-info {
