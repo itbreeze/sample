@@ -216,14 +216,22 @@ const ViewerContainer = ({
       {/* 🔹 뷰어 영역 */}
       <div ref={contentAreaRef} className="viewer-content-area">
         {activeFile ? (
-          <DwgDisplay
-            key={activeFile.DOCNO}
-            filePath={activeFile.tmpFile}
-            initialViewState={viewStates[activeFile.DOCNO]} // 메모리에서만 복원
-            onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
-            onViewerReady={handleViewerReady}
-            viewerSize={viewerSize}
-          />
+          <>
+            {/* 뷰어 헤더 추가 */}
+            <div className="viewer-header">
+              <h2 className="viewer-title">
+                {`${activeFile.PLANTNM} / ${activeFile.UNIT}호기 / [${activeFile.DOCNUMBER}] ${activeFile.DOCNM}`}
+              </h2>
+            </div>
+            <DwgDisplay
+              key={activeFile.DOCNO}
+              filePath={activeFile.tmpFile}
+              initialViewState={viewStates[activeFile.DOCNO]}
+              onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
+              onViewerReady={handleViewerReady}
+              viewerSize={viewerSize}
+            />
+          </>
         ) : (
           <div className="initial-view-content">
             <p>표시할 도면을 선택해주세요.</p>
