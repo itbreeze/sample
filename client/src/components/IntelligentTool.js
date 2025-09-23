@@ -15,7 +15,7 @@ axios.defaults.withCredentials = true;
 
 // --- 설정 변수 ---
 // -1: 모두 접기, 0: 최상위(레벨 0)만 펼침, 1: 2레벨까지 펼침, ...
-const DEFAULT_EXPAND_LEVEL = 0; 
+const DEFAULT_EXPAND_LEVEL = 0;
 
 // --- Helper Functions ---
 const buildTree = (items) => {
@@ -70,7 +70,7 @@ const tabItems = [
     { id: 'sample03', label: '지능화 승계' },
     { id: 'pld', label: 'PLD' },
 ];
-  
+
 const sidebarMenus = {
     drawing: [
       { id: 'search', icon: <Search size={20} />, label: '상세검색' },
@@ -92,6 +92,22 @@ const equipmentTabs = [
     { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },
 ];
 
+// --- resize 이벤트 트리거 함수 ---
+const triggerResize = () => {
+  // document.getElementById 또는 ref 체크
+  const viewerContainer = document.getElementById("viewer-container");
+  if (!viewerContainer) return; // ✅ Canvas나 뷰어가 없으면 종료
+
+  let resizeEvent;
+  if (typeof Event === "function") {
+    resizeEvent = new Event("resize");
+  } else {
+    resizeEvent = document.createEvent("Event");
+    resizeEvent.initEvent("resize", true, true);
+  }
+  window.dispatchEvent(resizeEvent);
+};
+
 function IntelligentTool() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -109,7 +125,7 @@ function IntelligentTool() {
     setIsSidebarOpen(false);
     setActiveMenuItem(null);
   };
-  
+
   const handleMainViewClick = (e) => {
     if (e.target.closest('.view-tab')) {
       return;
@@ -147,7 +163,7 @@ function IntelligentTool() {
     setOpenFiles(newFiles);
     setActiveFileId(draggedFileId);
   };
-  
+
   const handleNodeToggle = (nodeId) => {
     setExpandedNodes(prev => {
         const newSet = new Set(prev);
@@ -164,8 +180,8 @@ function IntelligentTool() {
     {
       id: "documentList",
       label: "도면목록",
-      content: (filter) => <DrawingDocuments 
-                                filter={filter} 
+      content: (filter) => <DrawingDocuments
+                                filter={filter}
                                 onFileSelect={handleFileSelect}
                                 tree={documentTree}
                                 loading={documentsLoading}
@@ -186,7 +202,7 @@ function IntelligentTool() {
       setExpandedNodes(new Set());
     }
   };
-  
+
   useEffect(() => {
     setActiveMenuItem(null);
   }, [activeTab]);
@@ -206,7 +222,7 @@ function IntelligentTool() {
     };
     checkUserAccess();
   }, []);
-  
+
   useEffect(() => {
     const fetchDocumentTree = async () => {
         setDocumentsLoading(true);
@@ -228,13 +244,11 @@ function IntelligentTool() {
 
   // ★★★★★ 수정된 핵심 로직 ★★★★★
   useEffect(() => {
-    // 활성 파일이 없으면 초기 상태로 되돌림 (모든 탭 닫혔을 때)
     if (!activeFileId) {
       setInitialExpand(documentTree);
       return;
     }
 
-    // 활성 파일이 있고, 트리 데이터가 있을 때 경로를 찾아서 펼침
     if (documentTree.length > 0) {
       const path = findPathToNode(documentTree, activeFileId);
       if (path.length > 0) {
@@ -243,6 +257,16 @@ function IntelligentTool() {
       }
     }
   }, [activeFileId, documentTree]);
+
+  // 패널/사이드바 열림 시 resize 이벤트 트리거
+ useEffect(() => {
+  if (!isFileLoaded) return; // ✅ 파일이 로드되어야 실행
+  const timer = setTimeout(() => {
+    triggerResize();
+  }, 150);
+
+  return () => clearTimeout(timer);
+}, [isSidebarOpen, activeMenuItem, isFileLoaded]);
 
   if (loading) {
     return (

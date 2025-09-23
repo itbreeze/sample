@@ -35,7 +35,7 @@ app.use(cookieParser());
 // 정적 파일 제공 (viewer_doc 폴더)
 app.use(
   '/viewer_doc',
-  express.static(path.join(__dirname, '..', 'viewer_doc'))
+  express.static(path.join(__dirname, 'viewer_doc')) 
 );
 
 // API 라우터 연결

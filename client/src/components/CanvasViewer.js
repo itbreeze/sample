@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { X as CloseIcon, MoreHorizontal } from 'lucide-react'; // MoreHorizontal 아이콘 추가
 import './CanvasViewer.css';
 import TabListModal from './TabListModal'; // 모달 컴포넌트 import
+import ViewerCanvas from './viewer/ViewerCanvas'; // 👈 1. 새로 만든 뷰어 컴포넌트 import
 
 const MAX_VISIBLE_TABS = 5; // 화면에 보여질 최대 탭 수
 
@@ -116,22 +117,7 @@ const CanvasViewer = ({ openFiles = [], activeFileId, onTabClick, onTabClose, on
 
       <div className="viewer-content-area">
         {activeFile ? (
-          <>
-            <div className="viewer-header">
-              <h3 className="viewer-title">{activeFile.PLANTNM}/{activeFile.UNIT}호기 [{activeFile.DOCNUMBER}]{activeFile.DOCNM}</h3>
-              <button
-                className="viewer-close-btn"
-                onClick={() => onTabClose(activeFile.DOCNO)}
-                title="Close"
-              >
-                <CloseIcon size={18} />
-              </button>
-            </div>
-            {/* 현재는 파일 데이터를 JSON으로 표시 */}
-            <pre className="server-response-view">
-              {JSON.stringify(activeFile, null, 2)}
-            </pre>
-          </>
+          <ViewerCanvas key={activeFile.DOCNO} filePath={activeFile.tmpFile} />
         ) : (
           <div className="initial-view-content">
             <p>표시할 도면을 선택해주세요.</p>
