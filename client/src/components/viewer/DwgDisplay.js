@@ -1,5 +1,8 @@
+// client/src/components/viewer/DwgDisplay.js
+
 import React, { useEffect, useRef, useState } from 'react';
 import './DwgDisplay.css';
+import { attachWheelZoom, attachPan, attachClickInfo } from './viewerControls';
 
 const fileCache = new Map();
 
@@ -11,12 +14,6 @@ const initializeVisualizeJS = async () => {
     return await window.getVisualizeLibInst({
         TOTAL_MEMORY: 200 * 1024 * 1024,
         urlMemFile: wasmUrl,
-        onprogress: (info) => {
-            if (info.total > 0) {
-                const percent = Math.floor((info.loaded / info.total) * 100);
-                console.log(`VisualizeJS 로딩: ${percent}%`);
-            }
-        },
     });
 };
 
@@ -25,16 +22,12 @@ const createViewer = async (lib, canvas) => {
         lib.postRun.push(async () => {
             try {
                 if (!canvas) throw new Error("Canvas element not available for viewer creation.");
-                
                 const dpr = window.devicePixelRatio || 1;
                 canvas.width = canvas.clientWidth * dpr;
                 canvas.height = canvas.clientHeight * dpr;
                 lib.canvas = canvas;
-
                 lib.Viewer.initRender(canvas.width, canvas.height, true);
-                
                 const viewer = lib.Viewer.create();
-                
                 resolve(viewer);
             } catch (err) {
                 reject(err);
@@ -43,161 +36,57 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
-    if (!viewer || !canvas) return () => {};
-    const onWheel = (event) => {
-        event.preventDefault();
-        const delta = event.deltaY;
-        const rect = canvas.getBoundingClientRect();
-        const x1 = event.clientX - rect.left;
-        const y1 = event.clientY - rect.top;
+const getCurrentViewState = (viewer) => {
+    if (!viewer) return null;
+    const view = viewer.activeView;
+    if (!view) return null;
 
-        if (viewer.zoomAt) {
-            viewer.zoomAt(delta > 0 ? 1 / zoomFactor : zoomFactor, x1, y1);
-            viewer.update();
-        }
-    };
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', onWheel);
-};
-
-const attachPan = (viewer, canvas) => {
-    if (!viewer || !canvas) return () => {};
-    let isPanning = false;
-    let lastMouseX = 0, lastMouseY = 0;
-    const defaultCursor = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\"><rect width=\"16\" height=\"16\" fill=\"none\" stroke=\"black\" stroke-width=\"2\"/></svg>') 8 8, auto";
-    canvas.style.cursor = defaultCursor;
-    const onMouseDown = (event) => {
-        if (event.button === 1) { // Middle mouse button
-            event.preventDefault();
-            isPanning = true;
-            lastMouseX = event.clientX;
-            lastMouseY = event.clientY;
-            canvas.style.cursor = 'grab';
-        }
-    };
-    const onMouseMove = (event) => {
-        if (!isPanning) return;
-        const deltaX = event.clientX - lastMouseX;
-        const deltaY = event.clientY - lastMouseY;
-        viewer.pan?.(deltaX, deltaY);
-        viewer.update?.();
-        lastMouseX = event.clientX;
-        lastMouseY = event.clientY;
-    };
-    const onMouseUpOrLeave = () => {
-        isPanning = false;
-        canvas.style.cursor = defaultCursor;
-    };
-    canvas.addEventListener('mousedown', onMouseDown);
-    canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('mouseup', onMouseUpOrLeave);
-    canvas.addEventListener('mouseleave', onMouseUpOrLeave);
-    window.addEventListener('mouseup', onMouseUpOrLeave);
-    return () => {
-        if (canvas) {
-            canvas.removeEventListener('mousedown', onMouseDown);
-            canvas.removeEventListener('mousemove', onMouseMove);
-            canvas.removeEventListener('mouseup', onMouseUpOrLeave);
-            canvas.removeEventListener('mouseleave', onMouseUpOrLeave);
-        }
-        window.removeEventListener('mouseup', onMouseUpOrLeave);
-    };
-};
-
-function makeDxfList(entityId) {
-    if (!entityId) return null;
-    let obj = null;
-    let objName = "Unknown";
-    const type = entityId.getType();
-    switch (type) {
-        case 1: objName = 'ENTITY'; obj = entityId.openObject(); break;
-        case 2: objName = 'INSERT'; obj = entityId.openObjectAsInsert(); break;
-        default: break;
+    if (view.position && view.target && view.upVector) {
+        const viewParams = {
+            position: view.position.toArray(),
+            target: view.target.toArray(),
+            upVector: view.upVector.toArray(),
+            fieldWidth: view.fieldWidth,
+            fieldHeight: view.fieldHeight,
+            projection: view.projection,
+        };
+        view.delete();
+        return viewParams;
     }
-    if (!obj) return { object: objName, handle: null };
-    return {
-        object: objName,
-        layer: obj.getLayer().openObject().getName(),
-        handle: obj.getNativeDatabaseHandle()
-    };
-}
-
-const attachClickInfo = (viewer, canvas) => {
-    if (!viewer || !canvas) return () => {};
-    const onClick = (event) => {
-        const rect = canvas.getBoundingClientRect();
-        const x1 = event.clientX - rect.left;
-        const y1 = event.clientY - rect.top;
-        try {
-            viewer.unselect?.();
-            viewer.select?.(x1, y1, x1 + 0.2, y1 + 0.2);
-            viewer.update?.();
-            const pSelected = viewer.getSelected?.();
-            if (pSelected && !pSelected.isNull() && pSelected.numItems() !== 0) {
-                const itr = pSelected.getIterator();
-                while (itr && !itr.done()) {
-                    const entityId = itr.getEntity();
-                    if (entityId && !entityId.isNull?.()) {
-                        console.log(makeDxfList(entityId));
-                    }
-                    itr.step();
-                }
-            } else {
-                console.log("선택된 객체 없음");
-            }
-        } catch (err) {
-            console.error("attachClickInfo 오류:", err);
-        }
-    };
-    canvas.addEventListener("click", onClick);
-    return () => canvas.removeEventListener("click", onClick);
+    
+    view.delete();
+    return null;
 };
 
-function resizeCanvas(viewer, canvas, container) {
-    if (!viewer || !canvas || !container) return;
-    try {
-        const width = container.clientWidth;
-        const height = container.clientHeight;
-        const dpr = window.devicePixelRatio || 1;
-        if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            viewer.resize?.(0, canvas.width, canvas.height, 0);
-        }
-        viewer.update?.();
-    } catch (error) {
-        console.error("Canvas 리사이즈 중 오류 발생:", error);
-    }
-}
-
-const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onReady }) => {
-    const containerRef = useRef(null);
+// --- React Component ---
+const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, viewerSize }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
+    const isInitialZoomDone = useRef(false);
+    
     const [errorMessage, setErrorMessage] = useState(null);
-    const [isDrawingLoading, setIsDrawingLoading] = useState(true);
+    const [isViewerReady, setIsViewerReady] = useState(false);
+    const [isCanvasVisible, setIsCanvasVisible] = useState(false);
 
     useEffect(() => {
         if (!filePath) return;
 
         let isMounted = true;
-        let handleResize = null;
-        let cleanupFunctions = [];
+        
+        setIsViewerReady(false);
+        setIsCanvasVisible(false);
 
         const init = async () => {
+            let cleanupFunctions = [];
             try {
-                setIsDrawingLoading(true);
-                if (!isMounted || !canvasRef.current || !containerRef.current) return;
+                isInitialZoomDone.current = false;
+                if (!isMounted || !canvasRef.current) return;
                 
                 const libInstance = await initializeVisualizeJS();
-                if (!isMounted || !canvasRef.current) return;
+                if (!isMounted) return;
 
                 const viewerInstance = await createViewer(libInstance, canvasRef.current);
-                if (!isMounted) {
-                    viewerInstance?.destroy();
-                    return;
-                }
+                if (!isMounted) { viewerInstance?.destroy(); return; }
                 viewerRef.current = viewerInstance;
 
                 let arrayBuffer;
@@ -206,54 +95,40 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onReady }) 
                 } else {
                     const response = await fetch(filePath);
                     if (!response.ok) throw new Error('VSFX 파일 불러오기 실패');
-                    const blob = await response.blob();
-                    arrayBuffer = await blob.arrayBuffer();
+                    arrayBuffer = await response.arrayBuffer();
                     fileCache.set(filePath, arrayBuffer);
                 }
 
                 if (!isMounted) return;
 
-                if (viewerRef.current.clear) viewerRef.current.clear();
                 await viewerRef.current.parseVsfx(arrayBuffer);
                 
                 viewerRef.current.setEnableSceneGraph(true);
-                viewerRef.current.setExperimentalFunctionalityFlag('gpu_select', false);
                 viewerRef.current.setEnableAnimation(false);
                 
-                resizeCanvas(viewerRef.current, canvasRef.current, containerRef.current);
+                cleanupFunctions.push(attachWheelZoom(viewerRef.current, canvasRef.current) || (() => {}));
+                cleanupFunctions.push(attachPan(viewerRef.current, canvasRef.current) || (() => {}));
+                cleanupFunctions.push(attachClickInfo(viewerRef.current, canvasRef.current) || (() => {}));
 
-                if (initialViewState && viewerRef.current.setView) {
-                    viewerRef.current.setView(initialViewState);
-                } else {
-                    viewerRef.current.zoomExtents();
-                }
-
-                if (onReady) onReady(filePath);
-
-                cleanupFunctions.push(attachWheelZoom(viewerRef.current, canvasRef.current));
-                cleanupFunctions.push(attachPan(viewerRef.current, canvasRef.current));
-                cleanupFunctions.push(attachClickInfo(viewerRef.current, canvasRef.current));
-
-                handleResize = () => resizeCanvas(viewerRef.current, canvasRef.current, containerRef.current);
-                window.addEventListener('resize', handleResize);
-
+                setIsViewerReady(true);
             } catch (err) {
-                if (isMounted) {
-                    console.error(err);
-                    setErrorMessage(err.message);
-                }
-            } finally {
-                if(isMounted) {
-                    setIsDrawingLoading(false);
-                }
+                if (isMounted) setErrorMessage(err.message);
             }
+            
+            return cleanupFunctions;
         };
-
+        
+        let activeCleanups = [];
         const scriptId = 'visualize-script';
         let script = document.getElementById(scriptId);
-
-        const handleScriptLoad = () => init().catch(console.error);
-
+        const handleScriptLoad = () => {
+            init().then(cleanups => {
+                if (isMounted) {
+                    activeCleanups = cleanups;
+                }
+            }).catch(console.error);
+        };
+        
         if (!script) {
             script = document.createElement('script');
             script.id = scriptId;
@@ -270,16 +145,14 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onReady }) 
         
         return () => {
             isMounted = false;
-            if (handleResize) {
-                window.removeEventListener('resize', handleResize);
-            }
-            cleanupFunctions.forEach(cleanup => cleanup());
+            activeCleanups.forEach(cleanup => cleanup());
             if (viewerRef.current) {
-                if (onViewStateChange && typeof viewerRef.current.getView === 'function') {
-                    const currentView = viewerRef.current.getView();
-                    onViewStateChange(currentView);
+                if (onViewStateChange) {
+                    const lastState = getCurrentViewState(viewerRef.current);
+                    if (lastState) {
+                        onViewStateChange(lastState);
+                    }
                 }
-
                 viewerRef.current.destroy?.();
                 viewerRef.current = null;
             }
@@ -287,16 +160,61 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onReady }) 
                 script.removeEventListener('load', handleScriptLoad);
             }
         };
-    }, [filePath, onReady, initialViewState, onViewStateChange]);
+    }, [filePath, onViewStateChange]);
+
+    useEffect(() => {
+        const viewer = viewerRef.current;
+        const canvas = canvasRef.current;
+        
+        if (!isViewerReady || !viewer || !canvas || viewerSize.width === 0 || viewerSize.height === 0) {
+            return;
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+        const newWidth = Math.floor(viewerSize.width * dpr);
+        const newHeight = Math.floor(viewerSize.height * dpr);
+
+        if (canvas.width !== newWidth || canvas.height !== newHeight) {
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            viewer.resize?.(0, newWidth, newHeight, 0);
+        }
+        
+        if (!isInitialZoomDone.current) {
+            if (initialViewState) {
+                const view = viewer.activeView;
+                if (view) {
+                    if (initialViewState.position && initialViewState.target && initialViewState.upVector) {
+                        view.setView(
+                            initialViewState.position,
+                            initialViewState.target,
+                            initialViewState.upVector,
+                            initialViewState.fieldWidth,
+                            initialViewState.fieldHeight,
+                            initialViewState.projection
+                        );
+                    }
+                    view.delete();
+                }
+            } else {
+                viewer.zoomExtents?.();
+            }
+            isInitialZoomDone.current = true;
+            
+            requestAnimationFrame(() => setIsCanvasVisible(true));
+        }
+        
+        viewer.update?.();
+    }, [viewerSize, isViewerReady, initialViewState]);
 
     return (
-        <div ref={containerRef} className="viewer-app-container">
-            {isDrawingLoading && (
+        <div className="viewer-app-container">
+            {!isCanvasVisible && (
                 <div className="loading-overlay">
                     <div className="spinner"></div>
                 </div>
             )}
-            <div className="viewer-canvas-container">
+            <div className="viewer-canvas-container" style={{ visibility: isCanvasVisible ? 'visible' : 'hidden' }}>
                 <canvas ref={canvasRef} id="viewerCanvas" />
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
             </div>
@@ -304,4 +222,4 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onReady }) 
     );
 };
 
-export default DwgDisplay;
+export default React.memo(DwgDisplay);

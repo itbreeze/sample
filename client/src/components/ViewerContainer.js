@@ -1,4 +1,6 @@
-import React, { useRef, useState } from 'react';
+// src/components/ViewerContainer.js
+
+import React, { useRef, useState, useEffect } from 'react';
 import { X as CloseIcon, MoreHorizontal } from 'lucide-react';
 import './ViewerContainer.css';
 import TabListModal from './TabListModal';
@@ -11,6 +13,33 @@ const ViewerContainer = ({ openFiles = [], activeFileId, onTabClick, onTabClose,
   const dragOverItem = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const contentAreaRef = useRef(null);
+  const [viewerSize, setViewerSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (!entries || entries.length === 0) return;
+      const { width, height } = entries[0].contentRect;
+      setViewerSize(prevSize => {
+        if (prevSize.width !== width || prevSize.height !== height) {
+          return { width, height };
+        }
+        return prevSize;
+      });
+    });
+
+    if (contentAreaRef.current) {
+      resizeObserver.observe(contentAreaRef.current);
+    }
+
+    return () => {
+      if (contentAreaRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        resizeObserver.unobserve(contentAreaRef.current);
+      }
+    };
+  }, []);
 
   const handleDragStart = (e, file) => {
     dragItem.current = file;
@@ -108,13 +137,14 @@ const ViewerContainer = ({ openFiles = [], activeFileId, onTabClick, onTabClose,
         onCloseTab={onTabClose}
       />
 
-      <div className="viewer-content-area">
+      <div ref={contentAreaRef} className="viewer-content-area">
         {activeFile ? (
           <DwgDisplay
             key={activeFile.DOCNO}
             filePath={activeFile.tmpFile}
             initialViewState={viewStates[activeFile.DOCNO]}
             onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
+            viewerSize={viewerSize}
           />
         ) : (
           <div className="initial-view-content">
