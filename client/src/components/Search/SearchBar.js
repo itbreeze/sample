@@ -7,7 +7,7 @@ import { searchPreview } from '../../services/search';
 import { FileText, HardDrive } from 'lucide-react';
 import './Search.css';
 
-function SearchBar() {
+function SearchBar({ onSearch, onDocumentSelect }) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [activeChip, setActiveChip] = useState('도면');
   const [searchTerm, setSearchTerm] = useState('');
@@ -133,6 +133,31 @@ function SearchBar() {
     }
   };
 
+  // 🔹 미리보기 아이템 클릭 핸들러
+  const handlePreviewItemClick = async (result) => {
+    try {
+      if (onDocumentSelect) {
+        await onDocumentSelect(result);
+      }
+      // 검색창 닫기
+      setSearchExpanded(false);
+      setSearchTerm('');
+      setPreviewResults([]);
+      setShowPreview(false);
+    } catch (error) {
+      console.error('문서 선택 실패:', error);
+    }
+  };
+
+  // 🔹 전체 목록 보기 클릭 핸들러
+  const handleViewAllResults = () => {
+    if (onSearch && searchTerm.trim()) {
+      onSearch(activeChip, searchTerm);
+      // 검색창 닫기
+      setSearchExpanded(false);
+    }
+  };
+
   // 🔹 현재 chip의 placeholder 찾기
   const activeChipOption = chipOptions.find((chip) => chip.id === activeChip);
   const placeholderText = activeChipOption?.placeholder || '검색어를 입력하세요';
@@ -154,11 +179,13 @@ function SearchBar() {
         inputRef={searchInputRef}
       />
       <div className={`search-dropdown ${showPreview ? 'with-preview' : ''}`}>
-        <SearchChips
-          activeChip={activeChip}
-          onChipClick={handleChipClick}
-          chipOptions={chipOptions} // 🔹 props로 전달
-        />
+        <div className="search-actions">
+          <SearchChips
+            activeChip={activeChip}
+            onChipClick={handleChipClick}
+            chipOptions={chipOptions}
+          />
+        </div>
         <SearchPreview
           results={previewResults}
           searchTerm={searchTerm}
@@ -166,6 +193,8 @@ function SearchBar() {
           activeChip={activeChip}
           highlightText={highlightText}
           showPreview={showPreview}
+          onItemClick={handlePreviewItemClick}
+          onViewAllResults={handleViewAllResults}
         />
       </div>
     </div>

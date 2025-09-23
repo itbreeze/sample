@@ -5,8 +5,7 @@ import logo from '../assets/images/logo.png';
 import { Tabs } from './utils/Tabs';
 import SearchBar from './Search/SearchBar';
 
-// onLogoClick prop을 추가로 받도록 수정
-function Header({ tabItems, activeTab, setActiveTab, onLogoClick }) {
+function Header({ tabItems, activeTab, setActiveTab, onLogoClick, onSearch, onDocumentSelect }) {
   return (
     <header className="app-header">
       {/* 1. 로고 영역 - 클릭 이벤트를 추가하고 커서 스타일을 변경 */}
@@ -26,7 +25,10 @@ function Header({ tabItems, activeTab, setActiveTab, onLogoClick }) {
 
       {/* 3. 검색바 영역 Wrapper */}
       <div className="header-search-wrapper">
-        <SearchBar />
+        <SearchBar 
+          onSearch={onSearch}
+          onDocumentSelect={onDocumentSelect}
+        />
       </div>
     </header>
   );

@@ -173,3 +173,92 @@
     max-width: 30px;
   }
 }
+
+/* 기존 스타일 유지하고 아래 내용 추가 */
+
+.search-results-container {
+  width: 100%;
+  height: 100%;
+  background-color: var(--background-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.search-results-header {
+  padding: 12px 16px;
+  background-color: var(--background-color-light);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.search-results-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color-primary);
+}
+
+.search-results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.search-result-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: var(--background-color);
+  transition: background-color 0.2s ease;
+}
+
+.search-result-item:hover {
+  background-color: var(--hover-background-color);
+  border-color: var(--primary-color-border);
+}
+
+.result-main-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color-primary);
+  margin-bottom: 4px;
+}
+
+.result-icon {
+  color: var(--text-color-secondary);
+  flex-shrink: 0;
+}
+
+.result-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-sub-info {
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  padding-left: 24px; /* 아이콘 크기만큼 들여쓰기 */
+}
+
+/* 검색 결과가 없을 때 */
+.search-no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-color-secondary);
+  font-size: 14px;
+}
+
+.search-no-results .no-results-icon {
+  margin-bottom: 12px;
+  color: var(--text-color-secondary);
+}

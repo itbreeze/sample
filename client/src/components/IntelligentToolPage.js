@@ -148,6 +148,11 @@ function IntelligentToolPage() {
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
   
+  // 🔹 검색 관련 상태 추가
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  
   // 🔹 탭 전환 최적화를 위한 상태 추가
   const [isTabSwitching, setIsTabSwitching] = useState(false);
   const tabSwitchTimeoutRef = useRef(null);
@@ -156,6 +161,9 @@ function IntelligentToolPage() {
   const handleLogoClick = () => {
     setIsSidebarOpen(false);
     setActiveMenuItem(null);
+    // 검색 모드 해제
+    setIsSearchMode(false);
+    setSearchResults([]);
   };
 
   const handleMainViewClick = (e) => {
@@ -175,23 +183,102 @@ function IntelligentToolPage() {
     }));
   }, []);
 
-  const handleFileSelect = (file) => {
-    // 이미 열린 파일인지 확인
-    const existingFileIndex = openFiles.findIndex(f => f.DOCNO === file.DOCNO);
-
-    if (existingFileIndex !== -1) {
-      // 이미 열린 파일이라면 맨 앞으로 이동
-      const updatedFiles = [...openFiles];
-      const [existingFile] = updatedFiles.splice(existingFileIndex, 1);
-      updatedFiles.unshift(existingFile); // 맨 앞에 추가
-      setOpenFiles(updatedFiles);
-    } else {
-      // 새 파일이라면 맨 앞에 추가
-      setOpenFiles([file, ...openFiles]); // 맨 앞에 추가
+  // 🔹 검색 수행 핸들러 추가
+  const handleSearch = async (searchType, searchTerm) => {
+    if (!searchTerm.trim()) return;
+    
+    try {
+      setIsSearching(true);
+      const response = await fetch("http://localhost:4000/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ searchType, searchTerm })
+      });
+      
+      if (!response.ok) {
+        throw new Error('검색 요청 실패');
+      }
+      
+      const results = await response.json();
+      setSearchResults(results);
+      setIsSearchMode(true);
+      
+    } catch (error) {
+      console.error("검색 실패:", error);
+      alert("검색 중 오류가 발생했습니다.");
+    } finally {
+      setIsSearching(false);
     }
+  };
 
+  // 🔹 개선된 handleFileSelect 함수
+  const handleFileSelect = (file) => {
+    console.log('📂 handleFileSelect 호출됨:', file);
+    console.log('📂 현재 openFiles:', openFiles);
+    console.log('📂 현재 activeFileId:', activeFileId);
+    
+    // 🔹 함수형 업데이트로 최신 상태 기반 업데이트
+    setOpenFiles(prevOpenFiles => {
+      console.log('📂 이전 openFiles:', prevOpenFiles);
+      
+      const existingFileIndex = prevOpenFiles.findIndex(f => f.DOCNO === file.DOCNO);
+      console.log('📂 기존 파일 인덱스:', existingFileIndex);
+
+      let updatedFiles;
+      if (existingFileIndex !== -1) {
+        console.log('📂 기존 파일을 맨 앞으로 이동');
+        updatedFiles = [...prevOpenFiles];
+        const [existingFile] = updatedFiles.splice(existingFileIndex, 1);
+        updatedFiles.unshift(existingFile);
+      } else {
+        console.log('📂 새 파일을 맨 앞에 추가');
+        updatedFiles = [file, ...prevOpenFiles];
+      }
+      
+      console.log('📂 새 openFiles:', updatedFiles);
+      return updatedFiles;
+    });
+
+    // 🔹 다른 상태들도 업데이트
+    console.log('📂 새 activeFileId:', file.DOCNO);
     setActiveFileId(file.DOCNO);
     setIsFileLoaded(true);
+    setIsSearchMode(false);
+    setSearchResults([]);
+    
+    console.log('📂 모든 상태 업데이트 완료');
+  };
+
+  // 🔹 검색 결과 클릭 핸들러 수정
+  const handleSearchResultClick = async (result) => {
+    console.log('🔍 검색 결과 목록에서 선택된 결과:', result);
+    
+    try {
+      setIsSearching(true);
+      
+      // 서버에서 문서 정보 가져오기
+      const response = await fetch("http://localhost:4000/folders/selectDocument", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: result.DOCNO, docVr: result.DOCVR })
+      });
+      
+      if (!response.ok) {
+        throw new Error('문서를 불러올 수 없습니다.');
+      }
+      
+      const fileData = await response.json();
+      console.log('📁 검색 결과에서 받은 파일 데이터:', fileData);
+      
+      // 🔹 여기가 핵심: handleFileSelect 호출
+      handleFileSelect(fileData);
+      
+    } catch (error) {
+      console.error("검색 결과 클릭 처리 실패:", error);
+      alert("문서를 여는 중 오류가 발생했습니다.");
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // 🔹 개선된 탭 클릭 핸들러 (기존 기능 유지하되 최적화)
@@ -297,6 +384,22 @@ function IntelligentToolPage() {
     }
   };
 
+  // 🔹 파일 선택 후 상태 확인용 useEffect 추가
+  useEffect(() => {
+    if (activeFileId) {
+      console.log('✅ activeFileId 변경됨:', activeFileId);
+      console.log('✅ 현재 openFiles:', openFiles.map(f => ({ DOCNO: f.DOCNO, DOCNM: f.DOCNM })));
+      
+      // 해당 파일이 openFiles에 있는지 확인
+      const foundFile = openFiles.find(f => f.DOCNO === activeFileId);
+      if (foundFile) {
+        console.log('✅ 활성 파일 찾음:', foundFile.DOCNM);
+      } else {
+        console.error('❌ 활성 파일을 openFiles에서 찾을 수 없음');
+      }
+    }
+  }, [activeFileId, openFiles]);
+
   useEffect(() => {
     setActiveMenuItem(null);
   }, [activeTab]);
@@ -390,6 +493,41 @@ function IntelligentToolPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogoClick={handleLogoClick}
+        onSearch={handleSearch}
+        onDocumentSelect={async (result) => {
+          console.log('🔍 검색바에서 선택된 결과:', result);
+          
+          try {
+            setIsSearching(true);
+            
+            // 🔹 즉시 검색 모드 해제
+            setIsSearchMode(false);
+            setSearchResults([]);
+            
+            // 서버에서 문서 정보 가져오기
+            const response = await fetch("http://localhost:4000/folders/selectDocument", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ docId: result.DOCNO, docVr: result.DOCVR })
+            });
+            
+            if (!response.ok) {
+              throw new Error('문서를 불러올 수 없습니다.');
+            }
+            
+            const fileData = await response.json();
+            console.log('📁 받은 파일 데이터:', fileData);
+            
+            // 파일 열기
+            handleFileSelect(fileData);
+            
+          } catch (error) {
+            console.error("❌ 문서 선택 실패:", error);
+            alert(`문서를 여는 중 오류가 발생했습니다: ${error.message}`);
+          } finally {
+            setIsSearching(false);
+          }
+        }}
       />
       <div className="content-wrapper">
         <Sidebar
@@ -427,6 +565,11 @@ function IntelligentToolPage() {
           onViewStateChange={handleViewStateChange} // 기존 뷰 상태 변경 핸들러 유지
           onViewerReady={handleViewerReady} // 뷰어 준비 완료 콜백 추가
           isTabSwitching={isTabSwitching} // 탭 전환 상태 전달
+          // 🔹 검색 관련 props 추가
+          searchResults={searchResults}
+          isSearchMode={isSearchMode}
+          onSearchResultClick={handleSearchResultClick}
+          isSearching={isSearching}
         />
       </div>
     </div>
