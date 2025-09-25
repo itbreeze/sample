@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { FolderOpen, FolderClosed, FileText } from "lucide-react";
 import "./DrawingList.css";
+import api from '../services/api';
 
 const countDocs = (node) => {
   let count = node.TYPE === "DOC" ? 1 : 0;
@@ -41,6 +42,7 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
 
   // 🔹 활성 노드로 스크롤 효과 (세로만, 가로는 왼쪽 고정)
   useEffect(() => {
+    
     if (isActive && nodeRef.current) {
       // 약간의 지연을 두어 DOM 업데이트 완료 후 스크롤
       const scrollTimeout = setTimeout(() => {
@@ -80,20 +82,25 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
     displayName = node.NAME || "(No Name)";
   }
 
-  const handleClick = () => {
+const handleClick = async () => {
     if (node.TYPE === "DOC") {
-      fetch("http://localhost:4000/folders/selectDocument", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: node.ID, docVr: node.DOCVR })
-      })
-        .then(res => res.json())
-        .then(data => onFileSelect(data))
-        .catch(err => console.error("서버 전송 실패:", err));
+        try {
+            const response = await api.post('/documents/selectDocument', { 
+                docId: node.ID, 
+                docVr: node.DOCVR 
+            });
+            console.log(response.data)
+            
+            // axios는 자동으로 JSON을 파싱해주므로, response.data를 바로 사용합니다.
+            onFileSelect(response.data);
+
+        } catch (err) {
+            console.error("서버 전송 실패:", err);
+        }
     } else if (hasChildren) {
         onNodeToggle(node.ID);
     }
-  };
+};
 
   const headerClasses = [
     'tree-node-header',
