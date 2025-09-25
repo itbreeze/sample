@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { FolderOpen, FolderClosed, FileText } from "lucide-react";
 import "./DrawingList.css";
-import api from '../services/api';
+
 
 const countDocs = (node) => {
   let count = node.TYPE === "DOC" ? 1 : 0;
@@ -19,7 +19,7 @@ const filterTree = (nodes, filter) => {
   return nodes.reduce((acc, node) => {
     const filteredChildren = node.CHILDREN ? filterTree(node.CHILDREN, filter) : [];
     let isMatch = false;
-    
+
     if (node.TYPE === 'DOC') {
       if (filter === 'DrawingName' && node.DOCNAME) isMatch = true;
       if (filter === 'DrawingNumber' && node.DOCNUM) isMatch = true;
@@ -42,27 +42,27 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
 
   // 🔹 활성 노드로 스크롤 효과 (세로만, 가로는 왼쪽 고정)
   useEffect(() => {
-    
+
     if (isActive && nodeRef.current) {
       // 약간의 지연을 두어 DOM 업데이트 완료 후 스크롤
       const scrollTimeout = setTimeout(() => {
         // 🔹 부모 스크롤 컨테이너 찾기
-        const scrollContainer = nodeRef.current.closest('.panel.bottom') || 
-                              nodeRef.current.closest('[data-scroll-container]') ||
-                              nodeRef.current.parentElement;
-        
+        const scrollContainer = nodeRef.current.closest('.panel.bottom') ||
+          nodeRef.current.closest('[data-scroll-container]') ||
+          nodeRef.current.parentElement;
+
         if (scrollContainer) {
           const elementRect = nodeRef.current.getBoundingClientRect();
           const containerRect = scrollContainer.getBoundingClientRect();
-          
+
           // 🔹 세로 스크롤만 계산
           const elementTop = elementRect.top - containerRect.top + scrollContainer.scrollTop;
           const containerHeight = containerRect.height;
           const elementHeight = elementRect.height;
-          
+
           // 화면 중앙에 배치하도록 계산
           const targetScrollTop = elementTop - (containerHeight - elementHeight) / 2;
-          
+
           // 즉시 스크롤 (애니메이션 없음)
           scrollContainer.scrollTop = Math.max(0, targetScrollTop);
           scrollContainer.scrollLeft = 0; // 🔹 항상 제일 왼쪽으로 고정
@@ -82,24 +82,13 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
     displayName = node.NAME || "(No Name)";
   }
 
-const handleClick = async () => {
-    if (node.TYPE === "DOC") {
-        try {
-            const response = await api.post('/api/documents/selectDocument', { 
-                docId: node.ID, 
-                docVr: node.DOCVR 
-            });           
-            
-            // axios는 자동으로 JSON을 파싱해주므로, response.data를 바로 사용합니다.
-            onFileSelect(response.data);
-
-        } catch (err) {
-            console.error("서버 전송 실패:", err);
+  const handleClick = async () => {
+       if (node.TYPE === "DOC") {
+            onFileSelect(node); // 부모에게 node 정보를 그대로 전달
+        } else if (hasChildren) {
+            onNodeToggle(node.ID);
         }
-    } else if (hasChildren) {
-        onNodeToggle(node.ID);
-    }
-};
+  };
 
   const headerClasses = [
     'tree-node-header',
@@ -108,7 +97,7 @@ const handleClick = async () => {
 
   return (
     <li className="tree-node">
-      <div 
+      <div
         ref={nodeRef}
         className={headerClasses}
         onClick={handleClick}
@@ -136,11 +125,11 @@ const handleClick = async () => {
       {isExpanded && hasChildren && (
         <ul className="tree-children">
           {node.CHILDREN.map(child => (
-            <TreeNode 
-              key={child.ID} 
-              node={child} 
-              filter={filter} 
-              onFileSelect={onFileSelect} 
+            <TreeNode
+              key={child.ID}
+              node={child}
+              filter={filter}
+              onFileSelect={onFileSelect}
               activeFileId={activeFileId}
               depth={depth + 1}
               expandedNodes={expandedNodes}
@@ -153,7 +142,7 @@ const handleClick = async () => {
   );
 };
 
-const DrawingList = ({ filter, onFileSelect, tree, loading, activeFileId, expandedNodes, onNodeToggle }) => {
+const DrawingList = ({ filter, onFileSelect, tree, loading, activeFileId, expandedNodes, onNodeToggle, onTestLoad }) => {
 
   if (loading) {
     return (
@@ -168,15 +157,16 @@ const DrawingList = ({ filter, onFileSelect, tree, loading, activeFileId, expand
   }
 
   const filteredTree = filterTree(tree, filter) || [];
-  
+
   return (
     <ul className="tree-list">
       {filteredTree.map(node => (
-        <TreeNode 
-          key={node.ID} 
-          node={node} 
-          filter={filter} 
+        <TreeNode
+          key={node.ID}
+          node={node}
+          filter={filter}
           onFileSelect={onFileSelect}
+          onTestLoad={onTestLoad}
           activeFileId={activeFileId}
           depth={0}
           expandedNodes={expandedNodes}

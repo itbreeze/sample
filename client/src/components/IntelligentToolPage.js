@@ -9,6 +9,7 @@ import { Panel } from '../components/utils/Panel';
 import DrawingList from './DrawingList';
 import ResizablePanel from './ResizablePanel';
 import { useDocumentTree } from './hooks/useDocumentTree';
+import { useDocumentLoader } from './hooks/useDocumentLoader';
 
 // --- Axios 기본 설정 ---
 axios.defaults.baseURL = 'http://localhost:4000';
@@ -114,10 +115,8 @@ const equipmentTabs = [
 
 
 function IntelligentToolPage() {
-    const { 
-        documentTree, // 훅이 반환하는 최종 데이터
-        loading: documentsLoading // 훅이 반환하는 로딩 상태 (기존 변수명과 맞춤)
-    } = useDocumentTree();
+    const { documentTree, loading: documentsLoading } = useDocumentTree();
+    const { isLoading: isDocumentLoading, loadDocument } = useDocumentLoader();
 
     // --- 상태 관리 (State) ---
     const [loading, setLoading] = useState(true);
@@ -137,6 +136,7 @@ function IntelligentToolPage() {
     const [isTabSwitching, setIsTabSwitching] = useState(false);
     const tabSwitchTimeoutRef = useRef(null);
     const currentViewerInstanceRef = useRef(null);
+
 
 
 
@@ -198,23 +198,25 @@ function IntelligentToolPage() {
     };
 
     // 파일(도면) 선택 시, 뷰어에 탭을 추가하고 패널을 최소화
-    const handleFileSelect = (file) => {
-        setOpenFiles(prevOpenFiles => {
-            const existingFileIndex = prevOpenFiles.findIndex(f => f.DOCNO === file.DOCNO);
-            if (existingFileIndex !== -1) {
-                const updatedFiles = [...prevOpenFiles];
-                const [existingFile] = updatedFiles.splice(existingFileIndex, 1);
-                return [existingFile, ...updatedFiles];
-            }
-            return [file, ...prevOpenFiles];
-        });
+    const handleFileSelect = useCallback(async (fileIdentifier) => {
+        // fileIdentifier는 { docId, docVr } 형태의 객체입니다.
+        const loadedFile = await loadDocument(fileIdentifier);
 
-        setActiveFileId(file.DOCNO);
-        setIsFileLoaded(true);
-        setIsSearchMode(false);
-        setSearchResults([]);
-        setIsPanelMaximized(false);
-    };
+        if (loadedFile) {
+            // 훅을 통해 성공적으로 파일 정보를 받아왔을 때만 탭을 엽니다.
+            setOpenFiles(prevOpenFiles => {
+                const isAlreadyOpen = prevOpenFiles.some(f => f.DOCNO === loadedFile.DOCNO);
+                if (isAlreadyOpen) {
+                    return [loadedFile, ...prevOpenFiles.filter(f => f.DOCNO !== loadedFile.DOCNO)];
+                }
+                return [loadedFile, ...prevOpenFiles];
+            });
+            setActiveFileId(loadedFile.DOCNO);
+            setIsFileLoaded(true);
+            setIsPanelMaximized(false);
+        }
+        // 실패 시에는 훅 내부에서 콘솔 에러를 출력하므로 별도 처리가 필요 없습니다.
+    }, [loadDocument]); // 의존성 배열에 loadDocument 추가
 
     // 검색 결과 클릭 시, 파일 정보를 가져와 handleFileSelect 호출
     const handleSearchResultClick = async (result) => {
@@ -367,7 +369,7 @@ function IntelligentToolPage() {
             label: "도면목록",
             content: (filter) => <DrawingList
                 filter={filter}
-                onFileSelect={handleFileSelect}
+                onFileSelect={(node) => handleFileSelect({ docId: node.ID, docVr: node.DOCVR })}
                 tree={documentTree} // 훅이 제공하는 documentTree가 전달됨
                 loading={documentsLoading} // 훅이 제공하는 documentsLoading이 전달됨
                 activeFileId={activeFileId}
@@ -380,7 +382,18 @@ function IntelligentToolPage() {
     ];
 
     const PANEL_CONFIG = {
-        search: { component: <Panel tabs={searchTabs} defaultTab="documentList" />, startsMaximized: true, isResizable: true },
+        search: {
+            component: (
+                <Panel
+                    tabs={searchTabs}
+                    defaultTab="documentList"
+
+                    showFilterTabs={['documentList']}
+                />
+            ),
+            startsMaximized: true,
+            isResizable: true
+        },
         equipments: { component: <Panel tabs={equipmentTabs} defaultTab="equipmentList" />, startsMaximized: true, isResizable: true },
         bookmark: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
         mydocs: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
@@ -388,7 +401,6 @@ function IntelligentToolPage() {
         pipeLayers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
         layers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
     };
-
     const activePanelConfig = PANEL_CONFIG[activeMenuItem];
     const isPanelOpen = activeMenuItem !== null;
 

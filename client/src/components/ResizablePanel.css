@@ -1,3 +1,5 @@
+/* client/src/components/ResizablePanel.css */
+
 .resizable-panel-container {
   position: relative;
   display: flex;
@@ -19,16 +21,17 @@
   position: absolute;
   top: 50%;
   left: 100%;
-  transform: translate(-50%, -50%);
+  transform: translate(0%, -50%);
   z-index: 20;
 }
 
 .panel-resizer-handle {
-  width: 24px;
-  height: 70px;
-  background-color: var(--background-color-light);
+  width: 15px;
+  height: 90px;
+  background-color: var(--background-color-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-left: 1px solid var(--border-color);
+  border-radius: 0px 6px 6px 0px;
   cursor: col-resize;
   display: flex;
   align-items: center;
@@ -46,6 +49,6 @@
   .panel-resizer-handle {
     width: 22px;
     height: 40px;
-    border-radius: 5px;
+    border-radius: 5px 0 0 5px;
   }
 }
