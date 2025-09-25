@@ -47,10 +47,11 @@ router.post('/', async (req, res) => {
                         || '-' || NVL(P.FOLNM, '')                         
                         || '-' || NVL(F.HOGI_GUBUN, '') || '호기'
                         || '-' || NVL(D.PLANTCODE, '')
-                        || '-' || NVL(TO_CHAR(D.DOCNO), '') 
+                        --|| '-' || NVL(TO_CHAR(D.DOCNO), '') 
                         || '-' || NVL(TO_CHAR(D.DOCNUMBER), '') 
                         || '-' || NVL(D.DOCNM, '') 
-                        || '-' || NVL(D.DOCVR, '') AS FULL_INFO                         
+                        --|| '-' || NVL(D.DOCVR, '') 
+                        AS FULL_INFO                         
                 FROM IDS_DOC D
                 LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
                 LEFT JOIN IDS_FOLDER P ON F.FOLPT = P.FOLID -- 부모 폴더명 JOIN

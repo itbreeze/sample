@@ -7,7 +7,7 @@ export const FilterSelect = ({ type = "documents", filter, onChange }) => {
   let options = [];
   if (t === "documents") {
     options = [
-      { value: "All", label: "전체" },
+      { value: "All", label: "도면명+도면번호" },
       { value: "DrawingName", label: "도면명" },
       { value: "DrawingNumber", label: "도면번호" },
     ];

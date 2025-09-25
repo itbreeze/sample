@@ -136,6 +136,7 @@ function IntelligentToolPage() {
     const tabSwitchTimeoutRef = useRef(null);
     const currentViewerInstanceRef = useRef(null);
     const [activeSearchTab, setActiveSearchTab] = useState("documentList");
+    const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
 
     // 검색 정보 상태 추가
     const [searchInfo, setSearchInfo] = useState(null); // { type, term }
@@ -182,11 +183,10 @@ function IntelligentToolPage() {
         }));
     }, []);
 
-    // 검색 실행 - searchInfo도 함께 설정
     const handleSearch = async (searchType, searchTerm) => {
         if (!searchTerm.trim()) return;
         setIsSearching(true);
-        setSearchInfo({ type: searchType, term: searchTerm }); // 검색 정보 설정
+
 
         try {
             const response = await fetch("http://localhost:4000/api/search", {
@@ -196,7 +196,7 @@ function IntelligentToolPage() {
             });
             if (!response.ok) throw new Error('검색 요청 실패');
             const results = await response.json();
-            setSearchResults(results);
+            setSearchResults(results); // 검색바 미리보기용으로만 사용
         } catch (error) {
             console.error("검색 실패:", error);
             alert("검색 중 오류가 발생했습니다.");
@@ -321,6 +321,16 @@ function IntelligentToolPage() {
         }
     }, [activeFileId, documentTree]);
 
+    // 🔹 문서 트리가 로드된 후 기본 확장 레벨 적용
+    useEffect(() => {
+        if (documentTree.length > 0 && !isDefaultExpandApplied) {
+            const defaultExpandedIds = collectIdsToLevel(documentTree, DEFAULT_EXPAND_LEVEL);
+            setExpandedNodes(new Set(defaultExpandedIds));
+            setIsDefaultExpandApplied(true);
+            console.log(`기본 확장 레벨 ${DEFAULT_EXPAND_LEVEL} 적용됨: ${defaultExpandedIds.length}개 노드`);
+        }
+    }, [documentTree, isDefaultExpandApplied]);
+
     // 패널 상태 변경 시 뷰어 리사이즈 트리거
     useEffect(() => {
         if (!isFileLoaded) return;
@@ -367,8 +377,7 @@ function IntelligentToolPage() {
             id: "searchDrawing",
             label: "도면상세검색",
             content: () => <SearchResultList
-                searchResults={searchResults}
-                searchInfo={searchInfo}
+                searchInfo={searchInfo} // 검색 정보만 전달 (결과는 컴포넌트 내에서 처리)
                 onFileSelect={handleFileSelect}
             />
         },

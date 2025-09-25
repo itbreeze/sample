@@ -1,0 +1,226 @@
+/* ====================================== */
+/* 🔹 Advanced Search / SearchResultList CSS (최적화 + 반응형) */
+/* ====================================== */
+
+/* ------------------------------ */
+/* 전체 컨테이너 */
+.advanced-search-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* 부모 높이 기준 */
+}
+
+/* ------------------------------ */
+/* 검색조건 영역 전체 */
+.search-conditions-panel {
+  flex: 0 0 auto; /* 필요한 만큼만 차지 */
+}
+
+.search-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+  will-change: auto; /* GPU 부담 최소화 */
+}
+
+/* 헤더 (제목 + 검색 버튼) */
+.search-conditions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-conditions-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ------------------------------ */
+/* 버튼 통일 (검색, 조건 추가) */
+.search-execute-btn,
+.add-condition-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--primary-color);
+  border-radius: 6px;
+  background-color: var(--primary-color);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.search-execute-btn:hover,
+.add-condition-btn:hover {
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
+  border-color: var(--primary-color-border);
+}
+
+.search-execute-btn:disabled,
+.add-condition-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ------------------------------ */
+/* 검색 조건 행 */
+.search-condition-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 연산자 & 타입 선택 */
+.operator-section,
+.type-section {
+  flex: 0 0 auto;
+}
+
+.operator-select,
+.type-select {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  height: 35px;
+  font-size: 14px;
+  background: #fff;
+  color: #333;
+  appearance: auto;
+  outline: none;
+}
+
+/* 검색어 입력 + X 버튼 */
+.term-section-with-remove {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.term-input {
+  flex: 1 1 auto;
+  min-width: 100px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  height: 35px;
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-right: 5px;
+  background: #fff;
+  color: #333;
+}
+
+.remove-condition-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 2px;
+  transition: color 0.2s;
+}
+
+.remove-condition-btn:hover {
+  color: #e74c3c;
+}
+
+/* ------------------------------ */
+/* 검색 결과 / 미리보기 */
+.search-results-panel {
+  flex: 1 1 auto;       /* 남은 공간 모두 차지 */
+  overflow-y: auto;     /* 스크롤 */
+  padding: 8px 4px;
+  min-height: 0;        /* flexbox에서 overflow 적용 필수 */
+  will-change: auto;
+}
+
+.search-preview {
+  padding: 8px 4px;
+  max-height: 300px;    /* 가상화 환경 부담 최소화 */
+  overflow-y: auto;
+}
+
+/* 검색 결과 아이템 */
+.preview-item {
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.preview-item:hover {
+  background-color: #f1f3f4;
+}
+
+.preview-item:active {
+  background-color: #e8eaed;
+}
+
+/* 메인/서브 정보 */
+.preview-main-info,
+.preview-sub-info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-main-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.preview-sub-info {
+  font-size: 12px;
+  color: #666;
+  padding-left: 32px;
+}
+
+/* 검색어 하이라이트 */
+.search-preview mark {
+  background-color: transparent;
+  color: var(--primary-color);
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+/* ------------------------------ */
+/* 로딩, 오류, 없음 메시지 */
+.search-result-loading,
+.preview-loading,
+.preview-no-results-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #666;
+  gap: 8px;
+  min-height: inherit;
+}
+
+.loading-spinner {
+  color: var(--primary-color);
+  animation: spin 1s linear infinite;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
