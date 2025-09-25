@@ -5,7 +5,7 @@ import logo from '../assets/images/logo.png';
 import { Tabs } from './utils/Tabs';
 import SearchBar from './Search/SearchBar';
 
-function Header({ tabItems, activeTab, setActiveTab, onLogoClick, onSearch, onFileSelect }) { 
+function Header({ onViewDetailSearch, tabItems, activeTab, setActiveTab, onLogoClick, onSearch, onFileSelect }) { 
   return (
     <header className="app-header">
       {/* 1. 로고 영역 - 클릭 이벤트를 추가하고 커서 스타일을 변경 */}
@@ -28,6 +28,7 @@ function Header({ tabItems, activeTab, setActiveTab, onLogoClick, onSearch, onFi
         <SearchBar 
           onSearch={onSearch}
           onFileSelect={onFileSelect}
+          onViewDetailSearch={onViewDetailSearch}
         />
       </div>
     </header>

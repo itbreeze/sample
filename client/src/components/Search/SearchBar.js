@@ -7,7 +7,7 @@ import { searchPreview } from '../../services/search';
 import { FileText, HardDrive } from 'lucide-react';
 import './Search.css';
 
-function SearchBar({ onSearch, onFileSelect }) {
+function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [activeChip, setActiveChip] = useState('도면');
   const [searchTerm, setSearchTerm] = useState('');
@@ -149,14 +149,6 @@ function SearchBar({ onSearch, onFileSelect }) {
     }
   };
 
-  // 🔹 전체 목록 보기 클릭 핸들러
-  const handleViewAllResults = () => {
-    if (onSearch && searchTerm.trim()) {
-      onSearch(activeChip, searchTerm);
-      // 검색창 닫기
-      setSearchExpanded(false);
-    }
-  };
 
   // 🔹 현재 chip의 placeholder 찾기
   const activeChipOption = chipOptions.find((chip) => chip.id === activeChip);
@@ -194,7 +186,7 @@ function SearchBar({ onSearch, onFileSelect }) {
           highlightText={highlightText}
           showPreview={showPreview}
           onItemClick={handlePreviewItemClick}
-          onViewAllResults={handleViewAllResults}
+          onViewDetailSearch={onViewDetailSearch}
         />
       </div>
     </div>

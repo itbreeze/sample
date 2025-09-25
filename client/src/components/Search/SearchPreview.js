@@ -1,31 +1,33 @@
 // src/components/Search/SearchPreview.js
 import React from 'react';
-import { FileText, HardDrive, Loader2, List } from 'lucide-react';
+import { FileText, HardDrive, Loader2, Search } from 'lucide-react';
 import './Search.css';
 
-function SearchPreview({ 
-  results, 
-  searchTerm, 
-  isLoading, 
-  activeChip, 
-  highlightText, 
+function SearchPreview({
+  results,
+  searchTerm,
+  isLoading,
+  activeChip,
+  highlightText,
   showPreview,
-  onItemClick,
-  onViewAllResults
+  onItemClick,  
+  onViewDetailSearch,
 }) {
   if (!showPreview) return null;
+
+  const handleViewDetailSearch = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onViewDetailSearch && searchTerm.trim()) {
+      onViewDetailSearch(activeChip, searchTerm); // 검색타입, 검색어 전달
+    }
+  };
 
   // ─── 클릭 핸들러 ─────────────────────────────
   const handleItemClick = (e, result) => {
     e.preventDefault();
     e.stopPropagation();
     if (onItemClick) onItemClick(result);
-  };
-
-  const handleViewAllClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onViewAllResults) onViewAllResults();
   };
 
   // ─── 렌더링 ────────────────────────────────
@@ -40,13 +42,13 @@ function SearchPreview({
         <div className="preview-items-wrapper">
           {/* 전체 목록 보기 버튼 */}
           <div className="preview-view-all">
-            <button 
+            <button
               className="view-all-button"
-              onClick={handleViewAllClick}
+              onClick={handleViewDetailSearch}
               type="button"
             >
-              <List size={16} />
-              <span>전체 목록 보기 ({results.length}개 이상)</span>
+              <Search size={16} />
+              <span>상세 검색 보기 ({results.length}개 이상)</span>
             </button>
           </div>
 
@@ -57,8 +59,8 @@ function SearchPreview({
               className="preview-item"
               onClick={(e) => handleItemClick(e, result)}
               onMouseDown={(e) => e.preventDefault()} // 마우스 다운 이벤트 방지
-              role="button" 
-              tabIndex={0} 
+              role="button"
+              tabIndex={0}
             >
               <div className="preview-main-info">
                 <span className="preview-icon">
