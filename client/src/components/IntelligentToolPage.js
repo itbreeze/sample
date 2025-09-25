@@ -8,6 +8,7 @@ import MainView from './MainView';
 import { Panel } from '../components/utils/Panel';
 import DrawingList from './DrawingList';
 import ResizablePanel from './ResizablePanel';
+import { useDocumentTree } from './hooks/useDocumentTree';
 
 // --- Axios 기본 설정 ---
 axios.defaults.baseURL = 'http://localhost:4000';
@@ -16,25 +17,6 @@ axios.defaults.withCredentials = true;
 // --- 상수 정의 ---
 const DEFAULT_EXPAND_LEVEL = 0; // 사이드바 트리 기본 확장 레벨
 
-// --- 유틸리티 함수 ---
-
-// 배열 형태의 문서 데이터를 트리 구조로 변환
-const buildTree = (items) => {
-    const map = {};
-    const roots = [];
-    if (!items) return roots;
-    items.forEach(item => {
-        map[item.ID] = { ...item, CHILDREN: [] };
-    });
-    items.forEach(item => {
-        if (item.PARENTID && map[item.PARENTID]) {
-            map[item.PARENTID].CHILDREN.push(map[item.ID]);
-        } else {
-            roots.push(map[item.ID]);
-        }
-    });
-    return roots;
-};
 
 // 특정 노드까지의 경로를 찾는 함수
 const findPathToNode = (nodes, nodeId, path = []) => {
@@ -132,6 +114,11 @@ const equipmentTabs = [
 
 
 function IntelligentToolPage() {
+    const { 
+        documentTree, // 훅이 반환하는 최종 데이터
+        loading: documentsLoading // 훅이 반환하는 로딩 상태 (기존 변수명과 맞춤)
+    } = useDocumentTree();
+
     // --- 상태 관리 (State) ---
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -143,8 +130,6 @@ function IntelligentToolPage() {
     const [activeFileId, setActiveFileId] = useState(null);
     const [viewStates, setViewStates] = useState({});
     const [isFileLoaded, setIsFileLoaded] = useState(false);
-    const [documentTree, setDocumentTree] = useState([]);
-    const [documentsLoading, setDocumentsLoading] = useState(true);
     const [expandedNodes, setExpandedNodes] = useState(new Set());
     const [searchResults, setSearchResults] = useState([]);
     const [isSearchMode, setIsSearchMode] = useState(false);
@@ -152,6 +137,8 @@ function IntelligentToolPage() {
     const [isTabSwitching, setIsTabSwitching] = useState(false);
     const tabSwitchTimeoutRef = useRef(null);
     const currentViewerInstanceRef = useRef(null);
+
+
 
     // --- 이벤트 핸들러 ---
 
@@ -330,28 +317,6 @@ function IntelligentToolPage() {
         checkUserAccess();
     }, []);
 
-    // 최초 문서 트리 데이터 로딩
-    useEffect(() => {
-        const fetchDocumentTree = async () => {
-            setDocumentsLoading(true);
-            try {
-                const response = await fetch("http://localhost:4000/folders");
-                const data = await response.json();
-                const treeData = buildTree(data);
-                setDocumentTree(treeData);
-                if (treeData.length > 0) {
-                    const idsToExpand = collectIdsToLevel(treeData, DEFAULT_EXPAND_LEVEL);
-                    setExpandedNodes(new Set(idsToExpand));
-                }
-            } catch (err) {
-                console.error("Fetch error:", err);
-                setDocumentTree([]);
-            } finally {
-                setDocumentsLoading(false);
-            }
-        };
-        fetchDocumentTree();
-    }, []);
 
     // 활성 탭 변경 시 사이드바 메뉴 초기화
     useEffect(() => {
@@ -403,8 +368,8 @@ function IntelligentToolPage() {
             content: (filter) => <DrawingList
                 filter={filter}
                 onFileSelect={handleFileSelect}
-                tree={documentTree}
-                loading={documentsLoading}
+                tree={documentTree} // 훅이 제공하는 documentTree가 전달됨
+                loading={documentsLoading} // 훅이 제공하는 documentsLoading이 전달됨
                 activeFileId={activeFileId}
                 expandedNodes={expandedNodes}
                 onNodeToggle={handleNodeToggle}
@@ -447,7 +412,7 @@ function IntelligentToolPage() {
                     onMenuItemClick={handleMenuClick}
                     user={user}
                     isFileLoaded={isFileLoaded}
-                />               
+                />
 
                 {isPanelOpen && activePanelConfig && (
                     <ResizablePanel

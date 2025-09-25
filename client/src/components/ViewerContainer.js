@@ -1,7 +1,6 @@
-// src/components/ViewerContainer.js
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { X as CloseIcon, MoreHorizontal, FileText } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './ViewerContainer.css';
 import TabListModal from './TabListModal';
 import DwgDisplay from './viewer/DwgDisplay';
@@ -43,33 +42,37 @@ const ViewerContainer = ({
   onTabReorder,
   viewStates,
   onViewStateChange,
-  // 🔹 새로 추가: 검색 결과 표시용 props
   searchResults = [],
   isSearchMode = false,
   onSearchResultClick
 }) => {
-  const dragItem = useRef(null);
-  const dragOverItem = useRef(null);
-  const [dragging, setDragging] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const contentAreaRef = useRef(null);
   const [viewerSize, setViewerSize] = useState({ width: 0, height: 0 });
-
-  // 🔹 뷰어 인스턴스 추적
   const viewerInstanceRef = useRef(null);
 
-  // 🔹 검색 결과 클릭 핸들러
+  // dnd 라이브러리를 위한 onDragEnd 핸들러
+  const handleOnDragEnd = useCallback((result) => {
+    if (!result.destination || result.destination.index === result.source.index) return;
+
+    const newFiles = Array.from(openFiles);
+    const [reorderedItem] = newFiles.splice(result.source.index, 1);
+    newFiles.splice(result.destination.index, 0, reorderedItem);
+
+    onTabReorder(newFiles, reorderedItem.DOCNO);
+  }, [openFiles, onTabReorder]);
+
+  // 검색 결과 클릭 핸들러
   const handleSearchResultClick = useCallback((result) => {
     if (onSearchResultClick) {
       onSearchResultClick(result);
     }
   }, [onSearchResultClick]);
 
-  // 🔹 탭 클릭 - 뷰 상태 즉시 저장
+  // 탭 클릭 - 뷰 상태 즉시 저장
   const handleTabClick = useCallback((docno) => {
     if (docno === activeFileId) return;
 
-    // 현재 활성 뷰어의 상태를 즉시 저장
     if (viewerInstanceRef.current && activeFileId) {
       try {
         const currentState = getCurrentViewState(viewerInstanceRef.current);
@@ -84,15 +87,14 @@ const ViewerContainer = ({
     onTabClick(docno);
   }, [activeFileId, onViewStateChange, onTabClick]);
 
-  // 🔹 뷰어 준비 완료
+  // 뷰어 준비 완료
   const handleViewerReady = useCallback((viewerInstance) => {
     viewerInstanceRef.current = viewerInstance;
   }, []);
 
-  // 🔹 ResizeObserver
+  // ResizeObserver
   useEffect(() => {
     let resizeTimeout;
-
     const resizeObserver = new ResizeObserver(entries => {
       if (!entries || entries.length === 0) return;
 
@@ -120,45 +122,7 @@ const ViewerContainer = ({
     };
   }, []);
 
-  // 🔹 드래그 앤 드롭
-  const handleDragStart = useCallback((e, file) => {
-    dragItem.current = file;
-    setDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-
-  const handleDragOver = useCallback((e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handleDragEnter = useCallback((e, targetFile) => {
-    dragOverItem.current = targetFile;
-  }, []);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    if (dragItem.current && dragOverItem.current && dragItem.current.DOCNO !== dragOverItem.current.DOCNO) {
-      const newFiles = [...openFiles];
-      const draggedItemContent = newFiles.find(f => f.DOCNO === dragItem.current.DOCNO);
-      const dragItemIndex = newFiles.findIndex(f => f.DOCNO === dragItem.current.DOCNO);
-      const dragOverItemIndex = newFiles.findIndex(f => f.DOCNO === dragOverItem.current.DOCNO);
-
-      newFiles.splice(dragItemIndex, 1);
-      newFiles.splice(dragOverItemIndex, 0, draggedItemContent);
-
-      onTabReorder(newFiles, dragItem.current.DOCNO);
-    }
-    handleDragEnd();
-  }, [openFiles, onTabReorder]);
-
-  const handleDragEnd = useCallback(() => {
-    dragItem.current = null;
-    dragOverItem.current = null;
-    setDragging(false);
-  }, []);
-
-  // 🔹 모달에서 탭 선택
+  // 모달에서 탭 선택
   const handleSelectFromModal = useCallback((docno) => {
     const newFiles = [...openFiles];
     const selectedFileIndex = newFiles.findIndex(f => f.DOCNO === docno);
@@ -170,7 +134,7 @@ const ViewerContainer = ({
     setIsModalOpen(false);
   }, [openFiles, onTabReorder]);
 
-  // 🔹 검색 결과 렌더링
+  // 검색 결과 렌더링
   const renderSearchResults = () => (
     <div className="search-results-container">
       <div className="search-results-header">
@@ -200,97 +164,87 @@ const ViewerContainer = ({
     </div>
   );
 
-  // 🔹 뷰어 렌더링
-  // 🔹 뷰어 렌더링
-  // 🔹 뷰어 렌더링
-const renderViewer = () => {
-  const activeFile = openFiles.find(file => file.DOCNO === activeFileId);
-  const visibleFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(0, MAX_VISIBLE_TABS) : openFiles;
-  const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : [];
+  // 뷰어 렌더링
+  const renderViewer = () => {
+    const activeFile = openFiles.find(file => file.DOCNO === activeFileId);
+    const visibleFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(0, MAX_VISIBLE_TABS) : openFiles;
+    const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : [];
 
-  // 🔹 디버깅 로그 추가
-  console.log('📺 ViewerContainer renderViewer:', {
-    openFilesCount: openFiles.length,
-    activeFileId,
-    activeFile: activeFile ? `${activeFile.DOCNUMBER} - ${activeFile.DOCNM}` : 'null',
-    visibleFilesCount: visibleFiles.length,
-    hiddenFilesCount: hiddenFiles.length
-  });
-
-  return (
-    <>
-      {/* 탭 헤더 */}
-      <div className="view-tabs-container">
-        {visibleFiles.map(file => (
-          <div
-            key={file.DOCNO}
-            className={`view-tab ${file.DOCNO === activeFileId ? 'active' : ''} ${dragging && dragItem.current?.DOCNO === file.DOCNO ? 'dragging' : ''}`}
-            onClick={() => handleTabClick(file.DOCNO)}
-            title={file.DOCNM || file.DOCNUMBER}
-            draggable
-            onDragStart={(e) => handleDragStart(e, file)}
-            onDragEnter={(e) => handleDragEnter(e, file)}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-          >
-            <span className="tab-title">
-              {file.DOCNM || file.DOCNUMBER}
-            </span>
-            <button
-              className="close-tab-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabClose(file.DOCNO);
-              }}
-              draggable={false}
-              onDragStart={(e) => e.stopPropagation()}
-            >
-              <CloseIcon size={14} />
-            </button>
-          </div>
-        ))}
-        {hiddenFiles.length > 0 && (
-          <div className="view-tab more-tabs-btn" onClick={() => setIsModalOpen(true)} title={`+${hiddenFiles.length}개 더보기`}>
-            <MoreHorizontal size={16} />
-          </div>
-        )}
-      </div>
-
-      {/* 뷰어 영역 */}
-      <div ref={contentAreaRef} className="viewer-content-area">
-        {activeFile ? (
-          <>
-            <div className="viewer-header">
-              <h2 className="viewer-title">
-                {`${activeFile.PLANTNM} / ${activeFile.UNIT}호기 / [${activeFile.DOCNUMBER}] ${activeFile.DOCNM}`}
-              </h2>
+    return (
+      <DragDropContext onDragEnd={handleOnDragEnd}>
+        <div className="view-tabs-container">
+          <Droppable droppableId="tabs" direction="horizontal">
+            {(provided) => (
+              <div
+                className="visible-tabs-wrapper"
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+              >
+                {visibleFiles.map((file, index) => (
+                  <Draggable key={file.DOCNO} draggableId={file.DOCNO.toString()} index={index}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        className={`view-tab ${file.DOCNO === activeFileId ? 'active' : ''} ${snapshot.isDragging ? 'dragging' : ''}`}
+                        onClick={() => handleTabClick(file.DOCNO)}
+                        title={file.DOCNM || file.DOCNUMBER}
+                      >
+                        <span className="tab-title">
+                          {file.DOCNM || file.DOCNUMBER}
+                        </span>
+                        <button
+                          className="close-tab-btn"
+                          onClick={(e) => { e.stopPropagation(); onTabClose(file.DOCNO); }}
+                        >
+                          <CloseIcon size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+          {hiddenFiles.length > 0 && (
+            <div className="view-tab more-tabs-btn" onClick={() => setIsModalOpen(true)} title={`+${hiddenFiles.length}개 더보기`}>
+              <MoreHorizontal size={16} />
             </div>
-            <DwgDisplay
-              key={activeFile.DOCNO}
-              filePath={activeFile.tmpFile}
-              initialViewState={viewStates[activeFile.DOCNO]}
-              onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
-              onViewerReady={handleViewerReady}
-              viewerSize={viewerSize}
-            />
-          </>
-        ) : (
-          <div className="initial-view-content">
-            <p>표시할 도면을 선택해주세요.</p>
-          </div>
-        )}
-      </div>
-    </>
-  );
-};
+          )}
+        </div>
+
+        <div ref={contentAreaRef} className="viewer-content-area">
+          {activeFile ? (
+            <>
+              <div className="viewer-header">
+                <h2 className="viewer-title">
+                  {`${activeFile.PLANTNM} / ${activeFile.UNIT}호기 / [${activeFile.DOCNUMBER}] ${activeFile.DOCNM}`}
+                </h2>
+              </div>
+              <DwgDisplay
+                key={activeFile.DOCNO}
+                filePath={activeFile.tmpFile}
+                initialViewState={viewStates[activeFile.DOCNO]}
+                onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
+                onViewerReady={handleViewerReady}
+                viewerSize={viewerSize}
+              />
+            </>
+          ) : (
+            <div className="initial-view-content">
+              <p>표시할 도면을 선택해주세요.</p>
+            </div>
+          )}
+        </div>
+      </DragDropContext>
+    );
+  };
 
   return (
     <div className="canvas-viewer-container">
-      {/* 🔹 검색 모드인지 뷰어 모드인지에 따라 다른 내용 렌더링 */}
       {isSearchMode ? renderSearchResults() : renderViewer()}
-
-      {/* 🔹 모달은 뷰어 모드에서만 표시 */}
       {!isSearchMode && (
         <TabListModal
           isOpen={isModalOpen}

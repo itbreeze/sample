@@ -37,7 +37,7 @@ app.use(
 
 app.use('/api', identifyUser);
 app.use('/api/users', userRoutes);
-app.use('/documents', documentRoutes); 
+app.use('/api/documents', documentRoutes); 
 app.use('/api/search', searchRoutes);
 
 module.exports = app;

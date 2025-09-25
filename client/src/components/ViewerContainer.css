@@ -7,17 +7,20 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 .view-tabs-container {
   display: flex;
+  align-items: center; /* 탭과 더보기 버튼 정렬 */
   background-color: var(--background-color-light);
-  /* 헤더 배경과 동일 */
   overflow: hidden;
   border-bottom: none;
-  /* 분리선 제거 */
+}
+
+.visible-tabs-wrapper {
+  display: flex;
+  flex-grow: 1;
+  min-width: 0;
 }
 
 .view-tab {
@@ -25,7 +28,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  background-color: var(--background-color-light);
+  /* --- ▼▼▼ 1. 비활성 탭 기본 배경색을 더 진하게 수정 ▼▼▼ --- */
+  background-color: #E9ECEF; /* 예: 연한 회색톤으로 변경 */
   border: 1px solid var(--border-color-dark);
   border-bottom: none;
   border-radius: 6px 6px 0px 0px;
@@ -37,6 +41,13 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  transition: background-color 0.2s ease;
+}
+
+.view-tab.dragging {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background-color: var(--background-color);
+  color: #000;
 }
 
 .view-tab.more-tabs-btn {
@@ -45,17 +56,19 @@
   padding: 6px 8px;
   min-width: 40px;
   max-width: 40px;
+  flex-shrink: 0;
 }
 
 .view-tab.active {
-  background-color: var(--background-color);
+  background-color: var(--background-color); /* 활성 탭은 기존 흰색 배경 유지 */
   color: #000;
   z-index: 2;
   border-bottom-color: var(--background-color);
 }
 
+/* --- ▼▼▼ 2. 비활성 탭 호버 시 배경색을 더더욱 진하게 수정 ▼▼▼ --- */
 .view-tab:not(.active):hover {
-  background-color: var(--hover-background-color-dark);
+  background-color: #DEE2E6; /* 예: 중간 회색톤으로 변경 */
 }
 
 .tab-title {
@@ -173,8 +186,6 @@
     max-width: 30px;
   }
 }
-
-/* 기존 스타일 유지하고 아래 내용 추가 */
 
 .search-results-container {
   width: 100%;

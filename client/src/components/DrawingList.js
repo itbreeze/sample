@@ -85,11 +85,10 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
 const handleClick = async () => {
     if (node.TYPE === "DOC") {
         try {
-            const response = await api.post('/documents/selectDocument', { 
+            const response = await api.post('/api/documents/selectDocument', { 
                 docId: node.ID, 
                 docVr: node.DOCVR 
-            });
-            console.log(response.data)
+            });           
             
             // axios는 자동으로 JSON을 파싱해주므로, response.data를 바로 사용합니다.
             onFileSelect(response.data);
