@@ -38,6 +38,7 @@ const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
     let ids = [];
     for (const node of nodes) {
         if (node.TYPE === 'FOLDER' && node.CHILDREN && node.CHILDREN.length > 0) {
+
             ids.push(node.ID);
             ids = ids.concat(collectIdsToLevel(node.CHILDREN, maxLevel, currentLevel + 1));
         }
@@ -202,6 +203,7 @@ function IntelligentToolPage() {
         // fileIdentifier는 { docId, docVr } 형태의 객체입니다.
         const loadedFile = await loadDocument(fileIdentifier);
 
+
         if (loadedFile) {
             // 훅을 통해 성공적으로 파일 정보를 받아왔을 때만 탭을 엽니다.
             setOpenFiles(prevOpenFiles => {
@@ -215,14 +217,14 @@ function IntelligentToolPage() {
             setIsFileLoaded(true);
             setIsPanelMaximized(false);
         }
-        // 실패 시에는 훅 내부에서 콘솔 에러를 출력하므로 별도 처리가 필요 없습니다.
+
     }, [loadDocument]); // 의존성 배열에 loadDocument 추가
 
     // 검색 결과 클릭 시, 파일 정보를 가져와 handleFileSelect 호출
     const handleSearchResultClick = async (result) => {
         setIsSearching(true);
         try {
-            const response = await fetch("http://localhost:4000/folders/selectDocument", {
+            const response = await fetch("http://localhost:4000/documents/selectDocument", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ docId: result.DOCNO, docVr: result.DOCVR })
@@ -362,6 +364,7 @@ function IntelligentToolPage() {
         );
     }
 
+
     // 검색 패널의 탭 정의
     const searchTabs = [
         {
@@ -413,7 +416,7 @@ function IntelligentToolPage() {
                 setActiveTab={setActiveTab}
                 onLogoClick={handleLogoClick}
                 onSearch={handleSearch}
-                onDocumentSelect={handleSearchResultClick}
+                onFileSelect={(node) => handleFileSelect({ docId: node.DOCNO, docVr: node.DOCVR })}
             />
             <div className="content-wrapper">
                 <Sidebar

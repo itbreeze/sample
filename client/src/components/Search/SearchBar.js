@@ -7,7 +7,7 @@ import { searchPreview } from '../../services/search';
 import { FileText, HardDrive } from 'lucide-react';
 import './Search.css';
 
-function SearchBar({ onSearch, onDocumentSelect }) {
+function SearchBar({ onSearch, onFileSelect }) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [activeChip, setActiveChip] = useState('도면');
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,10 +134,10 @@ function SearchBar({ onSearch, onDocumentSelect }) {
   };
 
   // 🔹 미리보기 아이템 클릭 핸들러
-  const handlePreviewItemClick = async (result) => {
+  const handlePreviewItemClick = async (result) => {    
     try {
-      if (onDocumentSelect) {
-        await onDocumentSelect(result);
+      if (onFileSelect) {
+        await onFileSelect(result);
       }
       // 검색창 닫기
       setSearchExpanded(false);

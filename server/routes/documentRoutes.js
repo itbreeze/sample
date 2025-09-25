@@ -53,9 +53,8 @@ router.get("/", async (req, res) => {
 router.post("/selectDocument", async (req, res) => {
   const { docId, docVr } = req.body;
   let tmpFile; // 임시 dwg 파일 경로
-
   try {
-    const sql = `SELECT S.PLANTNM,F.HOGI_GUBUN,D.DOCNO,D.DOCNM,D.DOCNUMBER,D.DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
+    const sql = `SELECT S.PLANTNM,F.HOGI_GUBUN,D.DOCNO ,D.DOCNM,D.DOCNUMBER,D.DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
                  FROM IDS_DOC D LEFT JOIN IDS_SITE S
                    ON D.PLANTCODE=S.PLANTCODE
                    LEFT JOIN IDS_FOLDER F

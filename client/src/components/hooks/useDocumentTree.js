@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDocumentList } from '../../services/documentsApi'; // 1단계에서 수정한 Service 함수
-import { buildTree } from '../utils/treeUtils';           // 방금 분리한 유틸리티 함수
+import { getDocumentList } from '../../services/documentsApi'; 
+import { buildTree } from '../utils/treeUtils';          
 
 /**
  * 도면 트리 데이터를 불러오고 상태를 관리하는 커스텀 훅
