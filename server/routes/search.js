@@ -2,6 +2,27 @@ const express = require('express');
 const router = express.Router();
 const { executeQuery } = require('../utils/dataBase/dbClient');
 
+
+// =================================================================
+// 🔹 신규 추가: 레벨 목록을 가져오는 API
+// =================================================================
+router.get('/levels', async (req, res) => {
+    // 예시: IDS_SITE 테이블에서 고유한 PLANTNM을 '레벨'로 사용합니다.
+    const sql = `
+        SELECT DISTINCT PLANTNM AS "value", PLANTNM AS "label"
+        FROM IDS_SITE
+        WHERE FOLDER_TYPE = '002' AND PLANTNM IS NOT NULL
+        ORDER BY "label"
+    `;
+    try {
+        const levels = await executeQuery(sql);
+        res.status(200).json(levels);
+    } catch (err) {
+        console.error("레벨 목록 조회 API 오류:", err);
+        res.status(500).json({ message: '레벨 목록을 가져오는 중 서버 오류가 발생했습니다.' });
+    }
+});
+
 // POST /api/search
 router.post('/', async (req, res) => {
     const { searchTerm, searchType } = req.body;

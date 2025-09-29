@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Loader2, Plus, X, Search } from 'lucide-react';
+import { Loader2, Plus, X, Search } from 'lucide-react';
 import './SearchResultList.css';
 
 const SearchResultList = ({
@@ -9,6 +9,10 @@ const SearchResultList = ({
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const [levelOptions, setLevelOptions] = useState([]);
+  const [selectedLevel, setSelectedLevel] = useState('ALL'); // 'ALL'을 기본값으로 설정
+  const [levelsLoading, setLevelsLoading] = useState(true);
 
   const [searchConditions, setSearchConditions] = useState([
     { id: 1, type: '도면', term: '', operator: 'AND' }
@@ -24,6 +28,33 @@ const SearchResultList = ({
     { value: 'AND', label: 'AND' },
     { value: 'OR', label: 'OR' }
   ];
+
+  useEffect(() => {
+    const fetchLevels = async () => {
+      try {
+        setLevelsLoading(true);
+        // 서버에 새로 만든 API(/api/search/levels)를 호출합니다.
+        const response = await fetch("http://localhost:4000/api/search/levels");
+        if (!response.ok) {
+          throw new Error('레벨 데이터를 불러오는데 실패했습니다.');
+        }
+        const data = await response.json();
+        // 기본값 '전체' 옵션을 추가하고 상태에 저장합니다.
+        setLevelOptions([{ value: 'ALL', label: '전체' }, ...data]);
+      } catch (err) {
+        console.error(err);
+        // 에러 발생 시 기본 옵션만 설정
+        setLevelOptions([{ value: 'ALL', label: '전체' }]);
+      } finally {
+        setLevelsLoading(false);
+      }
+    };
+
+    fetchLevels();
+  }, []);
+
+
+
 
   useEffect(() => {
     if (searchInfo && searchInfo.type && searchInfo.term) {
@@ -70,10 +101,12 @@ const SearchResultList = ({
       alert('검색어를 입력해주세요.');
       return;
     }
-    performDetailSearch(validConditions);
+    // 선택된 레벨 정보를 함께 전달합니다.
+    performDetailSearch(validConditions, selectedLevel);
   };
 
-  const performDetailSearch = async (conditions) => {
+const performDetailSearch = async (conditions, level) => {
+  // --- ▲▲▲ 3. 검색 실행 함수 수정 ▲▲▲ ---
     setIsLoading(true);
     setError(null);
     try {
@@ -81,10 +114,13 @@ const SearchResultList = ({
       const response = await fetch("http://localhost:4000/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // --- ▼▼▼ 4. API 요청 시 Body에 level 정보 추가 ▼▼▼ ---
         body: JSON.stringify({
           searchType: firstCondition.type,
-          searchTerm: firstCondition.term
+          searchTerm: firstCondition.term,
+          level: level, // 선택된 레벨 값을 API Body에 추가
         })
+        // --- ▲▲▲ 4. API 요청 시 Body에 level 정보 추가 ▲▲▲ ---
       });
       if (!response.ok) throw new Error('검색 요청 실패');
       const results = await response.json();
@@ -103,14 +139,41 @@ const SearchResultList = ({
     }
   };
 
-  const renderSearchConditions = () => (
+const renderSearchConditions = () => (
     <div className="search-conditions">
+      {/* ... 기존 헤더 ... */}
       <div className="search-conditions-header">
-        <h3></h3>
-        {/* 검색 버튼 먼저 */}
-        <button className="search-execute-btn" onClick={performAdvancedSearch} disabled={isLoading} title="검색">
-          <Search size={16} /> {isLoading ? '검색 중...' : '검색'}
-        </button>
+          <h3></h3>
+          <button className="search-execute-btn" onClick={performAdvancedSearch} disabled={isLoading} title="검색">
+              <Search size={16} /> {isLoading ? '검색 중...' : '검색'}
+          </button>
+      </div>
+
+      {/* 🔹 레벨 선택 콤보박스 추가 */}
+      <div className="search-condition-row">
+        <div className="type-section">
+          <label htmlFor="level-select" style={{ marginRight: '8px', fontWeight: 'bold' }}>사업소</label>          
+        </div>
+        <div className="term-section-with-remove" style={{ flexGrow: 2 }}>
+          <select
+            id="level-select"
+            value={selectedLevel}
+            onChange={(e) => setSelectedLevel(e.target.value)}
+            disabled={levelsLoading}
+            className="type-select"
+            style={{ width: '100%' }}
+          >
+            {levelsLoading ? (
+              <option>로딩 중...</option>
+            ) : (
+              levelOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
       </div>
       <div className="conditions-list">
         {searchConditions.map((condition, index) => (

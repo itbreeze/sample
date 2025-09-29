@@ -12,32 +12,98 @@ const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);
 // GET "/" 라우트는 변경 없이 그대로 둡니다.
 router.get("/", async (req, res) => {
   try {
-    const sql = `
-      SELECT 
-        FD.FOLID     AS "ID",
-        FD.FOLPT     AS "PARENTID",
-        FD.FOLNM     AS "NAME",
-        NULL         AS "DOCNAME",
-        NULL         AS "DOCNUM",
-        NULL         AS "DOCVR",
-        'FOLDER'     AS "TYPE",
-        FD.PLANTCODE AS "PLANTCODE"
-      FROM IDS_FOLDER FD
-      WHERE FD.APP_GUBUN = '001'  
-      UNION ALL
-      SELECT 
-        D.DOCNO      AS "ID",
-        D.FOLID      AS "PARENTID",
-        NULL         AS "NAME",       
-        D.DOCNM      AS "DOCNAME",
-        D.DOCNUMBER  AS "DOCNUM",
-        D.DOCVR      AS "DOCVR",
-        'DOC'        AS "TYPE",
-        D.PLANTCODE  AS "PLANTCODE"
-      FROM IDS_DOC D
-      WHERE D.CURRENT_YN = '001'
-      ORDER BY "PLANTCODE", "ID"
-    `;
+    // const sql = `
+    //   SELECT 
+    //     FD.FOLID     AS "ID",
+    //     FD.FOLPT     AS "PARENTID",
+    //     FD.FOLNM     AS "NAME",
+    //     NULL         AS "DOCNAME",
+    //     NULL         AS "DOCNUM",
+    //     NULL         AS "DOCVR",
+    //     'FOLDER'     AS "TYPE",
+    //     FD.PLANTCODE AS "PLANTCODE"
+    //   FROM IDS_FOLDER FD
+    //   WHERE FD.APP_GUBUN = '001'  
+    //   UNION ALL
+    //   SELECT 
+    //     D.DOCNO      AS "ID",
+    //     D.FOLID      AS "PARENTID",
+    //     NULL         AS "NAME",       
+    //     D.DOCNM      AS "DOCNAME",
+    //     D.DOCNUMBER  AS "DOCNUM",
+    //     D.DOCVR      AS "DOCVR",
+    //     'DOC'        AS "TYPE",
+    //     D.PLANTCODE  AS "PLANTCODE"
+    //   FROM IDS_DOC D
+    //   WHERE D.CURRENT_YN = '001'
+    //   ORDER BY "PLANTCODE", "ID"
+    // `;
+    const sql=`WITH RECURSIVE_TREE (
+    ID, PARENTID, NAME, DOCNAME, DOCNUM, DOCVR, TYPE, PLANTCODE, LVL, ORDER_SEQ
+) AS (
+    -- 최상위 폴더 (LVL 0, ORDER_SEQ = '00000')
+    SELECT 
+        F.FOLID,
+        F.FOLPT,
+        F.FOLNM,
+        NULL,
+        NULL,
+        NULL,
+        'FOLDER',
+        F.PLANTCODE,
+        0 AS LVL,
+        '00000' AS ORDER_SEQ
+    FROM IDS_FOLDER F
+    WHERE F.FOLPT IS NULL AND F.APP_GUBUN='001'  -- 최상위 조건
+
+    UNION ALL
+
+    -- 자식 폴더 + 문서
+    SELECT 
+        C.ID,
+        C.PARENTID,
+        C.NAME,
+        C.DOCNAME,
+        C.DOCNUM,
+        C.DOCVR,
+        C.TYPE,
+        C.PLANTCODE,
+        P.LVL + 1 AS LVL,
+        P.ORDER_SEQ || '.' || LPAD(ROW_NUMBER() OVER (PARTITION BY C.PARENTID ORDER BY C.ID),5,'0') AS ORDER_SEQ
+        
+    FROM (
+        SELECT 
+            F.FOLID AS ID,
+            F.FOLPT AS PARENTID,
+            F.FOLNM AS NAME,
+            NULL AS DOCNAME,
+            NULL AS DOCNUM,
+            NULL AS DOCVR,
+            'FOLDER' AS TYPE,
+            F.PLANTCODE
+        FROM IDS_FOLDER F
+        WHERE F.APP_GUBUN = '001'
+
+        UNION ALL
+
+        SELECT 
+            D.DOCNO AS ID,
+            D.FOLID AS PARENTID,
+            NULL AS NAME,
+            D.DOCNM AS DOCNAME,
+            D.DOCNUMBER AS DOCNUM,
+            D.DOCVR AS DOCVR,
+            'DOC' AS TYPE,
+            D.PLANTCODE
+        FROM IDS_DOC D
+        WHERE D.CURRENT_YN = '001'
+    ) C
+    INNER JOIN RECURSIVE_TREE P ON C.PARENTID = P.ID
+)
+SELECT *
+FROM RECURSIVE_TREE
+ORDER BY ORDER_SEQ,PLANTCODE
+`
     const getDocumentList = await dbClient.executeQuery(sql);
     res.json(getDocumentList);
   } catch (err) {
