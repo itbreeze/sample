@@ -238,7 +238,7 @@ router.post('/advanced', async (req, res) => {
         }
     }
 
-    sql += ` AND ROWNUM <= 500`;
+    // sql += ` AND ROWNUM <= 500`;
 
     console.log('[SERVER] 최종 SQL:', sql);
     console.log('[SERVER] 바인딩 변수:', binds);

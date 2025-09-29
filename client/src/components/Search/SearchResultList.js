@@ -8,7 +8,7 @@ const collectLeafNodeIds = (node) => {
   if (!node.children || node.children.length === 0) {
     return [node.id];
   }
-  
+
   const leafIds = [];
   for (const child of node.children) {
     leafIds.push(...collectLeafNodeIds(child));
@@ -113,28 +113,25 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
   /**
    * 🔹 수정: searchInfo 처리 로직 개선
    */
-useEffect(() => {
-  if (searchInfo && searchInfo.type === '도면' && searchInfo.term) {
-    console.log('[CLIENT] 헤더 검색바에서 전달된 searchInfo 처리:', searchInfo);
-    
-    // 상태 초기화
-    setCurrentLeafNodeIds('ALL');
-    setInfoNode(null);
-    setDrawingNumber('');
-    setAdditionalConditions([]);
-    
-    // 🔹 헤더 검색어로 상태 업데이트
-    setDrawingName(searchInfo.term);
+  useEffect(() => {
+    if (searchInfo && searchInfo.type === '도면' && searchInfo.term) {
+      console.log('[CLIENT] 헤더 검색바에서 전달된 searchInfo 처리:', searchInfo);
 
-    const conditions = {
-      drawingNumber: '',
-      drawingName: searchInfo.term,
-      additionalConditions: []
-    };
-    
-    performDetailSearch('ALL', conditions);
-  }
-}, [searchInfo?.timestamp, performDetailSearch]); // 🔹 timestamp를 의존성으로 사용
+      // 상태 초기화
+      setCurrentLeafNodeIds('ALL');
+      setInfoNode(null);
+      setDrawingNumber('');
+      setAdditionalConditions([]);
+
+      const conditions = {
+        drawingNumber: '',
+        drawingName: searchInfo.term,
+        additionalConditions: []
+      };
+
+      performDetailSearch('ALL', conditions);
+    }
+  }, [searchInfo?.timestamp, performDetailSearch]); // 🔹 timestamp를 의존성으로 사용
 
   const addAdditionalCondition = () => {
     const newId = (additionalConditions.length > 0 ? Math.max(...additionalConditions.map(c => c.id)) : 0) + 1;
@@ -161,11 +158,11 @@ useEffect(() => {
       additionalConditions
     };
 
-    if (!drawingNumber.trim() && !drawingName.trim() && additionalConditions.every(c => !c.term.trim())) {
-      alert('하나 이상의 검색어를 입력해주세요.');
-      return;
-    }
-    
+    // if (!drawingNumber.trim() && !drawingName.trim() && additionalConditions.every(c => !c.term.trim())) {
+    //   alert('하나 이상의 검색어를 입력해주세요.');
+    //   return;
+    // }
+
     console.log('[CLIENT] 검색 실행 - 현재 leafNodeIds:', currentLeafNodeIds);
     performDetailSearch(currentLeafNodeIds, currentConditions);
   };
@@ -192,14 +189,14 @@ useEffect(() => {
     if (node) {
       const leafNodeIds = collectLeafNodeIds(node);
       console.log('[CLIENT-2] Collected Leaf Node IDs:', leafNodeIds);
-      
+
       setCurrentLeafNodeIds(leafNodeIds);
 
       // 🔹 검색 조건 초기화 (헤더 검색 이력 제거)
       setDrawingNumber('');
       setDrawingName('');
       setAdditionalConditions([]);
-      
+
       // 🔹 searchInfo 처리 플래그 초기화
       processedSearchInfoRef.current = null;
 
@@ -221,7 +218,7 @@ useEffect(() => {
     let conditionText = null;
     if (infoNode) {
       const path = getNodePath(levelTreeData, infoNode.id);
-      conditionText = `조건: ${path.join(' / ')}`;
+      conditionText = `선택: ${path.join(' / ')}`;
     }
 
     return (
@@ -235,7 +232,7 @@ useEffect(() => {
 
         <div className="search-condition-row">
           <div className="type-section">
-            <label>사업소</label>
+            <label>사업소 : </label>
           </div>
           <div
             className="term-section-with-remove"
@@ -257,7 +254,7 @@ useEffect(() => {
 
         <div className="search-condition-row">
           <div className="type-section">
-            <label>도면번호</label>
+            <label>도면번호 : </label>
           </div>
           <div className="term-section-with-remove">
             <input
@@ -272,7 +269,7 @@ useEffect(() => {
 
         <div className="search-condition-row">
           <div className="type-section">
-            <label>도면명</label>
+            <label>도면명 : </label>
           </div>
           <div className="term-section-with-remove">
             <input
@@ -332,21 +329,36 @@ useEffect(() => {
   const renderSearchResults = () => {
     if (isLoading) return <div className="search-result-loading"><Loader2 className="loading-spinner large" /> 검색 중...</div>;
     if (error) return <div className="search-result-error">검색 오류: {error}</div>;
-    if (searchResults.length === 0) return <div className="search-result-no-results">검색 결과 없음</div>;
+    if (searchResults.length === 0) return <div className="search-result-no-results">❌ 검색 결과 없음</div>;
+
+    // 🔹 선택된 조건 경로 표시
+    let conditionText = null;
+    if (infoNode) {
+      const path = getNodePath(levelTreeData, infoNode.id);
+      conditionText = path.join(' / ');
+    }
 
     return (
       <div className="search-result-list">
+        <div className="search-result-title">
+
+          <span className="search-result-condition">
+            {conditionText ? conditionText : '전체'}
+          </span> 검색결과 ({searchResults.length}건)
+
+        </div>
         {searchResults.map((result, idx) => (
-          <div 
-            key={`${result.DOCNO}-${result.DOCVR}-${idx}`} 
-            className="search-result-item" 
+          < div
+            key={`${result.DOCNO}-${result.DOCVR}-${idx}`}
+            className="search-result-item"
             onClick={() => handleFileClick(result)}
           >
             <div className="result-main-info">[{result.DOCNUMBER}] {result.DOCNM}</div>
             <div className="result-sub-info">{result.PLANTNM} / {result.PARENTNM} / {result.HOGI_GUBUN}호기</div>
           </div>
-        ))}
-      </div>
+        ))
+        }
+      </div >
     );
   };
 
