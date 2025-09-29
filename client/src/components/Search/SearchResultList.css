@@ -103,11 +103,12 @@
   flex: 1 1 auto;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
 .term-input {
-  flex: 1 1 auto;
-  min-width: 100px;
+  flex: 1 1 0;
+  min-width: 0;
   max-width: 100%;
   padding: 4px 8px;
   border: 1px solid #ccc;
