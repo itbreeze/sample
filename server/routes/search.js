@@ -4,48 +4,49 @@ const router = express.Router();
 const dbClient = require('../utils/dataBase/dbClient');
 
 router.get("/levels", async (req, res) => {
-    try {        
+    try {
         const sql = `
             WITH RECURSIVE_TREE (ID, PARENTID, NAME, LVL, ORDER_SEQ, PLANTCODE) 
-AS (
-    -- 최상위 폴더
-    SELECT 
-        F.FOLID,
-        F.FOLPT,
-        F.FOLNM,
-        0 AS LVL,
-        LPAD(ROW_NUMBER() OVER (ORDER BY F.FOLNM), 5, '0') AS ORDER_SEQ,
-        F.PLANTCODE
-    FROM IDS_FOLDER F
-    WHERE F.FOLPT IS NULL AND F.APP_GUBUN = '001'
-
-    UNION ALL
-
-    -- 자식 폴더
-    SELECT 
-        F.FOLID,
-        F.FOLPT,
-        F.FOLNM,
-        P.LVL + 1 AS LVL,
-        P.ORDER_SEQ || '.' || LPAD(ROW_NUMBER() OVER (PARTITION BY F.FOLPT ORDER BY F.FOLNM), 5, '0') AS ORDER_SEQ,
-        F.PLANTCODE
-    FROM IDS_FOLDER F
-    INNER JOIN RECURSIVE_TREE P ON F.FOLPT = P.ID
-    WHERE F.APP_GUBUN = '001'
-)
-SELECT ID, PARENTID, NAME, PLANTCODE
-FROM RECURSIVE_TREE
-WHERE LVL > 0
-ORDER BY PLANTCODE
+      AS (
+        -- 최상위 폴더
+        SELECT 
+            F.FOLID,
+            F.FOLPT,
+            F.FOLNM,
+            0 AS LVL,
+            LPAD(ROW_NUMBER() OVER (ORDER BY F.FOLNM), 5, '0') AS ORDER_SEQ,
+            F.PLANTCODE
+        FROM IDS_FOLDER F
+        WHERE F.FOLPT IS NULL AND F.APP_GUBUN = '001'
+        UNION ALL
+        -- 자식 폴더
+        SELECT 
+            F.FOLID,
+            F.FOLPT,
+            F.FOLNM,
+            P.LVL + 1 AS LVL,
+            P.ORDER_SEQ || '.' || LPAD(ROW_NUMBER() OVER (PARTITION BY F.FOLPT ORDER BY F.PLANTCODE,FOLNM), 5, '0') AS ORDER_SEQ,
+            F.PLANTCODE
+        FROM IDS_FOLDER F
+        INNER JOIN RECURSIVE_TREE P ON F.FOLPT = P.ID
+        WHERE F.APP_GUBUN = '001'
+      )
+      SELECT LVL AS LEV, ID, PARENTID, NAME, PLANTCODE, ORDER_SEQ
+      FROM RECURSIVE_TREE
+      WHERE LVL > 0
+      ORDER BY PLANTCODE
         `;
 
         const result = await dbClient.executeQuery(sql);
 
         const levelData = result.map(row => ({
+            LEV: row.LEV,
             LEVEL_CD: row.ID,
             PARENT_CD: row.PARENTID,
             LEVEL_NM: row.NAME,
-            NODE_TYPE: 'folder'
+            NODE_TYPE: 'folder',
+            PLANTCODE: row.PLANTCODE,
+            ORDER_SEQ: row.ORDER_SEQ
         }));
 
         res.json(levelData);
@@ -83,7 +84,7 @@ router.post('/', async (req, res) => {
         });
 
         const whereCondition = whereClauses.join(' AND ');
-        
+
         sql = `
             SELECT * FROM (
                 SELECT 
@@ -151,6 +152,86 @@ router.post('/', async (req, res) => {
     } catch (err) {
         console.error("검색 API 오류:", err);
         res.status(500).json({ message: '검색 중 서버 오류가 발생했습니다.' });
+    }
+});
+
+router.post('/advanced', async (req, res) => {
+    // Client에서 level 객체, drawingNumber, drawingName 등을 받습니다.
+    const { level, drawingNumber, drawingName, additionalConditions } = req.body;
+
+    // 기본 SQL 쿼리문
+    let sql = `
+        SELECT
+            'DOC' AS KEY,
+            S.PLANTNM,
+            P.FOLNM AS PARENTNM,
+            F.HOGI_GUBUN,
+            D.PLANTCODE,
+            D.DOCNO,
+            D.DOCNUMBER,
+            D.DOCNM,
+            D.DOCVR
+        FROM IDS_DOC D
+        LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
+        LEFT JOIN IDS_FOLDER P ON F.FOLPT = P.FOLID
+        LEFT JOIN IDS_SITE S ON D.PLANTCODE = S.PLANTCODE
+        WHERE F.APP_GUBUN = '001'
+          AND D.CURRENT_YN = '001'
+          AND S.FOLDER_TYPE = '003'
+    `;
+
+    const binds = {}; // 바인딩 변수를 객체로 관리하여 명확성 증대
+
+    // ❗ [수정] 1. 사업소(level) 조건 추가
+    // level 객체가 존재하고, 그 안에 FOLID 값이 있는지 확인합니다.
+    if (level && level.FOLID && level.FOLID !== 'ALL') {
+        sql += ` AND F.FOLID IN (
+                    SELECT FOLID FROM IDS_FOLDER
+                    START WITH FOLID = :level_folid
+                    CONNECT BY PRIOR FOLID = FOLPT
+                 )`;
+        // level 객체의 FOLID 값을 바인딩합니다.
+        binds.level_folid = level.FOLID;
+    }
+
+    // 2. 도면번호 조건 추가
+    if (drawingNumber) {
+        sql += ` AND UPPER(D.DOCNUMBER) LIKE '%' || UPPER(:drawingNumber) || '%'`;
+        binds.drawingNumber = drawingNumber;
+    }
+
+    // 3. 도면명 조건 추가
+    if (drawingName) {
+        sql += ` AND UPPER(D.DOCNM) LIKE '%' || UPPER(:drawingName) || '%'`;
+        binds.drawingName = drawingName;
+    }
+
+    // 4. AND/OR 추가 조건 처리
+    if (additionalConditions && additionalConditions.length > 0) {
+        const additionalClauses = additionalConditions
+            .filter(c => c.term.trim() !== '')
+            .map((condition, index) => {
+                const bindKey = `add_term_${index}`;
+                const clause = `(UPPER(D.DOCNUMBER) LIKE '%' || UPPER(:${bindKey}) || '%' OR UPPER(D.DOCNM) LIKE '%' || UPPER(:${bindKey}) || '%')`;
+                binds[bindKey] = condition.term;
+                return `${condition.operator} ${clause}`;
+            }).join(' ');
+
+        if (additionalClauses) {
+            // 첫 번째 조건은 operator 없이 시작하도록 조정
+            const firstCondition = additionalClauses.startsWith(' AND') ? additionalClauses.substring(5) : additionalClauses.substring(4);
+            sql += ` AND (${firstCondition})`;
+        }
+    }
+
+    sql += ` AND ROWNUM <= 500`;
+
+    try {
+        const results = await dbClient.executeQuery(sql, binds);
+        res.status(200).json(results);
+    } catch (err) {
+        console.error("상세 검색 API 오류:", err);
+        res.status(500).json({ message: '상세 검색 중 서버 오류가 발생했습니다.' });
     }
 });
 
