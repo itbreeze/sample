@@ -1,25 +1,58 @@
+// server/routes/search.js
 const express = require('express');
 const router = express.Router();
-const { executeQuery } = require('../utils/dataBase/dbClient');
+const dbClient = require('../utils/dataBase/dbClient');
 
+router.get("/levels", async (req, res) => {
+    try {        
+        const sql = `
+            WITH RECURSIVE_TREE (ID, PARENTID, NAME, LVL, ORDER_SEQ, PLANTCODE) 
+AS (
+    -- 최상위 폴더
+    SELECT 
+        F.FOLID,
+        F.FOLPT,
+        F.FOLNM,
+        0 AS LVL,
+        LPAD(ROW_NUMBER() OVER (ORDER BY F.FOLNM), 5, '0') AS ORDER_SEQ,
+        F.PLANTCODE
+    FROM IDS_FOLDER F
+    WHERE F.FOLPT IS NULL AND F.APP_GUBUN = '001'
 
-// =================================================================
-// 🔹 신규 추가: 레벨 목록을 가져오는 API
-// =================================================================
-router.get('/levels', async (req, res) => {
-    // 예시: IDS_SITE 테이블에서 고유한 PLANTNM을 '레벨'로 사용합니다.
-    const sql = `
-        SELECT DISTINCT PLANTNM AS "value", PLANTNM AS "label"
-        FROM IDS_SITE
-        WHERE FOLDER_TYPE = '002' AND PLANTNM IS NOT NULL
-        ORDER BY "label"
-    `;
-    try {
-        const levels = await executeQuery(sql);
-        res.status(200).json(levels);
-    } catch (err) {
-        console.error("레벨 목록 조회 API 오류:", err);
-        res.status(500).json({ message: '레벨 목록을 가져오는 중 서버 오류가 발생했습니다.' });
+    UNION ALL
+
+    -- 자식 폴더
+    SELECT 
+        F.FOLID,
+        F.FOLPT,
+        F.FOLNM,
+        P.LVL + 1 AS LVL,
+        P.ORDER_SEQ || '.' || LPAD(ROW_NUMBER() OVER (PARTITION BY F.FOLPT ORDER BY F.FOLNM), 5, '0') AS ORDER_SEQ,
+        F.PLANTCODE
+    FROM IDS_FOLDER F
+    INNER JOIN RECURSIVE_TREE P ON F.FOLPT = P.ID
+    WHERE F.APP_GUBUN = '001'
+)
+SELECT ID, PARENTID, NAME, PLANTCODE
+FROM RECURSIVE_TREE
+WHERE LVL > 0
+ORDER BY PLANTCODE
+        `;
+
+        const result = await dbClient.executeQuery(sql);
+
+        const levelData = result.map(row => ({
+            LEVEL_CD: row.ID,
+            PARENT_CD: row.PARENTID,
+            LEVEL_NM: row.NAME,
+            NODE_TYPE: 'folder'
+        }));
+
+        res.json(levelData);
+
+    } catch (error) {
+        console.error('Error fetching levels:', error);
+        res.status(500).json({ message: "사업소 정보를 가져오는 중 서버에서 오류가 발생했습니다." });
     }
 });
 
@@ -113,8 +146,7 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const results = await executeQuery(sql, binds);
-        console.log(results);
+        const results = await dbClient.executeQuery(sql, binds);
         res.status(200).json(results);
     } catch (err) {
         console.error("검색 API 오류:", err);

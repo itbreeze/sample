@@ -12,7 +12,7 @@
 
 /* ------------------------------ */
 /* 검색조건 영역 전체 */
-.search-conditions-panel {
+.search-conditions-panel {  
   flex: 0 0 auto; /* 필요한 만큼만 차지 */
 }
 
@@ -24,7 +24,6 @@
   border: 1px solid #ddd;
   border-radius: 8px;
   background: #fafafa;
-  will-change: auto; /* GPU 부담 최소화 */
 }
 
 /* 헤더 (제목 + 검색 버튼) */
@@ -74,14 +73,23 @@
 /* 검색 조건 행 */
 .search-condition-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
+  margin-right: 5px;
 }
 
 /* 연산자 & 타입 선택 */
 .operator-section,
 .type-section {
   flex: 0 0 auto;
+}
+
+.type-section {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 35px;
+  margin-right: auto;
 }
 
 .operator-select,
@@ -104,6 +112,7 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .term-input {
@@ -116,7 +125,6 @@
   height: 35px;
   font-size: 14px;
   box-sizing: border-box;
-  margin-right: 5px;
   background: #fff;
   color: #333;
 }
@@ -137,17 +145,10 @@
 /* ------------------------------ */
 /* 검색 결과 / 미리보기 */
 .search-results-panel {
-  flex: 1 1 auto;       /* 남은 공간 모두 차지 */
-  overflow-y: auto;     /* 스크롤 */
+  flex: 1 1 auto;      /* 남은 공간 모두 차지 */
+  overflow-y: auto;    /* 스크롤 */
   padding: 8px 4px;
-  min-height: 0;        /* flexbox에서 overflow 적용 필수 */
-  will-change: auto;
-}
-
-.search-preview {
-  padding: 8px 4px;
-  max-height: 300px;    /* 가상화 환경 부담 최소화 */
-  overflow-y: auto;
+  min-height: 0;       /* flexbox에서 overflow 적용 필수 */
 }
 
 /* 검색 결과 아이템 */
@@ -190,16 +191,6 @@
   padding-left: 32px;
 }
 
-/* 검색어 하이라이트 */
-.search-preview mark {
-  background-color: transparent;
-  color: var(--primary-color);
-  padding: 0 2px;
-  border-radius: 2px;
-  font-weight: bold;
-  text-decoration: underline;
-}
-
 /* ------------------------------ */
 /* 로딩, 오류, 없음 메시지 */
 .search-result-loading,
@@ -224,4 +215,38 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.condition-display {
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: #0d6efd;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 동적 추가 조건 리스트만 왼쪽 정렬로 재정의 */
+.conditions-list {  
+  width: 100%; /* 왼쪽 정렬을 위해 너비를 100%로 설정 */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* 오른쪽 정렬을 취소하고 왼쪽으로 정렬 */
+  gap: 8px;
+}
+
+.search-conditions > .search-condition-row > .term-section-with-remove {
+  width: 100%;          /* 너비를 100%로 설정하여 유연하게 채움 */
+  min-width: 0px;     /* 최소 너비 통일 */
+  max-width: 695px;     /* 최대 너비 통일 */
+  flex: 1 1 auto;       /* flex 아이템 속성 유지 */
+}
+
+/* TreeComboBox의 높이를 다른 입력창(35px)과 통일 */
+.search-conditions > .search-condition-row .combobox-input {
+  height: 35px;
+  min-height: 35px; /* 기존 min-height를 덮어쓰기 위해 명시 */
+}
+
+.conditions-list > .search-condition-row {
+  width: 100%;
 }
