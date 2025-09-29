@@ -7,19 +7,21 @@
   border: 1px solid var(--border-color);
   background-color: var(--background-color);
   position: relative;
-  z-index: 10;
+  z-index: 9999;
 }
 
 .search-container.expanded {
   box-shadow: 0 4px 6px rgba(32,33,36,0.15);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+  z-index: 9999;
 }
 
 .search-input-wrapper {
   display: flex;
   align-items: center;
   padding: 8px 12px;
+  z-index: 10000;
 }
 
 .search-icon {
@@ -64,6 +66,7 @@
   opacity: 0;
   overflow: hidden;
   transition: none;
+  z-index: 9998;
 }
 
 .search-container.expanded .search-dropdown {

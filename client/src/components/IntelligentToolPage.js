@@ -1,3 +1,4 @@
+// client/src/components/IntelligentToolPage.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import './IntelligentToolPage.css'
@@ -124,20 +125,29 @@ function IntelligentToolPage() {
     const [activeSearchTab, setActiveSearchTab] = useState("documentList");
     const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
 
-    // 🔹 수정: searchInfo를 객체로 관리 (timestamp 추가)
     const [searchInfo, setSearchInfo] = useState(null);
 
     /**
-     * 🔹 수정: 상세검색으로 이동하는 핸들러 (timestamp 추가)
+     * 🔹 수정: 상세검색으로 이동하는 핸들러 - 사이드바와 패널 열기
      */
     const handleViewDetailSearch = (searchType, searchTerm) => {
         setSearchInfo({ 
             type: searchType, 
             term: searchTerm,
-            timestamp: Date.now() // 🔹 고유 식별자 추가
+            timestamp: Date.now()
         });
+        
+        // 🔹 사이드바 열기
+        setIsSidebarOpen(true);
+        
+        // 🔹 상세검색 메뉴 활성화
         setActiveMenuItem('search');
+        
+        // 🔹 도면상세검색 탭으로 전환
         setActiveSearchTab("searchDrawing");
+        
+        // 🔹 패널 최대화
+        setIsPanelMaximized(true);
     };
 
     const handleMenuClick = (menuId) => {
@@ -148,12 +158,9 @@ function IntelligentToolPage() {
         }
     };
 
-    /**
-     * 🔹 수정: 로고 클릭 시 searchInfo도 초기화
-     */
     const handleLogoClick = () => {
         setActiveMenuItem(null);
-        setSearchInfo(null); // 🔹 searchInfo 초기화
+        setSearchInfo(null);
     };
 
     const handleMainViewClick = (e) => {
@@ -171,12 +178,7 @@ function IntelligentToolPage() {
         }));
     }, []);
 
-    /**
-     * 🔹 수정: 헤더 검색 핸들러 제거 (더 이상 사용하지 않음)
-     */
-    // const handleSearch = async (searchType, searchTerm) => { ... }
-
-    const handleFileSelect = useCallback(async (fileIdentifier) => {
+    const handleFileSelect = useCallback(async (fileIdentifier, fromSearchBar = false) => {
         const loadedFile = await loadDocument(fileIdentifier);
 
         if (loadedFile) {
@@ -189,7 +191,15 @@ function IntelligentToolPage() {
             });
             setActiveFileId(loadedFile.DOCNO);
             setIsFileLoaded(true);
-            setIsPanelMaximized(false);
+            
+            // 검색바에서 선택된 경우 사이드바와 패널 닫기
+            if (fromSearchBar) {
+                setIsSidebarOpen(false);
+                setActiveMenuItem(null);
+                setIsPanelMaximized(false);
+            } else {
+                setIsPanelMaximized(false);
+            }
         }
     }, [loadDocument]);
 
@@ -329,7 +339,7 @@ function IntelligentToolPage() {
             id: "searchDrawing",
             label: "도면상세검색",
             content: () => <SearchResultList
-                searchInfo={searchInfo} // 🔹 timestamp 포함된 객체 전달
+                searchInfo={searchInfo}
                 onFileSelect={handleFileSelect}
             />
         },
@@ -367,7 +377,7 @@ function IntelligentToolPage() {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onLogoClick={handleLogoClick}
-                onFileSelect={(node) => handleFileSelect({ docId: node.DOCNO, docVr: node.DOCVR })}
+                onFileSelect={(node) => handleFileSelect({ docId: node.DOCNO, docVr: node.DOCVR }, true)}
                 onViewDetailSearch={handleViewDetailSearch}
             />
             <div className="content-wrapper">
