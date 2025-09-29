@@ -155,9 +155,11 @@ router.post('/', async (req, res) => {
     }
 });
 
+// 🔹 수정된 /advanced 라우트
 router.post('/advanced', async (req, res) => {
-    // Client에서 level 객체, drawingNumber, drawingName 등을 받습니다.
-    const { level, drawingNumber, drawingName, additionalConditions } = req.body;
+    const { leafNodeIds, drawingNumber, drawingName, additionalConditions } = req.body; // 🔹 변경
+
+    console.log('[SERVER] 상세 검색 요청 받음:', { leafNodeIds, drawingNumber, drawingName, additionalConditions });
 
     // 기본 SQL 쿼리문
     let sql = `
@@ -170,7 +172,8 @@ router.post('/advanced', async (req, res) => {
             D.DOCNO,
             D.DOCNUMBER,
             D.DOCNM,
-            D.DOCVR
+            D.DOCVR,
+            F.FOLID
         FROM IDS_DOC D
         LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
         LEFT JOIN IDS_FOLDER P ON F.FOLPT = P.FOLID
@@ -180,18 +183,28 @@ router.post('/advanced', async (req, res) => {
           AND S.FOLDER_TYPE = '003'
     `;
 
-    const binds = {}; // 바인딩 변수를 객체로 관리하여 명확성 증대
+    const binds = {};
 
-    // ❗ [수정] 1. 사업소(level) 조건 추가
-    // level 객체가 존재하고, 그 안에 FOLID 값이 있는지 확인합니다.
-    if (level && level.FOLID && level.FOLID !== 'ALL') {
-        sql += ` AND F.FOLID IN (
-                    SELECT FOLID FROM IDS_FOLDER
-                    START WITH FOLID = :level_folid
-                    CONNECT BY PRIOR FOLID = FOLPT
-                 )`;
-        // level 객체의 FOLID 값을 바인딩합니다.
-        binds.level_folid = level.FOLID;
+    // 🔹 1. FOLID 조건 추가 (leafNodeIds 배열 처리)
+    if (leafNodeIds && leafNodeIds !== 'ALL') {
+        if (Array.isArray(leafNodeIds)) {
+            // 🔹 배열인 경우: IN 절로 처리
+            if (leafNodeIds.length > 0) {
+                const placeholders = leafNodeIds.map((_, idx) => `:folid_${idx}`).join(', ');
+                sql += ` AND F.FOLID IN (${placeholders})`;
+                
+                leafNodeIds.forEach((id, idx) => {
+                    binds[`folid_${idx}`] = id;
+                });
+
+                console.log('[SERVER] 배열 형태의 FOLID 필터 적용:', leafNodeIds);
+            }
+        } else if (typeof leafNodeIds === 'string') {
+            // 🔹 문자열인 경우: 단일 조건
+            sql += ` AND F.FOLID = :folid_single`;
+            binds.folid_single = leafNodeIds;
+            console.log('[SERVER] 문자열 형태의 FOLID 필터 적용:', leafNodeIds);
+        }
     }
 
     // 2. 도면번호 조건 추가
@@ -218,19 +231,24 @@ router.post('/advanced', async (req, res) => {
             }).join(' ');
 
         if (additionalClauses) {
-            // 첫 번째 조건은 operator 없이 시작하도록 조정
-            const firstCondition = additionalClauses.startsWith(' AND') ? additionalClauses.substring(5) : additionalClauses.substring(4);
+            const firstCondition = additionalClauses.startsWith(' AND') 
+                ? additionalClauses.substring(5) 
+                : additionalClauses.substring(4);
             sql += ` AND (${firstCondition})`;
         }
     }
 
     sql += ` AND ROWNUM <= 500`;
 
+    console.log('[SERVER] 최종 SQL:', sql);
+    console.log('[SERVER] 바인딩 변수:', binds);
+
     try {
         const results = await dbClient.executeQuery(sql, binds);
+        console.log(`[SERVER] 검색 결과: ${results.length}건`);
         res.status(200).json(results);
     } catch (err) {
-        console.error("상세 검색 API 오류:", err);
+        console.error("[SERVER] 상세 검색 API 오류:", err);
         res.status(500).json({ message: '상세 검색 중 서버 오류가 발생했습니다.' });
     }
 });

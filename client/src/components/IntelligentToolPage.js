@@ -12,14 +12,11 @@ import { useDocumentTree } from './hooks/useDocumentTree';
 import { useDocumentLoader } from './hooks/useDocumentLoader';
 import SearchResultList from './Search/SearchResultList';
 
-// --- Axios 기본 설정 ---
 axios.defaults.baseURL = 'http://localhost:4000';
 axios.defaults.withCredentials = true;
 
-// --- 상수 정의 ---
-const DEFAULT_EXPAND_LEVEL = 0; // 사이드바 트리 기본 확장 레벨
+const DEFAULT_EXPAND_LEVEL = 0;
 
-// 특정 노드까지의 경로를 찾는 함수
 const findPathToNode = (nodes, nodeId, path = []) => {
     for (const node of nodes) {
         const newPath = [...path, node.ID];
@@ -32,7 +29,6 @@ const findPathToNode = (nodes, nodeId, path = []) => {
     return [];
 };
 
-// 지정한 레벨까지 폴더 ID 수집
 const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
     if (currentLevel > maxLevel) return [];
     let ids = [];
@@ -45,7 +41,6 @@ const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
     return ids;
 };
 
-// 뷰 상태 추출 유틸리티
 const getCurrentViewState = (viewer) => {
     if (!viewer) return null;
     const view = viewer.activeView;
@@ -72,16 +67,12 @@ const getCurrentViewState = (viewer) => {
     return null;
 };
 
-// 브라우저 resize 이벤트 강제 트리거
 const triggerResize = () => {
     const viewerContainer = document.getElementById("viewer-container");
     if (!viewerContainer) return;
     window.dispatchEvent(new Event("resize"));
 };
 
-// --- 정적 데이터 ---
-
-// 상단 탭 정의
 const tabItems = [
     { id: 'drawing', label: 'P&ID' },
     { id: 'pld', label: 'PLD' },
@@ -89,7 +80,6 @@ const tabItems = [
     { id: 'inherit', label: '지능화 승계' },
 ];
 
-// 사이드바 메뉴 정의
 const sidebarMenus = {
     drawing: [
         { id: 'search', icon: <Search size={20} />, label: '상세검색' },
@@ -105,10 +95,8 @@ const sidebarMenus = {
     inherit: [{ id: 'inherit', icon: <FileText size={20} />, label: 'Sample Menu' }],
 };
 
-// 준비 중 컴포넌트
 const NotImplemented = () => <div style={{ padding: '20px', textAlign: 'center' }}>🚧 준비 중인 기능입니다.</div>;
 
-// 설비 관련 패널 탭
 const equipmentTabs = [
     { id: "equipmentList", label: "설비목록", content: () => <NotImplemented /> },
     { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },
@@ -118,7 +106,6 @@ function IntelligentToolPage() {
     const { documentTree, loading: documentsLoading } = useDocumentTree();
     const { isLoading: isDocumentLoading, loadDocument } = useDocumentLoader();
 
-    // --- 상태 관리 (State) ---
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [activeTab, setActiveTab] = useState(tabItems[0].id);
@@ -130,7 +117,6 @@ function IntelligentToolPage() {
     const [viewStates, setViewStates] = useState({});
     const [isFileLoaded, setIsFileLoaded] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState(new Set());
-    const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isTabSwitching, setIsTabSwitching] = useState(false);
     const tabSwitchTimeoutRef = useRef(null);
@@ -138,19 +124,22 @@ function IntelligentToolPage() {
     const [activeSearchTab, setActiveSearchTab] = useState("documentList");
     const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
 
-    // 검색 정보 상태 추가
-    const [searchInfo, setSearchInfo] = useState(null); // { type, term }
+    // 🔹 수정: searchInfo를 객체로 관리 (timestamp 추가)
+    const [searchInfo, setSearchInfo] = useState(null);
 
-    // 상세검색으로 이동하는 핸들러
+    /**
+     * 🔹 수정: 상세검색으로 이동하는 핸들러 (timestamp 추가)
+     */
     const handleViewDetailSearch = (searchType, searchTerm) => {
-        setSearchInfo({ type: searchType, term: searchTerm });
+        setSearchInfo({ 
+            type: searchType, 
+            term: searchTerm,
+            timestamp: Date.now() // 🔹 고유 식별자 추가
+        });
         setActiveMenuItem('search');
-        setActiveSearchTab("searchDrawing"); // 도면상세검색 탭으로 전환
+        setActiveSearchTab("searchDrawing");
     };
 
-    // --- 이벤트 핸들러 ---
-
-    // 사이드바 메뉴 클릭 시, 패널을 열고 최대화
     const handleMenuClick = (menuId) => {
         setActiveMenuItem(menuId);
         const config = PANEL_CONFIG[menuId];
@@ -159,20 +148,19 @@ function IntelligentToolPage() {
         }
     };
 
-    // 로고 클릭 시, 사이드바와 패널을 닫고 검색 상태 초기화
+    /**
+     * 🔹 수정: 로고 클릭 시 searchInfo도 초기화
+     */
     const handleLogoClick = () => {
         setActiveMenuItem(null);
-        setSearchResults([]);
-        setSearchInfo(null); // 검색 정보도 초기화
+        setSearchInfo(null); // 🔹 searchInfo 초기화
     };
 
-    // 메인 뷰 클릭 시, 사이드바와 패널 닫기
     const handleMainViewClick = (e) => {
         if (e.target.closest('.view-tab')) return;
         setActiveMenuItem(null);
     };
 
-    // 뷰 상태 변경 저장
     const handleViewStateChange = useCallback((docno, viewState) => {
         setViewStates(prev => ({
             ...prev,
@@ -183,35 +171,15 @@ function IntelligentToolPage() {
         }));
     }, []);
 
-    const handleSearch = async (searchType, searchTerm) => {
-        if (!searchTerm.trim()) return;
-        setIsSearching(true);
+    /**
+     * 🔹 수정: 헤더 검색 핸들러 제거 (더 이상 사용하지 않음)
+     */
+    // const handleSearch = async (searchType, searchTerm) => { ... }
 
-
-        try {
-            const response = await fetch("http://localhost:4000/api/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ searchType, searchTerm })
-            });
-            if (!response.ok) throw new Error('검색 요청 실패');
-            const results = await response.json();
-            setSearchResults(results); // 검색바 미리보기용으로만 사용
-        } catch (error) {
-            console.error("검색 실패:", error);
-            alert("검색 중 오류가 발생했습니다.");
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    // 파일(도면) 선택 시, 뷰어에 탭을 추가하고 패널을 최소화
     const handleFileSelect = useCallback(async (fileIdentifier) => {
-        // fileIdentifier는 { docId, docVr } 형태의 객체입니다.
         const loadedFile = await loadDocument(fileIdentifier);
 
         if (loadedFile) {
-            // 훅을 통해 성공적으로 파일 정보를 받아왔을 때만 탭을 엽니다.
             setOpenFiles(prevOpenFiles => {
                 const isAlreadyOpen = prevOpenFiles.some(f => f.DOCNO === loadedFile.DOCNO);
                 if (isAlreadyOpen) {
@@ -225,7 +193,6 @@ function IntelligentToolPage() {
         }
     }, [loadDocument]);
 
-    // 뷰어 탭 클릭 핸들러
     const handleTabClick = useCallback((docno) => {
         if (docno === activeFileId || isTabSwitching) return;
         setIsTabSwitching(true);
@@ -250,7 +217,6 @@ function IntelligentToolPage() {
         }, 300);
     }, [activeFileId, handleViewStateChange, isTabSwitching]);
 
-    // 뷰어 탭 닫기 핸들러
     const handleTabClose = (docnoToClose) => {
         const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
         setOpenFiles(newOpenFiles);
@@ -265,19 +231,16 @@ function IntelligentToolPage() {
         }
     };
 
-    // 뷰어 탭 순서 변경 핸들러
     const handleTabReorder = (newFiles, draggedFileId) => {
         setOpenFiles(newFiles);
         setActiveFileId(draggedFileId);
     };
 
-    // 뷰어 인스턴스 준비 완료 시 콜백
     const handleViewerReady = useCallback((viewerInstance) => {
         currentViewerInstanceRef.current = viewerInstance;
         window.currentViewerInstance = viewerInstance;
     }, []);
 
-    // 트리 노드 확장/축소 핸들러
     const handleNodeToggle = (nodeId) => {
         setExpandedNodes(prev => {
             const newSet = new Set(prev);
@@ -287,9 +250,6 @@ function IntelligentToolPage() {
         });
     };
 
-    // --- 데이터 로딩 및 사이드 이펙트(useEffect) ---
-
-    // 최초 사용자 접근 권한 확인
     useEffect(() => {
         const checkUserAccess = async () => {
             try {
@@ -306,12 +266,10 @@ function IntelligentToolPage() {
         checkUserAccess();
     }, []);
 
-    // 활성 탭 변경 시 사이드바 메뉴 초기화
     useEffect(() => {
         setActiveMenuItem(null);
     }, [activeTab]);
 
-    // 활성 파일 변경 시 트리에서 해당 파일 위치로 스크롤 및 확장
     useEffect(() => {
         if (documentTree.length > 0 && activeFileId) {
             const path = findPathToNode(documentTree, activeFileId);
@@ -321,7 +279,6 @@ function IntelligentToolPage() {
         }
     }, [activeFileId, documentTree]);
 
-    // 🔹 문서 트리가 로드된 후 기본 확장 레벨 적용
     useEffect(() => {
         if (documentTree.length > 0 && !isDefaultExpandApplied) {
             const defaultExpandedIds = collectIdsToLevel(documentTree, DEFAULT_EXPAND_LEVEL);
@@ -331,14 +288,12 @@ function IntelligentToolPage() {
         }
     }, [documentTree, isDefaultExpandApplied]);
 
-    // 패널 상태 변경 시 뷰어 리사이즈 트리거
     useEffect(() => {
         if (!isFileLoaded) return;
         const timer = setTimeout(triggerResize, 150);
         return () => clearTimeout(timer);
     }, [activeMenuItem, isFileLoaded]);
 
-    // 컴포넌트 언마운트 시 타임아웃 정리
     useEffect(() => {
         return () => {
             if (tabSwitchTimeoutRef.current) {
@@ -346,8 +301,6 @@ function IntelligentToolPage() {
             }
         };
     }, []);
-
-    // --- 렌더링 ---
 
     if (loading) {
         return (
@@ -358,7 +311,6 @@ function IntelligentToolPage() {
         );
     }
 
-    // 검색 패널의 탭 정의
     const searchTabs = [
         {
             id: "documentList",
@@ -377,7 +329,7 @@ function IntelligentToolPage() {
             id: "searchDrawing",
             label: "도면상세검색",
             content: () => <SearchResultList
-                searchInfo={searchInfo} // 검색 정보만 전달 (결과는 컴포넌트 내에서 처리)
+                searchInfo={searchInfo} // 🔹 timestamp 포함된 객체 전달
                 onFileSelect={handleFileSelect}
             />
         },
@@ -415,7 +367,6 @@ function IntelligentToolPage() {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onLogoClick={handleLogoClick}
-                onSearch={handleSearch}
                 onFileSelect={(node) => handleFileSelect({ docId: node.DOCNO, docVr: node.DOCVR })}
                 onViewDetailSearch={handleViewDetailSearch}
             />

@@ -1,8 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Plus, X, Search } from 'lucide-react';
 import './SearchResultList.css';
 import TreeComboBox from '../common/TreeComboBox';
 import { transformToTreeData, formatLevelDataForTree } from '../utils/dataUtils';
+
+const collectLeafNodeIds = (node) => {
+  if (!node.children || node.children.length === 0) {
+    return [node.id];
+  }
+  
+  const leafIds = [];
+  for (const child of node.children) {
+    leafIds.push(...collectLeafNodeIds(child));
+  }
+  return leafIds;
+};
 
 const getNodePath = (nodes, nodeId) => {
   const path = [];
@@ -30,28 +42,33 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [levelTreeData, setLevelTreeData] = useState([]);
-  const [selectedLevel, setSelectedLevel] = useState('ALL');
+  const [currentLeafNodeIds, setCurrentLeafNodeIds] = useState('ALL');
   const [levelsLoading, setLevelsLoading] = useState(true);
   const [infoNode, setInfoNode] = useState(null);
   const [drawingNumber, setDrawingNumber] = useState('');
   const [drawingName, setDrawingName] = useState('');
   const [additionalConditions, setAdditionalConditions] = useState([]);
 
+  // 🔹 추가: searchInfo 처리 여부를 추적하는 ref
+  const processedSearchInfoRef = useRef(null);
+
   const operatorOptions = [
     { value: 'AND', label: 'AND' },
     { value: 'OR', label: 'OR' }
   ];
 
-  const performDetailSearch = useCallback(async (level, searchConditions) => {
+  const performDetailSearch = useCallback(async (leafNodeIds, searchConditions) => {
     setIsLoading(true);
     setError(null);
 
     const payload = {
-      level: level,
+      leafNodeIds: leafNodeIds,
       drawingNumber: searchConditions.drawingNumber,
       drawingName: searchConditions.drawingName,
       additionalConditions: searchConditions.additionalConditions
     };
+
+    console.log('[CLIENT] 상세 검색 요청 페이로드:', payload);
 
     try {
       const response = await fetch("http://localhost:4000/api/search/advanced", {
@@ -93,19 +110,31 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     fetchLevels();
   }, []);
 
-  useEffect(() => {
-    if (searchInfo && searchInfo.type === '도면' && searchInfo.term) {
-      setDrawingName(searchInfo.term);
+  /**
+   * 🔹 수정: searchInfo 처리 로직 개선
+   */
+useEffect(() => {
+  if (searchInfo && searchInfo.type === '도면' && searchInfo.term) {
+    console.log('[CLIENT] 헤더 검색바에서 전달된 searchInfo 처리:', searchInfo);
+    
+    // 상태 초기화
+    setCurrentLeafNodeIds('ALL');
+    setInfoNode(null);
+    setDrawingNumber('');
+    setAdditionalConditions([]);
+    
+    // 🔹 헤더 검색어로 상태 업데이트
+    setDrawingName(searchInfo.term);
 
-      const conditions = {
-        drawingNumber: '',
-        drawingName: searchInfo.term,
-        additionalConditions: []
-      };
-      
-      performDetailSearch('ALL', conditions);
-    }
-  }, [searchInfo, performDetailSearch]);
+    const conditions = {
+      drawingNumber: '',
+      drawingName: searchInfo.term,
+      additionalConditions: []
+    };
+    
+    performDetailSearch('ALL', conditions);
+  }
+}, [searchInfo?.timestamp, performDetailSearch]); // 🔹 timestamp를 의존성으로 사용
 
   const addAdditionalCondition = () => {
     const newId = (additionalConditions.length > 0 ? Math.max(...additionalConditions.map(c => c.id)) : 0) + 1;
@@ -136,25 +165,45 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
       alert('하나 이상의 검색어를 입력해주세요.');
       return;
     }
-    performDetailSearch(selectedLevel, currentConditions);
+    
+    console.log('[CLIENT] 검색 실행 - 현재 leafNodeIds:', currentLeafNodeIds);
+    performDetailSearch(currentLeafNodeIds, currentConditions);
   };
 
   const handleLevelSelect = (node) => {
-    setSelectedLevel(node || 'ALL');
+    if (node && node !== 'ALL') {
+      const leafIds = collectLeafNodeIds(node);
+      setCurrentLeafNodeIds(leafIds);
+      console.log('[CLIENT] handleLevelSelect - leafNodeIds 저장:', leafIds);
+    } else {
+      setCurrentLeafNodeIds('ALL');
+      console.log('[CLIENT] handleLevelSelect - ALL 선택');
+    }
     setInfoNode(null);
   };
 
+  /**
+   * 🔹 수정: handleTitleClick 실행 시 searchInfo 처리 완료 표시 초기화
+   */
   const handleTitleClick = (node) => {
     console.log('[CLIENT-1] handleTitleClick triggered. Node:', node);
     setInfoNode(node);
-    if (node && Array.isArray(node.children) && node.children.length > 0) {
-      const childrenIds = node.children.map(child => child.id);
-      console.log('[CLIENT-2] Extracted Children IDs:', childrenIds);
+
+    if (node) {
+      const leafNodeIds = collectLeafNodeIds(node);
+      console.log('[CLIENT-2] Collected Leaf Node IDs:', leafNodeIds);
+      
+      setCurrentLeafNodeIds(leafNodeIds);
+
+      // 🔹 검색 조건 초기화 (헤더 검색 이력 제거)
       setDrawingNumber('');
       setDrawingName('');
       setAdditionalConditions([]);
+      
+      // 🔹 searchInfo 처리 플래그 초기화
+      processedSearchInfoRef.current = null;
 
-      performDetailSearch(childrenIds, {
+      performDetailSearch(leafNodeIds, {
         drawingNumber: '',
         drawingName: '',
         additionalConditions: []
@@ -288,7 +337,11 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     return (
       <div className="search-result-list">
         {searchResults.map((result, idx) => (
-          <div key={`${result.DOCNO}-${result.DOCVR}-${idx}`} className="search-result-item" onClick={() => handleFileClick(result)}>
+          <div 
+            key={`${result.DOCNO}-${result.DOCVR}-${idx}`} 
+            className="search-result-item" 
+            onClick={() => handleFileClick(result)}
+          >
             <div className="result-main-info">[{result.DOCNUMBER}] {result.DOCNM}</div>
             <div className="result-sub-info">{result.PLANTNM} / {result.PARENTNM} / {result.HOGI_GUBUN}호기</div>
           </div>
