@@ -192,7 +192,6 @@ function IntelligentToolPage() {
             setActiveFileId(loadedFile.DOCNO);
             setIsFileLoaded(true);
             
-            // 검색바에서 선택된 경우 사이드바와 패널 닫기
             if (fromSearchBar) {
                 setIsSidebarOpen(false);
                 setActiveMenuItem(null);
@@ -204,37 +203,14 @@ function IntelligentToolPage() {
     }, [loadDocument]);
 
     const handleTabClick = useCallback((docno) => {
-        if (docno === activeFileId || isTabSwitching) return;
-        setIsTabSwitching(true);
-
-        if (tabSwitchTimeoutRef.current) {
-            clearTimeout(tabSwitchTimeoutRef.current);
-        }
-
-        if (currentViewerInstanceRef.current && activeFileId) {
-            try {
-                const currentState = getCurrentViewState(currentViewerInstanceRef.current);
-                if (currentState) {
-                    handleViewStateChange(activeFileId, currentState);
-                }
-            } catch (error) {
-                console.warn('뷰 상태 저장 실패:', error);
-            }
-        }
+        if (docno === activeFileId) return;
         setActiveFileId(docno);
-        tabSwitchTimeoutRef.current = setTimeout(() => {
-            setIsTabSwitching(false);
-        }, 300);
-    }, [activeFileId, handleViewStateChange, isTabSwitching]);
+    }, [activeFileId]);
 
     const handleTabClose = (docnoToClose) => {
         const newOpenFiles = openFiles.filter(file => file.DOCNO !== docnoToClose);
         setOpenFiles(newOpenFiles);
-        setViewStates(prev => {
-            const newStates = { ...prev };
-            delete newStates[docnoToClose];
-            return newStates;
-        });
+        
         if (activeFileId === docnoToClose) {
             setActiveFileId(newOpenFiles.length > 0 ? newOpenFiles[0].DOCNO : null);
             if (newOpenFiles.length === 0) setIsFileLoaded(false);
@@ -410,10 +386,6 @@ function IntelligentToolPage() {
                     onTabClose={handleTabClose}
                     onTabReorder={handleTabReorder}
                     onMainViewClick={handleMainViewClick}
-                    viewStates={viewStates}
-                    onViewStateChange={handleViewStateChange}
-                    onViewerReady={handleViewerReady}
-                    isTabSwitching={isTabSwitching}
                 />
             </div>
         </div>

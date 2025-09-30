@@ -11,7 +11,7 @@
 
 .view-tabs-container {
   display: flex;
-  align-items: center; /* 탭과 더보기 버튼 정렬 */
+  align-items: center;
   background-color: var(--background-color-light);
   overflow: hidden;
   border-bottom: none;
@@ -28,11 +28,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  /* --- ▼▼▼ 1. 비활성 탭 기본 배경색을 더 진하게 수정 ▼▼▼ --- */
-  background-color: #E9ECEF; /* 예: 연한 회색톤으로 변경 */
+  background-color: #E9ECEF; /* 비활성 탭 배경 */
   border: 1px solid var(--border-color-dark);
   border-bottom: none;
-  border-radius: 6px 6px 0px 0px;
+  border-radius: 6px 6px 0 0;
   font-size: 13px;
   color: #495057;
   flex: 1 1 0;
@@ -60,15 +59,14 @@
 }
 
 .view-tab.active {
-  background-color: var(--background-color); /* 활성 탭은 기존 흰색 배경 유지 */
+  background-color: var(--background-color);
   color: #000;
   z-index: 2;
-  border-bottom-color: var(--background-color);
+  border-bottom-color: var(--background-color); /* 활성 탭 하단 경계선이 보이지 않게 처리 */
 }
 
-/* --- ▼▼▼ 2. 비활성 탭 호버 시 배경색을 더더욱 진하게 수정 ▼▼▼ --- */
 .view-tab:not(.active):hover {
-  background-color: #DEE2E6; /* 예: 중간 회색톤으로 변경 */
+  background-color: #DEE2E6; /* 비활성 탭 호버 시 배경 */
 }
 
 .tab-title {
@@ -108,6 +106,19 @@
   transition: none !important;
 }
 
+/* 🔹 새로운 wrapper 스타일 추가 */
+.viewer-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
 .viewer-header {
   flex-shrink: 0;
   padding: 6px 10px;
@@ -121,72 +132,40 @@
 
 .viewer-title {
   margin: 0;
-  font-size: 0.95em;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.viewer-close-btn {
-  position: absolute;
-  top: 40px;
-  right: 20px;
-  z-index: 10;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #999;
-}
-
-.viewer-close-btn:hover {
-  background-color: rgba(200, 200, 200, 0.2);
-  color: #333;
-}
-
-.server-response-view {
+/* 여러 뷰어 인스턴스를 감싸는 컨테이너 */
+.viewers-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
   flex-grow: 1;
-  padding: 12px;
-  margin: 0;
-  background-color: var(--background-color-dark);
-  color: var(--text-color-code);
-  font-family: var(--font-family-code);
-  font-size: var(--font-size-base);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: auto;
 }
 
-@media (max-width: 1200px) {
-  .view-tab {
-    min-width: 70px;
-  }
-
-  .view-tab.more-tabs-btn {
-    flex: 0 0 35px !important;
-    min-width: 35px;
-    max-width: 35px;
-  }
+/* 개별 뷰어 인스턴스(DwgDisplay)를 감싸는 래퍼 */
+/* position: absolute 대신 flex를 사용해야 동적 리사이즈 계산이 정확하게 동작합니다. */
+.viewer-instance-wrapper {
+  width: 100%;
+  height: 100%;
+  flex-direction: column; /* 자식 컴포넌트(DwgDisplay)의 flex 레이아웃을 지원 */
 }
 
-@media (max-width: 768px) {
-  .view-tab {
-    min-width: 55px;
-  }
-
-  .view-tab.more-tabs-btn {
-    flex: 0 0 30px !important;
-    min-width: 30px;
-    max-width: 30px;
-  }
+/* 도면이 없을 때 표시되는 초기 화면 */
+.initial-view-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #888;
+  font-size: 1.2rem;
 }
 
+/* 검색 결과 UI */
 .search-results-container {
   width: 100%;
   height: 100%;
@@ -258,18 +237,25 @@
   padding-left: 24px; /* 아이콘 크기만큼 들여쓰기 */
 }
 
-/* 검색 결과가 없을 때 */
-.search-no-results {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  color: var(--text-color-secondary);
-  font-size: 14px;
+/* 반응형 스타일 */
+@media (max-width: 1200px) {
+  .view-tab {
+    min-width: 70px;
+  }
+  .view-tab.more-tabs-btn {
+    flex-basis: 35px !important;
+    min-width: 35px;
+    max-width: 35px;
+  }
 }
 
-.search-no-results .no-results-icon {
-  margin-bottom: 12px;
-  color: var(--text-color-secondary);
+@media (max-width: 768px) {
+  .view-tab {
+    min-width: 55px;
+  }
+  .view-tab.more-tabs-btn {
+    flex-basis: 30px !important;
+    min-width: 30px;
+    max-width: 30px;
+  }
 }

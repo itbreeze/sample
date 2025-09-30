@@ -1,3 +1,4 @@
+// client/src/components/MainView.js
 import React from 'react';
 import ViewerContainer from './ViewerContainer';
 import './MainView.css';
@@ -9,10 +10,11 @@ const MainView = ({
   onMainViewClick, 
   openFiles,
   activeFileId,
-  ...props 
+  onTabClick,
+  onTabClose,
+  onTabReorder
 }) => {
   
-  // 열린 파일이 없는 경우 초기 화면
   if (!openFiles || openFiles.length === 0) {
     return (
       <main className="app-main-view" onClick={onMainViewClick}>
@@ -24,13 +26,14 @@ const MainView = ({
     );
   }
 
-  // 일반 뷰어 모드
   return (
     <main className="app-main-view" onClick={onMainViewClick}>
       <ViewerContainer 
-        {...props} 
         openFiles={openFiles}
         activeFileId={activeFileId}
+        onTabClick={onTabClick}
+        onTabClose={onTabClose}
+        onTabReorder={onTabReorder}
       />
     </main>
   );

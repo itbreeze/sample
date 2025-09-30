@@ -8,7 +8,7 @@ const fileCache = new Map();
 
 const initializeVisualizeJS = async () => {
     if (!window.getVisualizeLibInst) {
-        throw new Error('VisualizeJS가 로드되지 않았습니다. public 폴더에 Visualize.js 파일이 있는지 확인하세요.');
+        throw new Error('VisualizeJS가 로드되지 않았습니다.');
     }
     const wasmUrl = window.WasmUrl || '/Visualize.js.wasm';
     return await window.getVisualizeLibInst({
@@ -21,7 +21,7 @@ const createViewer = async (lib, canvas) => {
     return new Promise((resolve, reject) => {
         lib.postRun.push(async () => {
             try {
-                if (!canvas) throw new Error("Canvas element not available for viewer creation.");
+                if (!canvas) throw new Error("Canvas element not available.");
                 const dpr = window.devicePixelRatio || 1;
                 canvas.width = canvas.clientWidth * dpr;
                 canvas.height = canvas.clientHeight * dpr;
@@ -36,80 +36,38 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-const getCurrentViewState = (viewer) => {
-    if (!viewer) return null;
-    const view = viewer.activeView;
-    if (!view) return null;
-
-    if (view.position && view.target && view.upVector) {
-        const viewParams = {
-            position: view.position.toArray(),
-            target: view.target.toArray(),
-            upVector: view.upVector.toArray(),
-            fieldWidth: view.fieldWidth,
-            fieldHeight: view.fieldHeight,
-            projection: view.projection,
-        };
-        view.delete();
-        return viewParams;
-    }
-    
-    view.delete();
-    return null;
-};
-
-// --- React Component ---
-const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerReady, viewerSize }) => {
+// 🔹 React Component - isActive prop 추가
+const DwgDisplay = ({ filePath, isActive }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
-    const isInitialZoomDone = useRef(false);
-    const currentFilePathRef = useRef(null); // 현재 로드된 파일 경로 추적
+    const isInitializedRef = useRef(false);
+    const cleanupFunctionsRef = useRef([]);
     
     const [errorMessage, setErrorMessage] = useState(null);
-    const [isViewerReady, setIsViewerReady] = useState(false);
-    const [isCanvasVisible, setIsCanvasVisible] = useState(false);
-    const [isLoadingNewFile, setIsLoadingNewFile] = useState(false); // 신규 파일 로딩 상태
+    const [isLoading, setIsLoading] = useState(true);
 
+    // 🔹 뷰어 초기화 (한 번만 실행)
     useEffect(() => {
-        if (!filePath) return;
+        if (!filePath || isInitializedRef.current) return;
 
-        // 🔹 신규 파일인지 확인
-        const isNewFile = currentFilePathRef.current !== filePath;
-        
         let isMounted = true;
         
-        // 신규 파일인 경우에만 로딩 상태 표시
-        if (isNewFile) {
-            setIsLoadingNewFile(true);
-            setIsViewerReady(false);
-            setIsCanvasVisible(false);
-        }
-
         const init = async () => {
-            let cleanupFunctions = [];
             try {
-                isInitialZoomDone.current = false;
-                if (!isMounted || !canvasRef.current) return;
+                setIsLoading(true);
                 
-                // 기존 뷰어가 있고 같은 파일이면 재사용
-                if (viewerRef.current && !isNewFile) {
-                    setIsViewerReady(true);
-                    setIsCanvasVisible(true);
-                    setIsLoadingNewFile(false);
-                    return [];
-                }
+                if (!isMounted || !canvasRef.current) return;
                 
                 const libInstance = await initializeVisualizeJS();
                 if (!isMounted) return;
 
                 const viewerInstance = await createViewer(libInstance, canvasRef.current);
-                if (!isMounted) { viewerInstance?.destroy(); return; }
-                viewerRef.current = viewerInstance;
-
-                // 🔹 뷰어 준비 완료 콜백
-                if (onViewerReady) {
-                    onViewerReady(viewerInstance);
+                if (!isMounted) {
+                    viewerInstance?.destroy();
+                    return;
                 }
+                
+                viewerRef.current = viewerInstance;
 
                 let arrayBuffer;
                 if (fileCache.has(filePath)) {
@@ -128,34 +86,31 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
                 viewerRef.current.setEnableSceneGraph(true);
                 viewerRef.current.setEnableAnimation(false);
                 
-                cleanupFunctions.push(attachWheelZoom(viewerRef.current, canvasRef.current) || (() => {}));
-                cleanupFunctions.push(attachPan(viewerRef.current, canvasRef.current) || (() => {}));
-                cleanupFunctions.push(attachClickInfo(viewerRef.current, canvasRef.current) || (() => {}));
-
-                // 현재 파일 경로 업데이트
-                currentFilePathRef.current = filePath;
+                const cleanup1 = attachWheelZoom(viewerRef.current, canvasRef.current);
+                const cleanup2 = attachPan(viewerRef.current, canvasRef.current);
+                const cleanup3 = attachClickInfo(viewerRef.current, canvasRef.current);
                 
-                setIsViewerReady(true);
-                setIsLoadingNewFile(false); // 로딩 완료
+                cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3].filter(Boolean);
+
+                viewerRef.current.zoomExtents?.();
+                viewerRef.current.update?.();
+                
+                isInitializedRef.current = true;
+                setIsLoading(false);
+                
             } catch (err) {
                 if (isMounted) {
                     setErrorMessage(err.message);
-                    setIsLoadingNewFile(false);
+                    setIsLoading(false);
                 }
             }
-            
-            return cleanupFunctions;
         };
         
-        let activeCleanups = [];
         const scriptId = 'visualize-script';
         let script = document.getElementById(scriptId);
+        
         const handleScriptLoad = () => {
-            init().then(cleanups => {
-                if (isMounted) {
-                    activeCleanups = cleanups;
-                }
-            }).catch(console.error);
+            init().catch(console.error);
         };
         
         if (!script) {
@@ -167,7 +122,7 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
             script.onerror = () => { 
                 if (isMounted) {
                     setErrorMessage('Visualize.js 로드 실패');
-                    setIsLoadingNewFile(false);
+                    setIsLoading(false);
                 }
             };
             document.body.appendChild(script);
@@ -179,88 +134,39 @@ const DwgDisplay = ({ filePath, initialViewState, onViewStateChange, onViewerRea
         
         return () => {
             isMounted = false;
-            activeCleanups.forEach(cleanup => cleanup());
-            if (script) {
-                script.removeEventListener('load', handleScriptLoad);
-            }
         };
-    }, [filePath, onViewerReady]);
+    }, [filePath]);
 
-    // 🔹 컴포넌트 언마운트 시에만 뷰어 정리
+    // 🔹 활성화 상태에 따라 업데이트
+    useEffect(() => {
+        if (isActive && viewerRef.current && isInitializedRef.current) {
+            viewerRef.current.update?.();
+        }
+    }, [isActive]);
+
+    // 🔹 언마운트 시에만 정리
     useEffect(() => {
         return () => {
+            cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
             if (viewerRef.current) {
-                // 🔹 컴포넌트 언마운트 시 뷰 상태 저장
-                if (onViewStateChange) {
-                    const lastState = getCurrentViewState(viewerRef.current);
-                    if (lastState) {
-                        onViewStateChange(lastState);
-                    }
-                }
                 viewerRef.current.destroy?.();
                 viewerRef.current = null;
-                currentFilePathRef.current = null;
             }
         };
     }, []);
 
-    useEffect(() => {
-        const viewer = viewerRef.current;
-        const canvas = canvasRef.current;
-        
-        if (!isViewerReady || !viewer || !canvas || viewerSize.width === 0 || viewerSize.height === 0) {
-            return;
-        }
-
-        const dpr = window.devicePixelRatio || 1;
-        const newWidth = Math.floor(viewerSize.width * dpr);
-        const newHeight = Math.floor(viewerSize.height * dpr);
-
-        if (canvas.width !== newWidth || canvas.height !== newHeight) {
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            viewer.resize?.(0, newWidth, newHeight, 0);
-        }
-        
-        if (!isInitialZoomDone.current) {
-            if (initialViewState) {
-                // 🔹 저장된 뷰 상태 복원
-                const view = viewer.activeView;
-                if (view) {
-                    if (initialViewState.position && initialViewState.target && initialViewState.upVector) {
-                        view.setView(
-                            initialViewState.position,
-                            initialViewState.target,
-                            initialViewState.upVector,
-                            initialViewState.fieldWidth,
-                            initialViewState.fieldHeight,
-                            initialViewState.projection
-                        );
-                    }
-                    view.delete();
-                }
-            } else {
-                // 🔹 초기 줌 익스텐트
-                viewer.zoomExtents?.();
-            }
-            isInitialZoomDone.current = true;
-            
-            requestAnimationFrame(() => setIsCanvasVisible(true));
-        }
-        
-        viewer.update?.();
-    }, [viewerSize, isViewerReady, initialViewState]);
-
     return (
         <div className="viewer-app-container">
-            {/* 🔹 신규 파일 로딩 중에만 스피너 표시 */}
-            {isLoadingNewFile && (
+            {isLoading && (
                 <div className="loading-overlay">
                     <div className="spinner"></div>
                     <div className="loading-text">도면 로딩 중...</div>
                 </div>
             )}
-            <div className="viewer-canvas-container" style={{ visibility: isCanvasVisible ? 'visible' : 'hidden' }}>
+            <div 
+                className="viewer-canvas-container" 
+                style={{ visibility: isLoading ? 'hidden' : 'visible' }}
+            >
                 <canvas ref={canvasRef} id="viewerCanvas" />
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
             </div>

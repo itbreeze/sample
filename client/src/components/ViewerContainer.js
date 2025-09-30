@@ -1,4 +1,5 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+// client/src/components/ViewerContainer.js
+import React, { useState, useCallback } from 'react';
 import { X as CloseIcon, MoreHorizontal, FileText } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './ViewerContainer.css';
@@ -7,49 +8,17 @@ import DwgDisplay from './viewer/DwgDisplay';
 
 const MAX_VISIBLE_TABS = 5;
 
-// 🔹 뷰 상태 추출 유틸리티
-const getCurrentViewState = (viewer) => {
-  if (!viewer) return null;
-  const view = viewer.activeView;
-  if (!view) return null;
-
-  try {
-    if (view.position && view.target && view.upVector) {
-      const viewParams = {
-        position: view.position.toArray(),
-        target: view.target.toArray(),
-        upVector: view.upVector.toArray(),
-        fieldWidth: view.fieldWidth,
-        fieldHeight: view.fieldHeight,
-        projection: view.projection,
-      };
-      view.delete();
-      return viewParams;
-    }
-  } catch (error) {
-    console.warn('뷰 상태 추출 실패:', error);
-  }
-
-  if (view.delete) view.delete();
-  return null;
-};
-
 const ViewerContainer = ({
   openFiles = [],
   activeFileId,
   onTabClick,
   onTabClose,
   onTabReorder,
-  viewStates,
-  onViewStateChange,
   searchResults = [],
   isSearchMode = false,
   onSearchResultClick
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const contentAreaRef = useRef(null);
-  const [viewerSize, setViewerSize] = useState({ width: 0, height: 0 });
-  const viewerInstanceRef = useRef(null);
 
   // dnd 라이브러리를 위한 onDragEnd 핸들러
   const handleOnDragEnd = useCallback((result) => {
@@ -68,59 +37,6 @@ const ViewerContainer = ({
       onSearchResultClick(result);
     }
   }, [onSearchResultClick]);
-
-  // 탭 클릭 - 뷰 상태 즉시 저장
-  const handleTabClick = useCallback((docno) => {
-    if (docno === activeFileId) return;
-
-    if (viewerInstanceRef.current && activeFileId) {
-      try {
-        const currentState = getCurrentViewState(viewerInstanceRef.current);
-        if (currentState) {
-          onViewStateChange(activeFileId, currentState);
-        }
-      } catch (error) {
-        console.warn('탭 전환시 뷰 상태 저장 실패:', error);
-      }
-    }
-
-    onTabClick(docno);
-  }, [activeFileId, onViewStateChange, onTabClick]);
-
-  // 뷰어 준비 완료
-  const handleViewerReady = useCallback((viewerInstance) => {
-    viewerInstanceRef.current = viewerInstance;
-  }, []);
-
-  // ResizeObserver
-  useEffect(() => {
-    let resizeTimeout;
-    const resizeObserver = new ResizeObserver(entries => {
-      if (!entries || entries.length === 0) return;
-
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        const { width, height } = entries[0].contentRect;
-        setViewerSize(prevSize => {
-          if (Math.abs(prevSize.width - width) > 1 || Math.abs(prevSize.height - height) > 1) {
-            return { width, height };
-          }
-          return prevSize;
-        });
-      }, 16);
-    });
-
-    if (contentAreaRef.current) {
-      resizeObserver.observe(contentAreaRef.current);
-    }
-
-    return () => {
-      clearTimeout(resizeTimeout);
-      if (contentAreaRef.current) {
-        resizeObserver.unobserve(contentAreaRef.current);
-      }
-    };
-  }, []);
 
   // 모달에서 탭 선택
   const handleSelectFromModal = useCallback((docno) => {
@@ -166,7 +82,6 @@ const ViewerContainer = ({
 
   // 뷰어 렌더링
   const renderViewer = () => {
-    const activeFile = openFiles.find(file => file.DOCNO === activeFileId);
     const visibleFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(0, MAX_VISIBLE_TABS) : openFiles;
     const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : [];
 
@@ -188,7 +103,7 @@ const ViewerContainer = ({
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
                         className={`view-tab ${file.DOCNO === activeFileId ? 'active' : ''} ${snapshot.isDragging ? 'dragging' : ''}`}
-                        onClick={() => handleTabClick(file.DOCNO)}
+                        onClick={() => onTabClick(file.DOCNO)}
                         title={file.DOCNM || file.DOCNUMBER}
                       >
                         <span className="tab-title">
@@ -215,22 +130,27 @@ const ViewerContainer = ({
           )}
         </div>
 
-        <div ref={contentAreaRef} className="viewer-content-area">
-          {activeFile ? (
+        <div className="viewer-content-area">
+          {openFiles.length > 0 ? (
             <>
-              <div className="viewer-header">
-                <h2 className="viewer-title">
-                  {`${activeFile.PLANTNM} / ${activeFile.UNIT}호기 / [${activeFile.DOCNUMBER}] ${activeFile.DOCNM}`}
-                </h2>
-              </div>
-              <DwgDisplay
-                key={activeFile.DOCNO}
-                filePath={activeFile.tmpFile}
-                initialViewState={viewStates[activeFile.DOCNO]}
-                onViewStateChange={(viewState) => onViewStateChange(activeFile.DOCNO, viewState)}
-                onViewerReady={handleViewerReady}
-                viewerSize={viewerSize}
-              />
+              {/* 🔹 핵심 변경: 모든 열린 파일에 대해 DwgDisplay 생성 */}
+              {openFiles.map((file) => (
+                <div
+                  key={file.DOCNO}
+                  className="viewer-wrapper"
+                  style={{ display: file.DOCNO === activeFileId ? 'flex' : 'none' }}
+                >
+                  <div className="viewer-header">
+                    <h2 className="viewer-title">
+                      {`${file.PLANTNM} / ${file.UNIT}호기 / [${file.DOCNUMBER}] ${file.DOCNM}`}
+                    </h2>
+                  </div>
+                  <DwgDisplay
+                    filePath={file.tmpFile}
+                    isActive={file.DOCNO === activeFileId}
+                  />
+                </div>
+              ))}
             </>
           ) : (
             <div className="initial-view-content">
