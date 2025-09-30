@@ -182,4 +182,4 @@ const ViewerContainer = ({
   );
 };
 
-export default React.memo(ViewerContainer);
+export default ViewerContainer;
