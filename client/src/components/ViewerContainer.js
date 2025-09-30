@@ -14,6 +14,8 @@ const ViewerContainer = ({
   onTabClick,
   onTabClose,
   onTabReorder,
+  viewerStates,          // DOCNO -> {zoom, pan, camera, ...}
+  setViewerStates,       // 상태 업데이트 콜백
   searchResults = [],
   isSearchMode = false,
   onSearchResultClick
@@ -21,7 +23,7 @@ const ViewerContainer = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 🔹 drag&drop 핸들러
-  const handleOnDragEnd = useCallback((result) => {    
+  const handleOnDragEnd = useCallback((result) => {
     if (!result.destination || result.destination.index === result.source.index) return;
     const newFiles = Array.from(openFiles);
     const [reorderedItem] = newFiles.splice(result.source.index, 1);
@@ -31,7 +33,7 @@ const ViewerContainer = ({
     // ⚠️ activeFileId 재설정은 부모에서 처리 필요
   }, [openFiles, onTabReorder]);
 
-  
+
 
   // 검색 결과 클릭
   const handleSearchResultClick = useCallback((result) => {
@@ -137,24 +139,27 @@ const ViewerContainer = ({
         <div className="viewer-content-area">
           {openFiles.length > 0 ? (
             <>
-              {openFiles.map((file) => (
-                <div
-                  key={`${file.DOCNO}-${file.tmpFile}`}
-                  className="viewer-wrapper"
-                  style={{ display: file.DOCNO === activeFileId ? 'flex' : 'none' }}
-                >
-                  <div className="viewer-header">
-                    <h2 className="viewer-title">
-                      {`${file.PLANTNM} / ${file.UNIT}호기 / [${file.DOCNUMBER}] ${file.DOCNM}`}
-                    </h2>
+              {openFiles.map((file) => {
+                if (!file) return null; // undefined 방어
+                return (
+                  <div
+                    key={`${file.DOCNO}-${file.tmpFile}`}
+                    className="viewer-wrapper"
+                    style={{ display: file.DOCNO === activeFileId ? 'flex' : 'none' }}
+                  >
+                    <div className="viewer-header">
+                      <h2 className="viewer-title">
+                        {`${file.PLANTNM} / ${file.UNIT}호기 / [${file.DOCNUMBER}] ${file.DOCNM}`}
+                      </h2>
+                    </div>
+                    <DwgDisplay
+                      filePath={file.tmpFile}
+                      isActive={file.DOCNO === activeFileId}
+                      key={`${file.DOCNO}-${file.tmpFile}`}
+                    />
                   </div>
-                  <DwgDisplay
-                    filePath={file.tmpFile}
-                    isActive={file.DOCNO === activeFileId}
-                    key={`${file.DOCNO}-${file.tmpFile}`} // React가 drag&drop 후 새로 mount하도록 key 지정
-                  />
-                </div>
-              ))}
+                );
+              })}
             </>
           ) : (
             <div className="initial-view-content">

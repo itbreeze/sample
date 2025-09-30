@@ -36,50 +36,65 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-const DwgDisplay = ({ filePath, isActive }) => {
+const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
     const containerRef = useRef(null);
     const isInitializedRef = useRef(false);
     const cleanupFunctionsRef = useRef([]);
     const resizeObserverRef = useRef(null);
-    
+
     const [errorMessage, setErrorMessage] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // 🔹 이벤트 리스너 등록 함수 (독립적으로 분리)
+    // 이벤트 등록
     const attachEventListeners = () => {
-        if (!viewerRef.current || !canvasRef.current) {
-            console.warn('[DwgDisplay] 이벤트 리스너 등록 실패: viewer 또는 canvas 없음');
-            return;
-        }
+        if (!viewerRef.current || !canvasRef.current) return;
 
-        console.log('[DwgDisplay] 이벤트 리스너 등록');
-
-        // 🔹 기존 리스너 정리
+        // 기존 이벤트 제거
         cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
         cleanupFunctionsRef.current = [];
 
-        // 🔹 새로운 리스너 등록
+        // 안전하게 callback 없이 attach
         const cleanup1 = attachWheelZoom(viewerRef.current, canvasRef.current);
         const cleanup2 = attachPan(viewerRef.current, canvasRef.current);
         const cleanup3 = attachClickInfo(viewerRef.current, canvasRef.current);
-        
+
         cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3].filter(Boolean);
     };
 
-    // 🔹 뷰어 초기화 (한 번만 실행)
+    // Resize
+    const handleResize = () => {
+        const canvas = canvasRef.current;
+        const viewer = viewerRef.current;
+        const container = containerRef.current;
+        if (!canvas || !viewer || !container) return;
+
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const newWidth = Math.floor(rect.width * dpr);
+        const newHeight = Math.floor(rect.height * dpr);
+
+
+        if (newWidth > 0 && newHeight > 0 &&
+            (canvas.width !== newWidth || canvas.height !== newHeight)) {
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            viewer.resize?.(0, newWidth, newHeight, 0);
+            viewer.update?.();
+        }
+    };
+
+    // 뷰어 초기화
     useEffect(() => {
         if (!filePath || isInitializedRef.current) return;
 
         let isMounted = true;
-        
+
         const init = async () => {
             try {
                 setIsLoading(true);
-                
-                if (!isMounted || !canvasRef.current) return;
-                
+
                 const libInstance = await initializeVisualizeJS();
                 if (!isMounted) return;
 
@@ -88,7 +103,6 @@ const DwgDisplay = ({ filePath, isActive }) => {
                     viewerInstance?.destroy();
                     return;
                 }
-                
                 viewerRef.current = viewerInstance;
 
                 let arrayBuffer;
@@ -104,26 +118,15 @@ const DwgDisplay = ({ filePath, isActive }) => {
                 if (!isMounted) return;
 
                 await viewerRef.current.parseVsfx(arrayBuffer);
-                
                 viewerRef.current.setEnableSceneGraph(true);
                 viewerRef.current.setEnableAnimation(false);
-
                 viewerRef.current.zoomExtents?.();
                 viewerRef.current.update?.();
-                
+
                 isInitializedRef.current = true;
                 setIsLoading(false);
-                
-                // 🔹 초기화 완료 후 이벤트 리스너 등록
-                if (isActive) {
-                    // 약간의 지연을 두어 DOM이 완전히 준비된 후 등록
-                    setTimeout(() => {
-                        if (isMounted) {
-                            attachEventListeners();
-                        }
-                    }, 100);
-                }
-                
+
+                if (isActive) attachEventListeners();
             } catch (err) {
                 if (isMounted) {
                     setErrorMessage(err.message);
@@ -131,25 +134,20 @@ const DwgDisplay = ({ filePath, isActive }) => {
                 }
             }
         };
-        
+
         const scriptId = 'visualize-script';
         let script = document.getElementById(scriptId);
-        
-        const handleScriptLoad = () => {
-            init().catch(console.error);
-        };
-        
+
+        const handleScriptLoad = () => { init().catch(console.error); };
+
         if (!script) {
             script = document.createElement('script');
             script.id = scriptId;
             script.src = '/Visualize.js';
             script.async = true;
             script.addEventListener('load', handleScriptLoad);
-            script.onerror = () => { 
-                if (isMounted) {
-                    setErrorMessage('Visualize.js 로드 실패');
-                    setIsLoading(false);
-                }
+            script.onerror = () => {
+                if (isMounted) { setErrorMessage('Visualize.js 로드 실패'); setIsLoading(false); }
             };
             document.body.appendChild(script);
         } else if (window.getVisualizeLibInst) {
@@ -157,111 +155,51 @@ const DwgDisplay = ({ filePath, isActive }) => {
         } else {
             script.addEventListener('load', handleScriptLoad);
         }
-        
-        return () => {
-            isMounted = false;
-        };
-    }, [filePath, isActive]); // 🔹 isActive 의존성 추가
 
-    // 🔹 isActive 변경 시 이벤트 리스너 재등록
+        return () => { isMounted = false; };
+    }, [filePath, isActive]);
+
+    // initialState 적용
     useEffect(() => {
-        if (!isInitializedRef.current || !isActive) {
-            return;
-        }
+        if (!viewerRef.current || !initialState) return;
+        const viewer = viewerRef.current;
 
-        console.log('[DwgDisplay] 탭 활성화 - 이벤트 리스너 재등록');
-        
-        attachEventListeners();
+        if (initialState.zoom !== undefined) viewer.setZoom(initialState.zoom);
+        if (initialState.pan) viewer.setPan(initialState.pan.x, initialState.pan.y);
+        if (initialState.camera) viewer.setCamera(initialState.camera);
 
-        // 뷰어 업데이트
-        if (viewerRef.current) {
-            viewerRef.current.update?.();
-        }
+    }, [viewerRef.current, initialState]);
 
-    }, [isActive]); // 🔹 isActive가 변경될 때마다 실행
-
-    // 🔹 ResizeObserver 설정
+    // isActive 변경 시 이벤트 재등록
     useEffect(() => {
-        if (!viewerRef.current || !isInitializedRef.current || !containerRef.current) {
-            return;
-        }
+        if (isInitializedRef.current && isActive) attachEventListeners();
+    }, [isActive]);
 
-        let resizeTimeout;
-        
-        const handleResize = (entries) => {
-            if (!entries || entries.length === 0) return;
+    // ResizeObserver
+    // ResizeObserver
+    useEffect(() => {
+        if (!containerRef.current) return;
 
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                const { width, height } = entries[0].contentRect;
-                
-                if (width === 0 || height === 0) return;
+        const observer = new ResizeObserver(() => {
+            // viewer가 초기화되면 resize 적용
+            if (viewerRef.current) handleResize();
+        });
 
-                const canvas = canvasRef.current;
-                const viewer = viewerRef.current;
-                
-                if (!canvas || !viewer) return;
+        observer.observe(containerRef.current);
+        resizeObserverRef.current = observer;
 
-                const dpr = window.devicePixelRatio || 1;
-                const newWidth = Math.floor(width * dpr);
-                const newHeight = Math.floor(height * dpr);
+        // 초기 강제 resize
+        handleResize();
 
-                if (canvas.width !== newWidth || canvas.height !== newHeight) {
-                    console.log(`[DwgDisplay] 캔버스 리사이즈: ${newWidth}x${newHeight}`);
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
-                    viewer.resize?.(0, newWidth, newHeight, 0);
-                    viewer.update?.();
-                }
-            }, 100);
-        };
+        return () => observer.disconnect();
+    }, [filePath]);
 
-        resizeObserverRef.current = new ResizeObserver(handleResize);
-        resizeObserverRef.current.observe(containerRef.current);
-
-        // 초기 리사이즈 강제 실행
-        const initialResize = () => {
-            if (containerRef.current && canvasRef.current && viewerRef.current) {
-                const rect = containerRef.current.getBoundingClientRect();
-                const canvas = canvasRef.current;
-                const viewer = viewerRef.current;
-                
-                const dpr = window.devicePixelRatio || 1;
-                const newWidth = Math.floor(rect.width * dpr);
-                const newHeight = Math.floor(rect.height * dpr);
-
-                if (newWidth > 0 && newHeight > 0) {
-                    console.log(`[DwgDisplay] 초기 캔버스 리사이즈: ${newWidth}x${newHeight}`);
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
-                    viewer.resize?.(0, newWidth, newHeight, 0);
-                    viewer.update?.();
-                }
-            }
-        };
-
-        setTimeout(initialResize, 150);
-
-        return () => {
-            clearTimeout(resizeTimeout);
-            if (resizeObserverRef.current) {
-                resizeObserverRef.current.disconnect();
-                resizeObserverRef.current = null;
-            }
-        };
-    }, [isInitializedRef.current]);
-
-    // 🔹 언마운트 시에만 정리
+    // 언마운트 시 정리
     useEffect(() => {
         return () => {
             cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
-            if (resizeObserverRef.current) {
-                resizeObserverRef.current.disconnect();
-            }
-            if (viewerRef.current) {
-                viewerRef.current.destroy?.();
-                viewerRef.current = null;
-            }
+            if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
+            if (viewerRef.current) viewerRef.current.destroy?.();
         };
     }, []);
 
@@ -273,10 +211,7 @@ const DwgDisplay = ({ filePath, isActive }) => {
                     <div className="loading-text">도면 로딩 중...</div>
                 </div>
             )}
-            <div 
-                className="viewer-canvas-container" 
-                style={{ visibility: isLoading ? 'hidden' : 'visible' }}
-            >
+            <div className="viewer-canvas-container" style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
                 <canvas ref={canvasRef} id="viewerCanvas" />
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
             </div>
