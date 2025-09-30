@@ -35,7 +35,7 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, onTitleClick
                 <span className="expand-icon" onClick={handleArrowClick}>
                     {hasChildren && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
                 </span>
-                
+
                 <span className="type-icon">
                     {isFolder ? (
                         isExpanded ? <FolderOpen size={16} /> : <FolderClosed size={16} />
@@ -67,13 +67,21 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, onTitleClick
 };
 
 
-const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목을 선택하세요' }) => {
+const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목을 선택하세요', value }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState(null);
     const [expandedNodes, setExpandedNodes] = useState(new Set());
     const containerRef = useRef(null);
 
     useEffect(() => {
+        if (value) {
+            console.log('[TreeComboBox] 외부 value 변경:', value);
+            setSelectedNode({ name: value, id: null }); // id는 선택용이 아니므로 null
+        }
+    }, [value]);
+
+    useEffect(() => {
+
         const handleClickOutside = (event) => {
             if (containerRef.current && !containerRef.current.contains(event.target)) {
                 setIsOpen(false);
@@ -92,24 +100,28 @@ const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목�
     };
 
     const handleSelect = (node) => {
+        console.log('[TreeComboBox] 노드 선택:', node);
         setSelectedNode(node);
         onNodeSelect(node);
         setIsOpen(false);
     };
 
-    // --- ▼▼▼ [추가] 타이틀 클릭과 닫기 기능을 함께 처리하는 핸들러 ▼▼▼ ---
     const handleTitleAndClose = (node) => {
+        console.log('[TreeComboBox] 폴더 제목 클릭:', node);
         if (onTitleClick) {
-            onTitleClick(node); // 부모의 onTitleClick 함수 실행 (조건 텍스트 표시)
+            onTitleClick(node);
         }
-        setIsOpen(false); // 드롭다운 닫기
+        if (onNodeSelect) onNodeSelect(node);
+        setSelectedNode(node); // ✅ 폴더 선택도 고정
+        setIsOpen(false);
     };
+
     // --- ▲▲▲ [추가] ---
 
     return (
         <div className="tree-combobox-container" ref={containerRef}>
             <div className="combobox-input" onClick={() => setIsOpen(!isOpen)}>
-                <span>{selectedNode ? selectedNode.name : placeholder}</span>
+                <span>{value || selectedNode?.name || placeholder}</span>
                 <ChevronDown size={20} className={`chevron-icon ${isOpen ? 'open' : ''}`} />
             </div>
 
@@ -124,7 +136,7 @@ const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목�
                             onToggle={handleToggle}
                             onSelect={handleSelect}
                             // --- [수정] 새로 만든 핸들러를 onTitleClick prop으로 전달 ---
-                            onTitleClick={handleTitleAndClose} 
+                            onTitleClick={handleTitleAndClose}
                             selectedId={selectedNode?.id}
                         />
                     ))}

@@ -324,7 +324,7 @@ function IntelligentToolPage() {
     const searchTabs = [
         {
             id: "documentList",
-            label: "도면목록",
+            label: "전체도면목록",
             content: (filter) => <DrawingList
                 filter={filter}
                 onFileSelect={(node) => handleFileSelect({ docId: node.ID, docVr: node.DOCVR })}
