@@ -36,12 +36,13 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-// 🔹 React Component - isActive prop 추가
 const DwgDisplay = ({ filePath, isActive }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
+    const containerRef = useRef(null);
     const isInitializedRef = useRef(false);
     const cleanupFunctionsRef = useRef([]);
+    const resizeObserverRef = useRef(null);
     
     const [errorMessage, setErrorMessage] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -137,9 +138,82 @@ const DwgDisplay = ({ filePath, isActive }) => {
         };
     }, [filePath]);
 
-    // 🔹 활성화 상태에 따라 업데이트
+    // 🔹 ResizeObserver 설정 - isActive와 무관하게 항상 동작
+    useEffect(() => {
+        if (!viewerRef.current || !isInitializedRef.current || !containerRef.current) {
+            return;
+        }
+
+        let resizeTimeout;
+        
+        const handleResize = (entries) => {
+            if (!entries || entries.length === 0) return;
+
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const { width, height } = entries[0].contentRect;
+                
+                if (width === 0 || height === 0) return;
+
+                const canvas = canvasRef.current;
+                const viewer = viewerRef.current;
+                
+                if (!canvas || !viewer) return;
+
+                const dpr = window.devicePixelRatio || 1;
+                const newWidth = Math.floor(width * dpr);
+                const newHeight = Math.floor(height * dpr);
+
+                if (canvas.width !== newWidth || canvas.height !== newHeight) {
+                    console.log(`[DwgDisplay] 캔버스 리사이즈: ${newWidth}x${newHeight}`);
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    viewer.resize?.(0, newWidth, newHeight, 0);
+                    viewer.update?.();
+                }
+            }, 100);
+        };
+
+        resizeObserverRef.current = new ResizeObserver(handleResize);
+        resizeObserverRef.current.observe(containerRef.current);
+
+        // 초기 리사이즈 강제 실행
+        const initialResize = () => {
+            if (containerRef.current && canvasRef.current && viewerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                const canvas = canvasRef.current;
+                const viewer = viewerRef.current;
+                
+                const dpr = window.devicePixelRatio || 1;
+                const newWidth = Math.floor(rect.width * dpr);
+                const newHeight = Math.floor(rect.height * dpr);
+
+                if (newWidth > 0 && newHeight > 0) {
+                    console.log(`[DwgDisplay] 초기 캔버스 리사이즈: ${newWidth}x${newHeight}`);
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    viewer.resize?.(0, newWidth, newHeight, 0);
+                    viewer.update?.();
+                }
+            }
+        };
+
+        // 약간의 지연 후 초기 리사이즈 실행
+        setTimeout(initialResize, 150);
+
+        return () => {
+            clearTimeout(resizeTimeout);
+            if (resizeObserverRef.current) {
+                resizeObserverRef.current.disconnect();
+                resizeObserverRef.current = null;
+            }
+        };
+    }, [isInitializedRef.current]); // isInitializedRef.current가 true가 되면 실행
+
+    // 🔹 활성화 상태에 따라 업데이트만 수행
     useEffect(() => {
         if (isActive && viewerRef.current && isInitializedRef.current) {
+            console.log('[DwgDisplay] 탭 활성화 - 뷰어 업데이트');
             viewerRef.current.update?.();
         }
     }, [isActive]);
@@ -148,6 +222,9 @@ const DwgDisplay = ({ filePath, isActive }) => {
     useEffect(() => {
         return () => {
             cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
+            if (resizeObserverRef.current) {
+                resizeObserverRef.current.disconnect();
+            }
             if (viewerRef.current) {
                 viewerRef.current.destroy?.();
                 viewerRef.current = null;
@@ -156,7 +233,7 @@ const DwgDisplay = ({ filePath, isActive }) => {
     }, []);
 
     return (
-        <div className="viewer-app-container">
+        <div ref={containerRef} className="viewer-app-container">
             {isLoading && (
                 <div className="loading-overlay">
                     <div className="spinner"></div>

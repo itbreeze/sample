@@ -19,8 +19,10 @@ export const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
 };
 
 /**
- * 마우스 중간 버튼 드래그를 이용한 이동(Pan) 기능을 캔버스에 추가합니다.
- * 💡 중간 버튼 더블클릭 시 Zoom Extents 기능 포함
+ * 마우스 좌클릭 드래그와 휠 클릭을 이용한 이동(Pan) 기능을 캔버스에 추가합니다.
+ * - 좌클릭 + 드래그: 패닝
+ * - 휠 클릭 + 드래그: 패닝
+ * - 휠 더블클릭: Zoom Extents
  * @param {object} viewer - Visualize.js 뷰어 인스턴스
  * @param {HTMLElement} canvas - 캔버스 DOM 요소
  * @returns {function} - 이벤트 리스너를 제거하는 cleanup 함수
@@ -29,91 +31,69 @@ export const attachPan = (viewer, canvas) => {
     if (!viewer || !canvas) return () => {};
 
     let isPanning = false;
+    let panButton = null; // 어떤 버튼으로 패닝 중인지 추적
     let lastMouseX = 0, lastMouseY = 0;
-    const defaultCursor = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\"><rect width=\"16\" height=\"16\" fill=\"none\" stroke=\"black\" stroke-width=\"2\"/></svg>') 8 8, auto";
+    const defaultCursor = "default";
     canvas.style.cursor = defaultCursor;
 
-    // 💡 더블클릭 감지를 위한 변수
+    // 휠 더블클릭 감지
     let lastMiddleClickTime = 0;
-    let clickTimer = null;
-    const doubleClickThreshold = 400; // 더블클릭으로 인정할 시간 간격 (밀리초)
-    const dragThreshold = 5; // 드래그로 인정할 최소 이동 거리 (픽셀)
-    let mouseDownX = 0;
-    let mouseDownY = 0;
-    let hasMoved = false;
+    let clickCount = 0;
+    const doubleClickThreshold = 400;
 
     const onMouseDown = (event) => {
-        // 💡 마우스 가운데 버튼(휠 클릭)일 때만 동작
+        // 좌클릭(버튼 0)으로 패닝
+        if (event.button === 0) {
+            isPanning = true;
+            panButton = 0;
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+            canvas.style.cursor = 'grabbing';
+        }
+        
+        // 휠 클릭(버튼 1)으로 패닝 또는 더블클릭
         if (event.button === 1) {
             event.preventDefault();
-
             const now = new Date().getTime();
-            mouseDownX = event.clientX;
-            mouseDownY = event.clientY;
-            hasMoved = false;
 
-            // 💡 이전 클릭 타이머가 있으면 취소
-            if (clickTimer) {
-                clearTimeout(clickTimer);
-                clickTimer = null;
-            }
-
-            // 💡 더블클릭 여부 판단
+            // 더블클릭 감지
             if (now - lastMiddleClickTime < doubleClickThreshold) {
-                // 더블클릭으로 판정 -> Zoom Extents 실행
-                console.log('[Pan Control] 휠 더블클릭 감지 - Zoom Extents 실행');
+                clickCount++;
                 
-                try {
-                    viewer.zoomExtents?.();
-                    viewer.update?.();
-                } catch (error) {
-                    console.error('[Pan Control] Zoom Extents 오류:', error);
-                }
-                
-                // 타이머 리셋
-                lastMiddleClickTime = 0;
-                isPanning = false;
-                canvas.style.cursor = defaultCursor;
-            } else {
-                // 첫 번째 클릭 - Pan 준비
-                lastMiddleClickTime = now;
-                
-                // 💡 일정 시간 후에도 더블클릭이 안 오면 Pan 시작
-                clickTimer = setTimeout(() => {
-                    if (!hasMoved) {
-                        isPanning = true;
-                        lastMouseX = mouseDownX;
-                        lastMouseY = mouseDownY;
-                        canvas.style.cursor = 'grab';
+                if (clickCount === 2) {
+                    console.log('[Pan Control] 휠 더블클릭 - Zoom Extents');
+                    
+                    try {
+                        viewer.zoomExtents?.();
+                        viewer.update?.();
+                    } catch (error) {
+                        console.error('[Pan Control] Zoom Extents 오류:', error);
                     }
-                    clickTimer = null;
-                }, doubleClickThreshold);
+                    
+                    // 리셋
+                    lastMiddleClickTime = 0;
+                    clickCount = 0;
+                    isPanning = false;
+                    panButton = null;
+                    canvas.style.cursor = defaultCursor;
+                    return;
+                }
+            } else {
+                clickCount = 1;
             }
+            
+            lastMiddleClickTime = now;
+            
+            // 패닝 시작 (더블클릭이 아닌 경우)
+            isPanning = true;
+            panButton = 1;
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+            canvas.style.cursor = 'grabbing';
         }
     };
 
     const onMouseMove = (event) => {
-        if (event.button === 1 || isPanning) {
-            const deltaX = Math.abs(event.clientX - mouseDownX);
-            const deltaY = Math.abs(event.clientY - mouseDownY);
-            
-            // 💡 일정 거리 이상 움직이면 드래그로 간주
-            if (!hasMoved && (deltaX > dragThreshold || deltaY > dragThreshold)) {
-                hasMoved = true;
-                
-                // 💡 드래그가 시작되면 더블클릭 타이머 취소
-                if (clickTimer) {
-                    clearTimeout(clickTimer);
-                    clickTimer = null;
-                }
-                
-                isPanning = true;
-                lastMouseX = mouseDownX;
-                lastMouseY = mouseDownY;
-                canvas.style.cursor = 'grab';
-            }
-        }
-
         if (!isPanning) return;
         
         const deltaX = event.clientX - lastMouseX;
@@ -126,34 +106,47 @@ export const attachPan = (viewer, canvas) => {
         lastMouseY = event.clientY;
     };
 
-    const onMouseUpOrLeave = (event) => {
-        // 💡 Pan 동작이 끝났을 때만 isPanning을 false로 설정
-        if (isPanning && event.button === 1) {
+    const onMouseUp = (event) => {
+        // 패닝 중인 버튼이 떼어진 경우에만 패닝 종료
+        if (isPanning && event.button === panButton) {
             isPanning = false;
+            panButton = null;
             canvas.style.cursor = defaultCursor;
-            hasMoved = false;
         }
+    };
+
+    const onMouseLeave = () => {
+        // 캔버스를 벗어나면 무조건 패닝 종료
+        if (isPanning) {
+            isPanning = false;
+            panButton = null;
+            canvas.style.cursor = defaultCursor;
+        }
+    };
+
+    const onContextMenu = (event) => {
+        // 우클릭 컨텍스트 메뉴 비활성화
+        event.preventDefault();
     };
 
     canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('mouseup', onMouseUpOrLeave);
-    canvas.addEventListener('mouseleave', onMouseUpOrLeave);
-    window.addEventListener('mouseup', onMouseUpOrLeave);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    canvas.addEventListener('contextmenu', onContextMenu);
+    
+    // window의 mouseup은 캔버스 밖에서 버튼을 뗐을 때를 위해
+    window.addEventListener('mouseup', onMouseUp);
 
     return () => {
         if (canvas) {
             canvas.removeEventListener('mousedown', onMouseDown);
             canvas.removeEventListener('mousemove', onMouseMove);
-            canvas.removeEventListener('mouseup', onMouseUpOrLeave);
-            canvas.removeEventListener('mouseleave', onMouseUpOrLeave);
+            canvas.removeEventListener('mouseup', onMouseUp);
+            canvas.removeEventListener('mouseleave', onMouseLeave);
+            canvas.removeEventListener('contextmenu', onContextMenu);
         }
-        window.removeEventListener('mouseup', onMouseUpOrLeave);
-        
-        // 💡 cleanup 시 타이머도 정리
-        if (clickTimer) {
-            clearTimeout(clickTimer);
-        }
+        window.removeEventListener('mouseup', onMouseUp);
     };
 };
 
@@ -177,16 +170,52 @@ function makeDxfList(entityId) {
 
 /**
  * 캔버스 클릭 시 해당 위치의 객체 정보를 콘솔에 출력하는 기능을 추가합니다.
+ * 💡 패닝 중에는 객체 선택이 발생하지 않도록 처리
  * @param {object} viewer - Visualize.js 뷰어 인스턴스
  * @param {HTMLElement} canvas - 캔버스 DOM 요소
  * @returns {function} - 이벤트 리스너를 제거하는 cleanup 함수
  */
 export const attachClickInfo = (viewer, canvas) => {
     if (!viewer || !canvas) return () => {};
+    
+    let mouseDownX = 0;
+    let mouseDownY = 0;
+    let mouseDownTime = 0;
+    let hasMoved = false;
+    const moveThreshold = 5; // 5px 이상 움직이면 드래그로 간주
+    const clickTimeThreshold = 300; // 300ms 이상 누르고 있으면 드래그로 간주
+    
+    const onMouseDown = (event) => {
+        if (event.button === 0) {
+            mouseDownX = event.clientX;
+            mouseDownY = event.clientY;
+            mouseDownTime = Date.now();
+            hasMoved = false;
+        }
+    };
+    
+    const onMouseMove = (event) => {
+        const deltaX = Math.abs(event.clientX - mouseDownX);
+        const deltaY = Math.abs(event.clientY - mouseDownY);
+        
+        if (deltaX > moveThreshold || deltaY > moveThreshold) {
+            hasMoved = true;
+        }
+    };
+    
     const onClick = (event) => {
+        const clickDuration = Date.now() - mouseDownTime;
+        
+        // 드래그했거나 오래 누르고 있었으면 객체 선택 안 함
+        if (hasMoved || clickDuration > clickTimeThreshold) {
+            hasMoved = false;
+            return;
+        }
+        
         const rect = canvas.getBoundingClientRect();
         const x1 = event.clientX - rect.left;
         const y1 = event.clientY - rect.top;
+        
         try {
             viewer.unselect?.();
             viewer.select?.(x1, y1, x1 + 0.2, y1 + 0.2);
@@ -208,6 +237,14 @@ export const attachClickInfo = (viewer, canvas) => {
             console.error("attachClickInfo 오류:", err);
         }
     };
+    
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("click", onClick);
-    return () => canvas.removeEventListener("click", onClick);
+    
+    return () => {
+        canvas.removeEventListener("mousedown", onMouseDown);
+        canvas.removeEventListener("mousemove", onMouseMove);
+        canvas.removeEventListener("click", onClick);
+    };
 };
