@@ -192,7 +192,7 @@ router.post('/advanced', async (req, res) => {
             if (leafNodeIds.length > 0) {
                 const placeholders = leafNodeIds.map((_, idx) => `:folid_${idx}`).join(', ');
                 sql += ` AND F.FOLID IN (${placeholders})`;
-                
+
                 leafNodeIds.forEach((id, idx) => {
                     binds[`folid_${idx}`] = id;
                 });
@@ -221,20 +221,25 @@ router.post('/advanced', async (req, res) => {
 
     // 4. AND/OR 추가 조건 처리
     if (additionalConditions && additionalConditions.length > 0) {
-        const additionalClauses = additionalConditions
-            .filter(c => c.term.trim() !== '')
-            .map((condition, index) => {
-                const bindKey = `add_term_${index}`;
-                const clause = `(UPPER(D.DOCNUMBER) LIKE '%' || UPPER(:${bindKey}) || '%' OR UPPER(D.DOCNM) LIKE '%' || UPPER(:${bindKey}) || '%')`;
-                binds[bindKey] = condition.term;
-                return `${condition.operator} ${clause}`;
-            }).join(' ');
+        const filteredConditions = additionalConditions.filter(c => c.term.trim() !== '');
 
-        if (additionalClauses) {
-            const firstCondition = additionalClauses.startsWith(' AND') 
-                ? additionalClauses.substring(5) 
-                : additionalClauses.substring(4);
-            sql += ` AND (${firstCondition})`;
+        if (filteredConditions.length > 0) {
+            // 각 조건절을 생성합니다. (개별 괄호 제거)
+            const clauses = filteredConditions.map((condition, index) => {
+                const bindKey = `add_term_${index}`;
+                binds[bindKey] = condition.term;
+                // 각 OR 조건은 괄호로 묶어줍니다.
+                return `(UPPER(D.DOCNUMBER) LIKE '%' || UPPER(:${bindKey}) || '%' OR UPPER(D.DOCNM) LIKE '%' || UPPER(:${bindKey}) || '%')`;
+            });
+
+            // 첫 번째 조건을 기준으로 전체 추가 조건들을 조합합니다.
+            let fullClause = clauses[0];
+            for (let i = 1; i < filteredConditions.length; i++) {
+                fullClause += ` ${filteredConditions[i].operator} ${clauses[i]}`;
+            }
+
+            // 최종적으로 생성된 조건절을 SQL에 추가합니다.
+            sql += ` AND (${fullClause})`;
         }
     }
 
