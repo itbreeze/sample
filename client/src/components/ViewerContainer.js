@@ -21,21 +21,13 @@ const ViewerContainer = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 🔹 drag&drop 핸들러
-  const handleOnDragEnd = useCallback((result) => {
-
-    console.log('[DragEnd] result:', result);
-    
+  const handleOnDragEnd = useCallback((result) => {    
     if (!result.destination || result.destination.index === result.source.index) return;
     const newFiles = Array.from(openFiles);
     const [reorderedItem] = newFiles.splice(result.source.index, 1);
     newFiles.splice(result.destination.index, 0, reorderedItem);
-
-    console.log('[DragEnd] newFiles:', newFiles.map(f => f.DOCNO));
-    console.log('[DragEnd] reorderedItem:', reorderedItem.DOCNO);
-
     // 🔹 순서 변경 콜백
     onTabReorder(newFiles, reorderedItem.DOCNO);
-
     // ⚠️ activeFileId 재설정은 부모에서 처리 필요
   }, [openFiles, onTabReorder]);
 
