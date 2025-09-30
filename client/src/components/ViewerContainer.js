@@ -20,22 +20,30 @@ const ViewerContainer = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // dnd 라이브러리를 위한 onDragEnd 핸들러
+  // 🔹 drag&drop 핸들러
   const handleOnDragEnd = useCallback((result) => {
-    if (!result.destination || result.destination.index === result.source.index) return;
 
+    console.log('[DragEnd] result:', result);
+    
+    if (!result.destination || result.destination.index === result.source.index) return;
     const newFiles = Array.from(openFiles);
     const [reorderedItem] = newFiles.splice(result.source.index, 1);
     newFiles.splice(result.destination.index, 0, reorderedItem);
 
+    console.log('[DragEnd] newFiles:', newFiles.map(f => f.DOCNO));
+    console.log('[DragEnd] reorderedItem:', reorderedItem.DOCNO);
+
+    // 🔹 순서 변경 콜백
     onTabReorder(newFiles, reorderedItem.DOCNO);
+
+    // ⚠️ activeFileId 재설정은 부모에서 처리 필요
   }, [openFiles, onTabReorder]);
 
-  // 검색 결과 클릭 핸들러
+  
+
+  // 검색 결과 클릭
   const handleSearchResultClick = useCallback((result) => {
-    if (onSearchResultClick) {
-      onSearchResultClick(result);
-    }
+    if (onSearchResultClick) onSearchResultClick(result);
   }, [onSearchResultClick]);
 
   // 모달에서 탭 선택
@@ -82,8 +90,12 @@ const ViewerContainer = ({
 
   // 뷰어 렌더링
   const renderViewer = () => {
-    const visibleFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(0, MAX_VISIBLE_TABS) : openFiles;
-    const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : [];
+    const visibleFiles = openFiles.length > MAX_VISIBLE_TABS
+      ? openFiles.slice(0, MAX_VISIBLE_TABS)
+      : openFiles;
+    const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS
+      ? openFiles.slice(MAX_VISIBLE_TABS)
+      : [];
 
     return (
       <DragDropContext onDragEnd={handleOnDragEnd}>
@@ -133,10 +145,9 @@ const ViewerContainer = ({
         <div className="viewer-content-area">
           {openFiles.length > 0 ? (
             <>
-              {/* 🔹 핵심 변경: 모든 열린 파일에 대해 DwgDisplay 생성 */}
               {openFiles.map((file) => (
                 <div
-                  key={file.DOCNO}
+                  key={`${file.DOCNO}-${file.tmpFile}`}
                   className="viewer-wrapper"
                   style={{ display: file.DOCNO === activeFileId ? 'flex' : 'none' }}
                 >
@@ -148,6 +159,7 @@ const ViewerContainer = ({
                   <DwgDisplay
                     filePath={file.tmpFile}
                     isActive={file.DOCNO === activeFileId}
+                    key={`${file.DOCNO}-${file.tmpFile}`} // React가 drag&drop 후 새로 mount하도록 key 지정
                   />
                 </div>
               ))}

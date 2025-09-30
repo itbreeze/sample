@@ -43,7 +43,7 @@ const DwgDisplay = ({ filePath, isActive }) => {
     const isInitializedRef = useRef(false);
     const cleanupFunctionsRef = useRef([]);
     const resizeObserverRef = useRef(null);
-    
+
     const [errorMessage, setErrorMessage] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -52,13 +52,13 @@ const DwgDisplay = ({ filePath, isActive }) => {
         if (!filePath || isInitializedRef.current) return;
 
         let isMounted = true;
-        
+
         const init = async () => {
             try {
                 setIsLoading(true);
-                
+
                 if (!isMounted || !canvasRef.current) return;
-                
+
                 const libInstance = await initializeVisualizeJS();
                 if (!isMounted) return;
 
@@ -67,7 +67,7 @@ const DwgDisplay = ({ filePath, isActive }) => {
                     viewerInstance?.destroy();
                     return;
                 }
-                
+
                 viewerRef.current = viewerInstance;
 
                 let arrayBuffer;
@@ -83,22 +83,22 @@ const DwgDisplay = ({ filePath, isActive }) => {
                 if (!isMounted) return;
 
                 await viewerRef.current.parseVsfx(arrayBuffer);
-                
+
                 viewerRef.current.setEnableSceneGraph(true);
                 viewerRef.current.setEnableAnimation(false);
-                
+
                 const cleanup1 = attachWheelZoom(viewerRef.current, canvasRef.current);
                 const cleanup2 = attachPan(viewerRef.current, canvasRef.current);
                 const cleanup3 = attachClickInfo(viewerRef.current, canvasRef.current);
-                
+
                 cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3].filter(Boolean);
 
                 viewerRef.current.zoomExtents?.();
                 viewerRef.current.update?.();
-                
+
                 isInitializedRef.current = true;
                 setIsLoading(false);
-                
+
             } catch (err) {
                 if (isMounted) {
                     setErrorMessage(err.message);
@@ -106,21 +106,21 @@ const DwgDisplay = ({ filePath, isActive }) => {
                 }
             }
         };
-        
+
         const scriptId = 'visualize-script';
         let script = document.getElementById(scriptId);
-        
+
         const handleScriptLoad = () => {
             init().catch(console.error);
         };
-        
+
         if (!script) {
             script = document.createElement('script');
             script.id = scriptId;
             script.src = '/Visualize.js';
             script.async = true;
             script.addEventListener('load', handleScriptLoad);
-            script.onerror = () => { 
+            script.onerror = () => {
                 if (isMounted) {
                     setErrorMessage('Visualize.js 로드 실패');
                     setIsLoading(false);
@@ -132,7 +132,7 @@ const DwgDisplay = ({ filePath, isActive }) => {
         } else {
             script.addEventListener('load', handleScriptLoad);
         }
-        
+
         return () => {
             isMounted = false;
         };
@@ -145,19 +145,19 @@ const DwgDisplay = ({ filePath, isActive }) => {
         }
 
         let resizeTimeout;
-        
+
         const handleResize = (entries) => {
             if (!entries || entries.length === 0) return;
 
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
                 const { width, height } = entries[0].contentRect;
-                
+
                 if (width === 0 || height === 0) return;
 
                 const canvas = canvasRef.current;
                 const viewer = viewerRef.current;
-                
+
                 if (!canvas || !viewer) return;
 
                 const dpr = window.devicePixelRatio || 1;
@@ -183,7 +183,7 @@ const DwgDisplay = ({ filePath, isActive }) => {
                 const rect = containerRef.current.getBoundingClientRect();
                 const canvas = canvasRef.current;
                 const viewer = viewerRef.current;
-                
+
                 const dpr = window.devicePixelRatio || 1;
                 const newWidth = Math.floor(rect.width * dpr);
                 const newHeight = Math.floor(rect.height * dpr);
@@ -212,11 +212,33 @@ const DwgDisplay = ({ filePath, isActive }) => {
 
     // 🔹 활성화 상태에 따라 업데이트만 수행
     useEffect(() => {
+        console.log('[DwgDisplay] useEffect isActive change', { isActive, filePath });
         if (isActive && viewerRef.current && isInitializedRef.current) {
-            console.log('[DwgDisplay] 탭 활성화 - 뷰어 업데이트');
+            console.log('[DwgDisplay] viewer.update 호출', filePath);
             viewerRef.current.update?.();
+            console.log('[DwgDisplay] viewer.zoomExtents 호출', filePath);
+            viewerRef.current.zoomExtents?.();
         }
     }, [isActive]);
+
+    useEffect(() => {
+        if (isActive) {
+            const canvas = canvasRef.current;
+            const viewer = viewerRef.current;
+            if (canvas && viewer) {
+                console.log('[DwgDisplay] 활성 탭 - viewer 업데이트');
+                viewer.update?.();
+            } else if (!isInitializedRef.current && filePath) {
+                // canvas가 준비되지 않은 경우 초기화 재시도
+                console.log('[DwgDisplay] 활성 탭 - 초기화 재시도');
+                setTimeout(() => {
+                    if (canvasRef.current && !isInitializedRef.current) {
+                        // 초기화 로직 재호출 (간단히 init 함수 추출 후 호출 가능)
+                    }
+                }, 50);
+            }
+        }
+    }, [isActive, filePath]);
 
     // 🔹 언마운트 시에만 정리
     useEffect(() => {
@@ -240,8 +262,8 @@ const DwgDisplay = ({ filePath, isActive }) => {
                     <div className="loading-text">도면 로딩 중...</div>
                 </div>
             )}
-            <div 
-                className="viewer-canvas-container" 
+            <div
+                className="viewer-canvas-container"
                 style={{ visibility: isLoading ? 'hidden' : 'visible' }}
             >
                 <canvas ref={canvasRef} id="viewerCanvas" />
