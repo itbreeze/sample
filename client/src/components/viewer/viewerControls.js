@@ -8,7 +8,7 @@
  * @returns {function} - 이벤트 리스너를 제거하는 cleanup 함수
  */
 export const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
-    if (!viewer || !canvas) return () => {};
+    if (!viewer || !canvas) return () => { };
     const onWheel = (event) => {
         event.preventDefault();
         viewer.zoomAt?.(event.deltaY > 0 ? 1 / zoomFactor : zoomFactor, event.offsetX, event.offsetY);
@@ -28,7 +28,7 @@ export const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
  * @returns {function} - 이벤트 리스너를 제거하는 cleanup 함수
  */
 export const attachPan = (viewer, canvas) => {
-    if (!viewer || !canvas) return () => {};
+    if (!viewer || !canvas) return () => { };
 
     let isPanning = false;
     let panButton = null; // 어떤 버튼으로 패닝 중인지 추적
@@ -50,7 +50,7 @@ export const attachPan = (viewer, canvas) => {
             lastMouseY = event.clientY;
             canvas.style.cursor = 'grabbing';
         }
-        
+
         // 휠 클릭(버튼 1)으로 패닝 또는 더블클릭
         if (event.button === 1) {
             event.preventDefault();
@@ -59,17 +59,16 @@ export const attachPan = (viewer, canvas) => {
             // 더블클릭 감지
             if (now - lastMiddleClickTime < doubleClickThreshold) {
                 clickCount++;
-                
+
                 if (clickCount === 2) {
-                    console.log('[Pan Control] 휠 더블클릭 - Zoom Extents');
-                    
+
                     try {
                         viewer.zoomExtents?.();
                         viewer.update?.();
                     } catch (error) {
                         console.error('[Pan Control] Zoom Extents 오류:', error);
                     }
-                    
+
                     // 리셋
                     lastMiddleClickTime = 0;
                     clickCount = 0;
@@ -81,9 +80,9 @@ export const attachPan = (viewer, canvas) => {
             } else {
                 clickCount = 1;
             }
-            
+
             lastMiddleClickTime = now;
-            
+
             // 패닝 시작 (더블클릭이 아닌 경우)
             isPanning = true;
             panButton = 1;
@@ -95,13 +94,13 @@ export const attachPan = (viewer, canvas) => {
 
     const onMouseMove = (event) => {
         if (!isPanning) return;
-        
+
         const deltaX = event.clientX - lastMouseX;
         const deltaY = event.clientY - lastMouseY;
-        
+
         viewer.pan?.(deltaX, deltaY);
         viewer.update?.();
-        
+
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
     };
@@ -134,7 +133,7 @@ export const attachPan = (viewer, canvas) => {
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('mouseleave', onMouseLeave);
     canvas.addEventListener('contextmenu', onContextMenu);
-    
+
     // window의 mouseup은 캔버스 밖에서 버튼을 뗐을 때를 위해
     window.addEventListener('mouseup', onMouseUp);
 
@@ -176,15 +175,15 @@ function makeDxfList(entityId) {
  * @returns {function} - 이벤트 리스너를 제거하는 cleanup 함수
  */
 export const attachClickInfo = (viewer, canvas) => {
-    if (!viewer || !canvas) return () => {};
-    
+    if (!viewer || !canvas) return () => { };
+
     let mouseDownX = 0;
     let mouseDownY = 0;
     let mouseDownTime = 0;
     let hasMoved = false;
     const moveThreshold = 5; // 5px 이상 움직이면 드래그로 간주
     const clickTimeThreshold = 300; // 300ms 이상 누르고 있으면 드래그로 간주
-    
+
     const onMouseDown = (event) => {
         if (event.button === 0) {
             mouseDownX = event.clientX;
@@ -193,29 +192,29 @@ export const attachClickInfo = (viewer, canvas) => {
             hasMoved = false;
         }
     };
-    
+
     const onMouseMove = (event) => {
         const deltaX = Math.abs(event.clientX - mouseDownX);
         const deltaY = Math.abs(event.clientY - mouseDownY);
-        
+
         if (deltaX > moveThreshold || deltaY > moveThreshold) {
             hasMoved = true;
         }
     };
-    
+
     const onClick = (event) => {
         const clickDuration = Date.now() - mouseDownTime;
-        
+
         // 드래그했거나 오래 누르고 있었으면 객체 선택 안 함
         if (hasMoved || clickDuration > clickTimeThreshold) {
             hasMoved = false;
             return;
         }
-        
+
         const rect = canvas.getBoundingClientRect();
         const x1 = event.clientX - rect.left;
         const y1 = event.clientY - rect.top;
-        
+
         try {
             viewer.unselect?.();
             viewer.select?.(x1, y1, x1 + 0.2, y1 + 0.2);
@@ -237,11 +236,11 @@ export const attachClickInfo = (viewer, canvas) => {
             console.error("attachClickInfo 오류:", err);
         }
     };
-    
+
     canvas.addEventListener("mousedown", onMouseDown);
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("click", onClick);
-    
+
     return () => {
         canvas.removeEventListener("mousedown", onMouseDown);
         canvas.removeEventListener("mousemove", onMouseMove);
