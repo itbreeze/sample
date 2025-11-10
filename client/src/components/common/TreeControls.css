@@ -1,0 +1,31 @@
+/* client/src/components/common/TreeControls.css */
+.tree-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 25; /* above panel content */
+}
+.tree-controls .ctrl-btn {
+  border: 1px solid var(--border-color);
+  background: var(--background-color);
+  color: var(--text-color);
+  border-radius: 18px;
+  height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px var(--shadow-color);
+  user-select: none;
+}
+.tree-controls .ctrl-btn:hover {
+  background: var(--background-color-secondary);
+  color: var(--primary-color);
+}
+.tree-controls .ctrl-btn .label {
+  font-size: 12px;
+}
