@@ -10,7 +10,7 @@ function SearchPreview({
   activeChip,
   highlightText,
   showPreview,
-  onItemClick,  
+  onItemClick,
   onViewDetailSearch,
 }) {
   if (!showPreview) return null;
@@ -23,14 +23,12 @@ function SearchPreview({
     }
   };
 
-  // ─── 클릭 핸들러 ─────────────────────────────
   const handleItemClick = (e, result) => {
     e.preventDefault();
     e.stopPropagation();
     if (onItemClick) onItemClick(result);
   };
 
-  // ─── 렌더링 ────────────────────────────────
   return (
     <div className="search-preview">
       {isLoading ? (
@@ -48,7 +46,10 @@ function SearchPreview({
               type="button"
             >
               <Search size={16} />
-              <span>상세 검색 보기 ({results.length}개 이상)</span>
+              <span>
+                상세 검색 보기 ({results.length}
+                {results.length >= 100 ? '개 이상' : '개'})
+              </span>
             </button>
           </div>
 
@@ -58,16 +59,20 @@ function SearchPreview({
               key={`${result.KEY}-${result.DOCNO || result.EQUIPMENT}`}
               className="preview-item"
               onClick={(e) => handleItemClick(e, result)}
-              onMouseDown={(e) => e.preventDefault()} // 마우스 다운 이벤트 방지
+              onMouseDown={(e) => e.preventDefault()}
               role="button"
               tabIndex={0}
             >
               <div className="preview-main-info">
                 <span className="preview-icon">
-                  {activeChip === '도면' ? <FileText size={16} /> : <HardDrive size={16} />}
+                  {activeChip === '도면' ? (
+                    <FileText size={16} />
+                  ) : (
+                    <HardDrive size={16} />
+                  )}
                 </span>
                 <span className="preview-title">
-                  [{highlightText(result.DOCNUMBER, searchTerm)}]{" "}
+                  [{highlightText(result.DOCNUMBER, searchTerm)}]{' '}
                   {highlightText(result.DOCNM, searchTerm)}
                 </span>
               </div>

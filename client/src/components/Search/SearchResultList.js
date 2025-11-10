@@ -76,7 +76,9 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
       leafNodeIds,
       drawingNumber: searchConditions.drawingNumber,
       drawingName: searchConditions.drawingName,
-      additionalConditions: searchConditions.additionalConditions
+      additionalConditions: searchConditions.additionalConditions,
+      // Request server to remove any default limits for detailed search
+      unlimited: true
     };
 
     try {

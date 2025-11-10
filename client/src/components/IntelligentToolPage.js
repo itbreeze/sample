@@ -131,6 +131,17 @@ function IntelligentToolPage() {
     /**
      * 🔹 수정: 상세검색으로 이동하는 핸들러 - 사이드바와 패널 열기
      */
+    const mapSearchTypeToTab = (searchType) => {
+        switch (searchType) {
+            case '도면':
+                return 'searchDrawing';
+            case '설비번호':
+                return 'searchEquipment';
+            default:
+                return 'searchDrawing';
+        }
+    };
+
     const handleViewDetailSearch = (searchType, searchTerm) => {
         setSearchInfo({ 
             type: searchType, 
@@ -145,7 +156,7 @@ function IntelligentToolPage() {
         setActiveMenuItem('search');
         
         // 🔹 도면상세검색 탭으로 전환
-        setActiveSearchTab("searchDrawing");
+        setActiveSearchTab(mapSearchTypeToTab(searchType));
         
         // 🔹 패널 최대화
         setIsPanelMaximized(true);
@@ -359,7 +370,7 @@ function IntelligentToolPage() {
                 onFileSelect={handleFileSelect}
             />
         },
-        { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },
+        { id: "searchEquipment", label: "설비상세검색", content: () => <NotImplemented /> },        
     ];
 
     const PANEL_CONFIG = {

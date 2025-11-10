@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./Panel.css";
 import { Tabs } from "./Tabs";
 import { FilterSelect } from "./FilterSelect";
@@ -8,6 +8,16 @@ export const Panel = ({ tabs = [], defaultTab, showFilterTabs = [] }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [filter, setFilter] = useState("DrawingName");
   const [showScrollTop] = useState(false);
+
+  // Keep active tab in sync with defaultTab and tabs list
+  useEffect(() => {
+    if (!tabs || tabs.length === 0) return;
+    const validIds = tabs.map((t) => t.id);
+    const next = defaultTab && validIds.includes(defaultTab) ? defaultTab : validIds[0];
+    if (next !== activeTab) {
+      setActiveTab(next);
+    }
+  }, [defaultTab, tabs]);
 
   // Determine active content (null-safe when tabs are empty)
   const activeContent = tabs.find((tab) => tab.id === activeTab)?.content(filter) || null;
