@@ -1,14 +1,24 @@
 /* client/src/components/ResizablePanel.css */
 
 .resizable-panel-container {
-  position: relative;
+  position: absolute; /* overlay above canvas */
+  top: 0;
+  bottom: 0;
+  height: 100%;
   display: flex;
   flex-shrink: 0;
   background-color: var(--background-color);
   overflow: visible;
   border-right: 1px solid var(--border-color);
-  z-index: 10;
+  z-index: 20; /* ensure above viewer */
+  pointer-events: auto;
+  /* default offset equals collapsed sidebar width */
+  left: 60px;
 }
+
+/* Do not cover the sidebar: offset by its width */
+.app-sidebar + .resizable-panel-container { left: 60px; }
+.app-sidebar.open + .resizable-panel-container { left: 200px; }
 
 .resizable-panel-content {
   width: 100%;

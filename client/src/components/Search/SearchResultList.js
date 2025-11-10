@@ -80,7 +80,7 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     };
 
     try {
-      const response = await fetch("http://localhost:4000/api/search/advanced", {
+      const response = await fetch("http://localhost:4001/api/search/advanced", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -101,7 +101,7 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     const fetchLevels = async () => {
       try {
         setLevelsLoading(true);
-        const response = await fetch("http://localhost:4000/api/search/levels");
+        const response = await fetch("http://localhost:4001/api/search/levels");
         if (!response.ok) throw new Error('레벨 데이터를 불러오는데 실패했습니다.');
         const data = await response.json();
 

@@ -8,6 +8,7 @@
   display: flex;
   flex-grow: 1;
   overflow: visible;
+  position: relative; /* overlay panel anchor */
 }
 
 .loading-container {

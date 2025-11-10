@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronRight, FolderOpen, FolderClosed, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderOpen, FolderClosed, FileText, Check } from 'lucide-react';
 import './TreeComboBox.css';
 
 // TreeNode 컴포넌트는 변경 사항 없습니다.
@@ -28,11 +28,14 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, onTitleClick
     return (
         <div>
             <div
-                onClick={handleTitleClick}
                 className={`tree-node ${isSelected ? 'selected' : ''} ${isFolder ? 'folder' : 'file'}`}
                 style={{ paddingLeft: `${level * 20 + 8}px` }}
             >
-                <span className="expand-icon" onClick={handleArrowClick}>
+                <span
+                    className="expand-icon"
+                    onClick={handleArrowClick}
+                    title={hasChildren ? (isExpanded ? '접기' : '펼치기') : ''}
+                >
                     {hasChildren && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
                 </span>
 
@@ -43,7 +46,18 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, onTitleClick
                         <FileText size={16} />
                     )}
                 </span>
-                <span className="node-name">{node.name}</span>
+                <span
+                    className="node-name"
+                    onClick={handleTitleClick}
+                    title={isFolder ? '선택' : '선택'}
+                >
+                    {node.name}
+                </span>
+                {isSelected && (
+                    <span className="selected-check" title="선택됨">
+                        <Check size={14} />
+                    </span>
+                )}
             </div>
 
             {hasChildren && isExpanded && (
@@ -127,6 +141,21 @@ const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목�
 
             {isOpen && (
                 <div className="dropdown-tree">
+                    <div
+                        className={`tree-node all ${selectedNode?.id === 'ALL' ? 'selected' : ''}`}
+                        style={{ paddingLeft: '8px' }}
+                        onClick={() => {
+                            if (onNodeSelect) onNodeSelect('ALL');
+                            setSelectedNode({ id: 'ALL', name: '전체' });
+                            setIsOpen(false);
+                        }}
+                        title="전체"
+                    >
+                        <span className="expand-icon" style={{ visibility: 'hidden' }} />
+                        <span className="type-icon"><FolderClosed size={16} /></span>
+                        <span className="node-name">전체</span>
+                    </div>
+
                     {data.map((node) => (
                         <TreeNode
                             key={node.id}

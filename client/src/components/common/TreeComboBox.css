@@ -54,17 +54,20 @@
     display: flex;
     align-items: center;
     padding: 6px 8px;
-    cursor: pointer;
+    cursor: default; /* 전체 행은 기본 커서 */
     color: #333;
     white-space: nowrap;
+    border-left: 3px solid transparent; /* hover 시 타입별 구분선 노출 */
 }
 
 .tree-combobox-container .tree-node.folder:hover {
-    background-color: #f5f5f5;
+    background-color: transparent; /* 목록 호버 배경 제거 */
+    border-left-color: transparent; /* 구분선 색상 제거 */
 }
 
 .tree-combobox-container .tree-node.file:hover {
-    background-color: #f5f5f5;
+    background-color: transparent; /* 목록 호버 배경 제거 */
+    border-left-color: transparent; /* 구분선 색상 제거 */
 }
 
 .tree-combobox-container .tree-node.selected {
@@ -75,15 +78,20 @@
 
 /* 아이콘 스타일 */
 .tree-combobox-container .tree-node .expand-icon {
-    width: 16px;
-    margin-right: 4px;
+    width: 24px;
+    height: 24px;
+    margin-right: 6px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    border-right: 1px solid #eee; /* 시각적 구분선 */
+    color: #666; /* 기본 아이콘 색상 */
 }
 
 .tree-combobox-container .tree-node .type-icon {
+    margin-left: 6px; /* 구분선 이후 여백 */
     margin-right: 6px;
     flex-shrink: 0;
     display: flex;
@@ -91,6 +99,10 @@
 }
 
 .tree-combobox-container .tree-node.folder .type-icon {
+    color: #FFA500; /* 폴더 아이콘 색상 통일 */
+}
+/* '전체' 항목도 폴더 색상과 동일하게 통일 */
+.tree-combobox-container .tree-node.all .type-icon {
     color: #FFA500;
 }
 
@@ -98,9 +110,37 @@
     color: #0d6efd;
 }
 
+/* 호버 시 아이콘 컬러도 살짝 강조 */
+.tree-combobox-container .tree-node.folder:hover .type-icon {
+    color: #FFA500; /* 호버 시에도 폴더 아이콘 색상 고정 */
+}
+.tree-combobox-container .tree-node.file:hover .type-icon {
+    color: #0d6efd; /* 호버 시에도 파일 아이콘 색상 고정 */
+}
+
 /* 노드 이름 */
 .tree-combobox-container .node-name {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer; /* 라벨만 선택 가능 표시 */
+}
+
+/* 호버 시 시각적 단서 강화 */
+.tree-combobox-container .tree-node .node-name:hover {
+    color: #0d6efd;
+}
+
+.tree-combobox-container .tree-node .expand-icon:hover {
+    background-color: #f3f4f6;
+    border-radius: 4px;
+    color: #666; /* 호버 시에도 아이콘 색상 고정 */
+}
+
+/* 선택 표시 체크아이콘 */
+.tree-combobox-container .selected-check {
+    color: #0d6efd;
+    margin-left: 6px;
+    display: inline-flex;
+    align-items: center;
 }

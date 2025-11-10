@@ -64,19 +64,23 @@ function Sidebar({
 
       {/* 메뉴 아이템 내비게이션 */}
       <nav className="sidebar-nav">
-        {menuItems.map(item => {
+        {menuItems.map((item, idx) => {
           // 파일 로드 상태와 메뉴 ID에 따라 비활성화 여부 결정
           const isDisabled = !isFileLoaded && disabledMenuItems.includes(item.id);
+          const prev = idx > 0 ? menuItems[idx - 1] : null;
+          const showDivider = idx > 0 && disabledMenuItems.includes(item.id) && (!prev || !disabledMenuItems.includes(prev.id));
           return (
-            <div
-              key={item.id}
-              className={`sidebar-menu-item ${activeMenuItem === item.id ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
-              onClick={() => handleMenuClick(item.id)}
-              title={!isOpen ? item.label : ''}
-            >
-              <div className="item-icon">{item.icon}</div>
-              <span className="menu-label">{item.label}</span>
-            </div>
+            <React.Fragment key={item.id}>
+              {showDivider && <div className="sidebar-divider" aria-hidden="true" />}
+              <div
+                className={`sidebar-menu-item ${activeMenuItem === item.id ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                onClick={() => handleMenuClick(item.id)}
+                title={!isOpen ? item.label : ''}
+              >
+                <div className="item-icon">{item.icon}</div>
+                <span className="menu-label">{item.label}</span>
+              </div>
+            </React.Fragment>
           );
         })}
       </nav>

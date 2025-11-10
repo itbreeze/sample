@@ -1,0 +1,24 @@
+프로젝트명: Intelligent Tool
+개발환경: Windows
+목표: .dwg 파일을 웹에서 시각화하는 DWG Webviewer 구축
+주요 기술스택:
+Frontend: React.js
+Backend: Node.js (Express)
+Database: OracleDB
+SDK: Visualize.js
+웹페이지 형태: 반응형 웹 (Responsive Web)
+
+-Client (React) 지침
+App.js 상태 관리, 직접 로직 포함 금지 / 페이지 단위로 라우팅만 담당
+컴포넌트 구조화
+재사용 가능성 고려해 components/ 디렉토리 분리
+페이지 단위 구성은 pages/에 분리하여 유지보수 용이
+비즈니스 로직 분리
+API 호출 등은 services/에 위치
+복잡한 데이터 처리 로직은 utils/ 또는 커스텀 훅(hooks/)으로 분리
+스타일 관리
+반응형 디자인 / 가상화 pc 환경 고려하여 애니매이션 효과 최소화
+
+-공통 지침
+제시한 코드 토대로 수정 및 임의의 기능 추가 금지
+중복된 코드 항시 검사 최적화 방향/컴포넌트 제시

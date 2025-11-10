@@ -125,3 +125,11 @@
 .sidebar-menu-item.disabled {
   display: none;
 }
+
+/* 기본 메뉴와 도면 열림 시 활성화되는 메뉴 사이의 경계선 */
+.sidebar-divider {
+  width: 100%;
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 8px 0;
+}

@@ -169,6 +169,12 @@ function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
         placeholder={placeholderText}
         isLoading={loading}
         inputRef={searchInputRef}
+        onClear={() => {
+          setSearchTerm('');
+          setPreviewResults([]);
+          setShowPreview(false);
+          setLoading(false);
+        }}
       />
       <div className={`search-dropdown ${showPreview ? 'with-preview' : ''}`}>
         <div className="search-actions">

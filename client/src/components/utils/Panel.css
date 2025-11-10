@@ -30,6 +30,9 @@
   min-height: 0
 }
 
+/* Scroll-to-top button in bottom-right when content scrolls */
+/* Scroll-to-top button removed */
+
 .panel.bottom::-webkit-scrollbar {
   height: 8px;
   width: 8px;

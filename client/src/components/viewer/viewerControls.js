@@ -1,4 +1,8 @@
 // client/src/components/viewer/viewerControls.js
+import cursorBox from '../../assets/images/cursor-box.png';
+
+
+
 
 /**
  * 마우스 휠 스크롤을 이용한 줌 기능을 캔버스에 추가합니다.
@@ -33,43 +37,42 @@ export const attachPan = (viewer, canvas) => {
     let isPanning = false;
     let panButton = null; // 어떤 버튼으로 패닝 중인지 추적
     let lastMouseX = 0, lastMouseY = 0;
-    const defaultCursor = "default";
+
+    const defaultCursor = `url(${cursorBox}) 24 24, auto`;
     canvas.style.cursor = defaultCursor;
+
+
+
+    const grabCursor = "grabbing";
 
     // 휠 더블클릭 감지
     let lastMiddleClickTime = 0;
     let clickCount = 0;
     const doubleClickThreshold = 400;
-
     const onMouseDown = (event) => {
-        // 좌클릭(버튼 0)으로 패닝
-        if (event.button === 0) {
+        // ✅ 우클릭(버튼 2)일 때만 패닝 시작
+        if (event.button === 2) {
             isPanning = true;
-            panButton = 0;
+            panButton = 2; // 버튼 번호도 2로
             lastMouseX = event.clientX;
             lastMouseY = event.clientY;
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = grabCursor; // 우클릭 누르고 있는 동안만 손모양
         }
 
-        // 휠 클릭(버튼 1)으로 패닝 또는 더블클릭
+        // 휠 클릭(버튼 1)은 그대로 유지
         if (event.button === 1) {
             event.preventDefault();
             const now = new Date().getTime();
 
-            // 더블클릭 감지
             if (now - lastMiddleClickTime < doubleClickThreshold) {
                 clickCount++;
-
                 if (clickCount === 2) {
-
                     try {
                         viewer.zoomExtents?.();
                         viewer.update?.();
                     } catch (error) {
                         console.error('[Pan Control] Zoom Extents 오류:', error);
                     }
-
-                    // 리셋
                     lastMiddleClickTime = 0;
                     clickCount = 0;
                     isPanning = false;
@@ -82,13 +85,11 @@ export const attachPan = (viewer, canvas) => {
             }
 
             lastMiddleClickTime = now;
-
-            // 패닝 시작 (더블클릭이 아닌 경우)
             isPanning = true;
             panButton = 1;
             lastMouseX = event.clientX;
             lastMouseY = event.clientY;
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = grabCursor;
         }
     };
 
@@ -149,8 +150,50 @@ export const attachPan = (viewer, canvas) => {
     };
 };
 
+
+function getEntityColor(entityId) {
+    try {
+        const obj = entityId.openObject();
+        if (!obj) return null;
+
+        const rc = { value: 0 };
+        const colorDef = obj.getColor(rc);
+        console.log("raw getColor result:", colorDef, "rc=", rc.value);
+
+        if (!colorDef) return null;
+
+        // case (C) 핸들이라면 openObject 가능
+        if (colorDef.openObject) {
+            const cd = colorDef.openObject();
+            console.log("opened colorDef:", cd);
+            return cd;
+        }
+
+        // case (B) JSON일 가능성
+        if (typeof colorDef === "object") {
+            return colorDef;
+        }
+
+        return colorDef;
+    } catch (e) {
+        console.error("getEntityColor 오류:", e);
+        return null;
+    }
+}
+
+
+
+
+
 function makeDxfList(entityId) {
     if (!entityId) return null;
+    const obje = entityId.openObject();
+
+    // console.log("메서드 목록:", Object.keys(Object.getPrototypeOf(obje)));
+    // const colorInfo = getEntityColor(entityId);
+    // console.log("선택 엔티티 색상:", colorInfo);
+
+
     let obj = null;
     let objName = "Unknown";
     const type = entityId.getType();

@@ -83,9 +83,70 @@ async function executeQuery(sql, binds = [], options = {}) {
     const result = await connection.execute(sql, binds, {
       ...options,
       outFormat: oracledb.OUT_FORMAT_OBJECT,
+      // expose dbType in meta to help detect LOBs
+      extendedMetaData: true,
     });
-    
-    return result.rows;
+
+    const rows = result.rows || [];
+
+    // Utility: detect a Node-oracledb LOB stream-like object
+    const isLobStream = (val) => val && typeof val === 'object' && typeof val.on === 'function' && (typeof val.close === 'function' || typeof val.destroy === 'function');
+
+    // Utility: read BLOB to memory (Buffer). CLOB은 처리하지 않음.
+    const readLob = (lob) => new Promise((resolve, reject) => {
+      const chunks = [];
+      lob.on('data', (chunk) => chunks.push(chunk));
+      lob.on('error', (err) => reject(err));
+      lob.on('end', () => {
+        try { if (typeof lob.close === 'function') lob.close(); } catch (_) { /* noop */ }
+        resolve(Buffer.concat(chunks));
+      });
+    });
+
+    // Map: column name -> dbType
+    const meta = Array.isArray(result.metaData) ? result.metaData : [];
+    const typeByName = new Map();
+    for (const c of meta) {
+      if (c && c.name) typeByName.set(c.name, c.dbType);
+    }
+
+    const pendingReads = [];
+    for (const row of rows) {
+      for (const [col, val] of Object.entries(row)) {
+        if (val == null) continue;
+
+        // If already materialized as Buffer
+        if (Buffer.isBuffer(val)) {
+          const data = val;
+          row[col] = {
+            type: 'BLOB',
+            length: data.length,
+            getData: async () => data,
+          };
+          continue;
+        }
+
+        const dbType = typeByName.get(col);
+
+        // Streamed BLOBs only (skip CLOB)
+        if (isLobStream(val) && dbType === oracledb.DB_TYPE_BLOB) {
+          const p = readLob(val).then((data) => {
+            row[col] = {
+              type: 'BLOB',
+              length: data ? data.length : 0,
+              getData: async () => data,
+            };
+          });
+          pendingReads.push(p);
+        }
+      }
+    }
+
+    if (pendingReads.length) {
+      await Promise.all(pendingReads);
+    }
+
+    return rows;
   } catch (err) {
     console.error("DB Query Error:", err);
     console.error("SQL:", sql);

@@ -13,7 +13,7 @@ import { useDocumentTree } from './hooks/useDocumentTree';
 import { useDocumentLoader } from './hooks/useDocumentLoader';
 import SearchResultList from './Search/SearchResultList';
 
-axios.defaults.baseURL = 'http://localhost:4000';
+axios.defaults.baseURL = 'http://localhost:4001';
 axios.defaults.withCredentials = true;
 
 const DEFAULT_EXPAND_LEVEL = 0;
@@ -158,14 +158,48 @@ function IntelligentToolPage() {
         }
     };
 
-    const handleLogoClick = () => {
+    const isFullscreen = () => {
+        const doc = document;
+        return !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
+    };
+
+    const requestFs = async () => {
+        try {
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+            if (req) await req.call(el);
+        } catch (e) {
+            console.warn('Fullscreen request failed:', e);
+        }
+    };
+
+    const exitFs = async () => {
+        try {
+            const doc = document;
+            const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+            if (exit) await exit.call(doc);
+        } catch (e) {
+            console.warn('Exit fullscreen failed:', e);
+        }
+    };
+
+    const handleLogoClick = async () => {
+        // Toggle fullscreen on logo click
+        if (isFullscreen()) {
+            await exitFs();
+        } else {
+            await requestFs();
+        }
+        // Reset UI state as before
         setActiveMenuItem(null);
         setSearchInfo(null);
     };
 
     const handleMainViewClick = (e) => {
         if (e.target.closest('.view-tab')) return;
+        // Click on canvas/content area: close panel and collapse sidebar
         setActiveMenuItem(null);
+        setIsSidebarOpen(false);
     };
 
     const handleViewStateChange = useCallback((docno, viewState) => {
@@ -193,11 +227,13 @@ function IntelligentToolPage() {
             setIsFileLoaded(true);
             
             if (fromSearchBar) {
+                // For header search, keep previous behavior: close panel and sidebar
                 setIsSidebarOpen(false);
                 setActiveMenuItem(null);
                 setIsPanelMaximized(false);
             } else {
-                setIsPanelMaximized(false);
+                // From detailed search (도면목록/검색 패널): keep current panel size until canvas click
+                // No change to panel/sidebar here
             }
         }
     }, [loadDocument]);
