@@ -12,6 +12,7 @@ import ResizablePanel from './ResizablePanel';
 import { useDocumentTree } from './hooks/useDocumentTree';
 import { useDocumentLoader } from './hooks/useDocumentLoader';
 import SearchResultList from './Search/SearchResultList';
+ 
 
 axios.defaults.baseURL = 'http://localhost:4001';
 axios.defaults.withCredentials = true;
@@ -88,8 +89,8 @@ const sidebarMenus = {
         { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서' },
         { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
         { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
-        { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '유체색' },
-        { id: 'layers', icon: <Layers size={20} />, label: '레이어' },
+        { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '유체색목록' },
+        { id: 'layers', icon: <Layers size={20} />, label: '레이어목록' },
     ],
     pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD Menu' }],
     intelligent: [{ id: 'intelligent', icon: <FileText size={20} />, label: 'Sample Menu' }],
@@ -271,6 +272,9 @@ function IntelligentToolPage() {
             return newSet;
         });
     };
+
+    // 공통 컨트롤: 최소화(접기) 시 초기 지정 레벨로 복원
+    
 
     useEffect(() => {
         const checkUserAccess = async () => {

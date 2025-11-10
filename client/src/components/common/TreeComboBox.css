@@ -60,14 +60,17 @@
     border-left: 3px solid transparent; /* hover 시 타입별 구분선 노출 */
 }
 
-.tree-combobox-container .tree-node.folder:hover {
-    background-color: transparent; /* 목록 호버 배경 제거 */
-    border-left-color: transparent; /* 구분선 색상 제거 */
+/* 통일된 호버 콘셉트: 행 전체 배경 하이라이트 */
+.tree-combobox-container .tree-node.folder:hover,
+.tree-combobox-container .tree-node.file:hover,
+.tree-combobox-container .tree-node.all:hover {
+    background-color: var(--primary-color-light, #f1f3f4);
+    border-left-color: var(--primary-color-border, var(--primary-color, #0d6efd));
 }
-
-.tree-combobox-container .tree-node.file:hover {
-    background-color: transparent; /* 목록 호버 배경 제거 */
-    border-left-color: transparent; /* 구분선 색상 제거 */
+/* 화살표 위에 있을 때는 행 배경 하이라이트 비활성화 (지원 브라우저용) */
+.tree-combobox-container .tree-node:hover:has(.expand-icon:hover) {
+    background-color: transparent;
+    border-left-color: transparent;
 }
 
 .tree-combobox-container .tree-node.selected {
@@ -131,10 +134,25 @@
     color: #0d6efd;
 }
 
+/* 화살표(Expand) 영역은 별도 하이라이트로 구분 */
 .tree-combobox-container .tree-node .expand-icon:hover {
-    background-color: #f3f4f6;
+    background-color: var(--combo-arrow-hover, #e6eefc);
     border-radius: 4px;
-    color: #666; /* 호버 시에도 아이콘 색상 고정 */
+    color: var(--primary-color, #0d6efd);
+}
+/* 행 호버 시: 타입 아이콘만 프라이머리 컬러, 화살표는 별도 규칙 유지 */
+.tree-combobox-container .tree-node:hover .type-icon {
+    color: var(--primary-color, #0d6efd);
+}
+
+/* 선택된 상태 유지: 호버해도 선택 배경 유지 */
+.tree-combobox-container .tree-node.selected:hover {
+    background-color: #e8f0fe;
+}
+
+/* 부드러운 전환 */
+.tree-combobox-container .tree-node {
+    transition: background-color 0.12s ease, border-left-color 0.12s ease, color 0.12s ease;
 }
 
 /* 선택 표시 체크아이콘 */
@@ -143,4 +161,35 @@
     margin-left: 6px;
     display: inline-flex;
     align-items: center;
+}
+
+/* ===== Custom hover separation tweaks (arrow vs. tree menu) ===== */
+/* 1) Disable full-row hover background to avoid one-line highlight */
+.tree-combobox-container .tree-node.folder:hover,
+.tree-combobox-container .tree-node.file:hover,
+.tree-combobox-container .tree-node.all:hover {
+    background-color: transparent !important;
+    border-left-color: transparent !important;
+}
+
+/* 2) Tree menu (icon/text) get their own subtle backgrounds */
+.tree-combobox-container .tree-node .type-icon {
+    border-radius: 4px;
+}
+.tree-combobox-container .tree-node .type-icon:hover {
+    background-color: var(--primary-color-light, #f1f3f4);
+}
+.tree-combobox-container .tree-node .node-name {
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+.tree-combobox-container .tree-node .node-name:hover {
+    background-color: var(--primary-color-light, #f1f3f4);
+}
+
+/* 3) Arrow area keeps its distinct hover background (already defined above) */
+
+/* ===== Exception: '전체' 아이콘은 호버 시 색상 변경 제외 ===== */
+.tree-combobox-container .tree-node.all:hover .type-icon {
+    color: #FFA500 !important; /* 기본 폴더 톤 유지 */
 }
