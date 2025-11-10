@@ -21,11 +21,26 @@ if (!dbConfigStr) {
   process.exit(1);
 }
 
+const stripWrappingQuotes = (value) => {
+  if (typeof value !== 'string' || value.length < 2) {
+    return value;
+  }
+
+  const firstChar = value[0];
+  const lastChar = value[value.length - 1];
+  const isQuote = firstChar === lastChar && ["'", '"', '`'].includes(firstChar);
+
+  return isQuote ? value.slice(1, -1) : value;
+};
+
 let dbConfig;
 try {
-  dbConfig = JSON.parse(dbConfigStr.replace(/'/g, ''));
+  const trimmedConfig = dbConfigStr.trim();
+  const normalizedConfig = stripWrappingQuotes(trimmedConfig);
+
+  dbConfig = JSON.parse(normalizedConfig);
 } catch (err) {
-  console.error("DB 설정 JSON 파싱 에러:", err.message);
+  console.error('DB 설정 JSON 파싱 에러:', err.message);
   process.exit(1);
 }
 
