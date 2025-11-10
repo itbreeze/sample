@@ -14,7 +14,7 @@
   align-items: center;
   background-color: var(--background-color-light);
   overflow: hidden;
-  border-bottom: none;
+  border-bottom: 1px solid var(--border-color-dark);
 }
 
 .visible-tabs-wrapper {

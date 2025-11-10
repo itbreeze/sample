@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import './IntelligentToolPage.css'
-import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText, History } from 'lucide-react';
+import { FolderOpen, Star, Search, Waypoints, Layers, FileText, History, Wrench } from 'lucide-react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import MainView from './MainView';
@@ -85,10 +85,10 @@ const tabItems = [
 const sidebarMenus = {
     drawing: [
         { id: 'search', icon: <Search size={20} />, label: '상세검색' },
-        { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },
-        { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서' },
+        { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },        
         { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
-        { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
+        { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서' },
+        { id: 'equipments', icon: <Wrench size={20} />, label: '설비목록' },
         { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '유체색목록' },
         { id: 'layers', icon: <Layers size={20} />, label: '레이어목록' },
     ],
