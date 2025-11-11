@@ -6,26 +6,29 @@ import { CollapseControl, ScrollTopControl } from "../common/TreeControls";
 
 /**
  * Panel
- * - 컨트롤드: activeTab, onTabChange 전달 시 부모가 탭 상태 관리
- * - 언컨트롤드: defaultTab을 기반으로 내부 상태 관리
+ * - Controlled: activeTab, onTabChange are managed by parent when provided
+ * - Uncontrolled: defaultTab is used for internal state when not controlled
  */
-export const Panel = ({
-  tabs = [],                 // [{ id, label, content }]
-  defaultTab,                // 언컨트롤드 초기 탭
-  showFilterTabs = [],       // 상단 필터를 보여줄 탭 id 목록
-  activeTab: controlledTab,  // 컨트롤드 현재 탭 (선택)
-  onTabChange,               // 컨트롤드 변경 콜백 (선택)
-}) => {
+export const Panel = (props) => {
+  const {
+    tabs = [],                 // [{ id, label, content }]
+    defaultTab,                // initial tab when uncontrolled
+    showFilterTabs = [],       // tab ids that show the filter bar
+    activeTab: controlledTab,  // controlled current tab id (optional)
+    onTabChange,               // controlled change callback (optional)
+    onCollapseAll,             // collapse-all callback (optional)
+  } = props;
+
   const isControlled = controlledTab != null;
 
-  // 언컨트롤드 상태
+  // Uncontrolled state
   const initialTab = useMemo(
     () => defaultTab || (tabs.length > 0 ? tabs[0].id : null),
     [defaultTab, tabs]
   );
   const [uncontrolledTab, setUncontrolledTab] = useState(initialTab);
 
-  // defaultTab/tabs 변경에 따른 언컨트롤드 초기화
+  // Reset uncontrolled initial when defaultTab/tabs change
   useEffect(() => {
     if (!isControlled) {
       const validIds = tabs.map(t => t.id);
@@ -50,7 +53,7 @@ export const Panel = ({
     [tabs, current]
   );
 
-  // content가 함수면 filter 전달, 아니면 JSX 그대로
+  // content can be a function expecting filter, otherwise JSX
   const [filter, setFilter] = useState("DrawingName");
   const activeContent = useMemo(() => {
     if (!activeTabObj) return null;
@@ -70,7 +73,7 @@ export const Panel = ({
         />
       </div>
 
-      {/* Filters (선택 표시) */}
+      {/* Filters (optional) */}
       {activeTabObj && showFilterTabs.includes(activeTabObj.id) && (
         <div className="panel middle">
           <FilterSelect type="documents" filter={filter} onChange={setFilter} />
@@ -88,7 +91,7 @@ export const Panel = ({
         {/* Tree controls: Collapse(top-right) + ScrollTop(bottom-right) */}
         {activeTabObj && showFilterTabs.includes(activeTabObj.id) && (
           <>
-            <CollapseControl wrapperClassName="tree-controls top" />
+            <CollapseControl wrapperClassName="tree-controls top" onCollapseAll={onCollapseAll} />
             <ScrollTopControl targetSelector=".panel.bottom" />
           </>
         )}
@@ -96,3 +99,4 @@ export const Panel = ({
     </div>
   );
 };
+

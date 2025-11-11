@@ -313,6 +313,7 @@ function IntelligentToolPage() {
           activeTab={activeSearchTab}
           onTabChange={setActiveSearchTab}
           defaultTab="documentList"
+          onCollapseAll={handleCollapseAll}
           showFilterTabs={['documentList']}
         />
       ),

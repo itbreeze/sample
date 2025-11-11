@@ -1,13 +1,14 @@
 // client/src/components/common/TreeControls.js
 import React, { useCallback, useRef } from 'react';
+import { ListMinus, ArrowUpToLine } from 'lucide-react';
 import './TreeControls.css';
 
-// 단독 사용을 위한 CollapseControl
+// Standalone collapse control
 export const CollapseControl = ({
   onCollapseAll,
   visible = true,
-  label = '접기',
-  title = '트리 모두 접기',
+  label = '목록최소화',
+  title = '목록 모두 최소화',
   wrapper = true,
   wrapperClassName = 'tree-controls',
   className = 'ctrl-btn',
@@ -20,18 +21,19 @@ export const CollapseControl = ({
       onClick={() => typeof onCollapseAll === 'function' && onCollapseAll()}
       title={title}
     >
+      <ListMinus size={16} />
       <span className="label">{label}</span>
     </button>
   );
   return wrapper ? <div className={wrapperClassName}>{Button}</div> : Button;
 };
 
-// 단독 사용을 위한 ScrollTopControl
+// Standalone scroll-to-top control
 export const ScrollTopControl = ({
   onScrollTop,
   targetSelector = '.panel.bottom',
   visible = true,
-  label = '맨위',
+  label = '맨위로이동',
   title = '맨 위로 이동',
   wrapper = true,
   wrapperClassName = 'tree-controls',
@@ -56,6 +58,7 @@ export const ScrollTopControl = ({
   if (!visible) return null;
   const Button = (
     <button type="button" className={className} onClick={scrollToTop} title={title}>
+      <ArrowUpToLine size={16} />
       <span className="label">{label}</span>
     </button>
   );
@@ -69,9 +72,7 @@ export const ScrollTopControl = ({
 };
 
 /**
- * 공통 트리 컨트롤: 접기 / 맨위로
- * - 단독/결합 사용 모두 지원
- * - 기본 대상은 현재 컨트롤이 포함된 패널의 `.panel.bottom`
+ * Combined controls: collapse + scroll-to-top
  */
 const TreeControls = ({
   onCollapseAll,
@@ -80,9 +81,9 @@ const TreeControls = ({
   visible = true,
   showCollapse = true,
   showTop = true,
-  collapseLabel = '접기',
-  collapseTitle = '트리 모두 접기',
-  topLabel = '맨위',
+  collapseLabel = '목록최소화',
+  collapseTitle = '목록 모두 최소화',
+  topLabel = '맨위로이동',
   topTitle = '맨 위로 이동',
 }) => {
   const rootRef = useRef(null);
@@ -113,11 +114,13 @@ const TreeControls = ({
           onClick={() => typeof onCollapseAll === 'function' && onCollapseAll()}
           title={collapseTitle}
         >
+          <ListMinus size={16} />
           <span className="label">{collapseLabel}</span>
         </button>
       )}
       {showTop && (
         <button type="button" className="ctrl-btn" onClick={scrollToTop} title={topTitle}>
+          <ArrowUpToLine size={16} />
           <span className="label">{topLabel}</span>
         </button>
       )}
@@ -126,3 +129,4 @@ const TreeControls = ({
 };
 
 export default TreeControls;
+
