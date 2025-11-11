@@ -12,7 +12,6 @@ import ResizablePanel from './ResizablePanel';
 import { useDocumentTree } from './hooks/useDocumentTree';
 import { useDocumentLoader } from './hooks/useDocumentLoader';
 import SearchResultList from './Search/SearchResultList';
-import TreeControls from './common/TreeControls';
 
 axios.defaults.baseURL = 'http://localhost:4001';
 axios.defaults.withCredentials = true;
@@ -364,14 +363,7 @@ function IntelligentToolPage() {
           >
             {activePanelConfig.component}
 
-            {/* 검색 패널 + 현재 탭이 '전체도면목록'일 때만 노출 */}
-            {activeMenuItem === 'search' && activeSearchTab === 'documentList' && (
-              <TreeControls
-                onCollapseAll={handleCollapseAll}
-                targetSelector=".panel.bottom"
-                visible={true}
-              />
-            )}
+            {/* TreeControls는 Panel 내부에서 탭 기준으로 관리 */}
           </ResizablePanel>
         )}
 

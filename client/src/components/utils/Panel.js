@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import "./Panel.css";
 import { Tabs } from "./Tabs";
 import { FilterSelect } from "./FilterSelect";
+import { CollapseControl, ScrollTopControl } from "../common/TreeControls";
 
 /**
  * Panel
@@ -82,6 +83,14 @@ export const Panel = ({
           activeContent
         ) : (
           <div className="panel empty">No items to display.</div>
+        )}
+
+        {/* Tree controls: Collapse(top-right) + ScrollTop(bottom-right) */}
+        {activeTabObj && showFilterTabs.includes(activeTabObj.id) && (
+          <>
+            <CollapseControl wrapperClassName="tree-controls top" />
+            <ScrollTopControl targetSelector=".panel.bottom" />
+          </>
         )}
       </div>
     </div>

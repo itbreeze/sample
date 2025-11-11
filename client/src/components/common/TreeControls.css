@@ -8,6 +8,10 @@
   gap: 8px;
   z-index: 25; /* above panel content */
 }
+.tree-controls.top {
+  top: 12px;
+  bottom: auto;
+}
 .tree-controls .ctrl-btn {
   border: 1px solid var(--border-color);
   background: var(--background-color);
