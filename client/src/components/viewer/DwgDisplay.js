@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './DwgDisplay.css';
 import { attachWheelZoom, attachPan, attachClickInfo } from './viewerControls';
+import { fixFonts, loadFonts } from './fontUtils';
 
 const fileCache = new Map();
 
@@ -43,6 +44,7 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     const isInitializedRef = useRef(false);
     const cleanupFunctionsRef = useRef([]);
     const resizeObserverRef = useRef(null);
+    const fontNameSetRef = useRef(new Set());
 
     const [errorMessage, setErrorMessage] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -118,6 +120,18 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
                 if (!isMounted) return;
 
                 await viewerRef.current.parseVsfx(arrayBuffer);
+
+                // Normalize fonts for proper unicode rendering before first render
+                try {
+                    // Fonts are served from client/public/fonts => /fonts/*
+                    await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
+                } catch (_) { /* non-fatal */ }
+
+                // Load and embed missing fonts referenced by styles, then regen
+                try {
+                    await loadFonts(viewerRef.current, fontNameSetRef, '/fonts/');
+                } catch (_) { /* non-fatal */ }
+
                 viewerRef.current.setEnableSceneGraph(true);
                 viewerRef.current.setEnableAnimation(false);
                 viewerRef.current.zoomExtents?.();
