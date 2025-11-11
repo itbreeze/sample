@@ -38,7 +38,7 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-const DwgDisplay = ({ filePath, isActive, initialState, onStateChange, onSelectionChange }) => {
+const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
     const containerRef = useRef(null);
@@ -58,24 +58,17 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange, onSelecti
         cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
         cleanupFunctionsRef.current = [];
 
+        // 안전하게 callback 없이 attach
         const cleanup1 = attachWheelZoom(viewerRef.current, canvasRef.current);
         const cleanup2 = attachPan(viewerRef.current, canvasRef.current);
         const cleanup3 = attachClickInfo(viewerRef.current, canvasRef.current);
         const cleanup4 = attachDragSelect(viewerRef.current, canvasRef.current, {
-            onSelect: (handles, screenBox, additive, mode) => {
-                console.log('[DwgDisplay] Selection:', { 
-                    count: handles.length, 
-                    handles, 
-                    screenBox, 
-                    additive, 
-                    mode 
-                });
-                
-                // 상위 컴포넌트로 선택 정보 전달
-                if (onSelectionChange) {
-                    onSelectionChange(handles, screenBox, additive, mode);
-                }
+            onSelect: (handles, screenBox, additive) => {
+                // 필요한 경우 상위로 전달하도록 prop 연결 가능
+                // onDragSelect?.({ handles, screenBox, additive });
+                console.log('Selection Set:', { handles, screenBox, additive });
             },
+            // registeredHandles: new Set([...]) // 특정 핸들만 허용하려면 활성화
         });
 
         cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3, cleanup4].filter(Boolean);
@@ -205,8 +198,9 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange, onSelecti
     // isActive 변경 시 이벤트 재등록
     useEffect(() => {
         if (isInitializedRef.current && isActive) attachEventListeners();
-    }, [isActive, onSelectionChange]);
+    }, [isActive]);
 
+    // ResizeObserver
     // ResizeObserver
     useEffect(() => {
         if (!containerRef.current) return;

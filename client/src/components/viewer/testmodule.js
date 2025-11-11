@@ -37,6 +37,8 @@ const TestModule = ({ pollMs = 300, style }) => {
   const [minimized, setMinimized] = useState(false);
   // 처음에는 선택정보창을 숨김; 선택 발생 시 자동 표시
   const [hidden, setHidden] = useState(true);
+  // 사용자가 닫기 버튼으로 명시적으로 닫았는지 여부
+  const [userClosed, setUserClosed] = useState(false);
   const dragStartRef = useRef({ dx: 0, dy: 0 });
 
   // 저장된 위치/최소화 상태 로드
@@ -103,8 +105,23 @@ const TestModule = ({ pollMs = 300, style }) => {
     return () => clearInterval(t);
   }, [pollMs, readSelection]);
 
+  // 선택이 존재하면(>0) 자동으로 패널을 보여주되,
+  // 사용자가 닫기를 누른 이후에는 다시 자동으로 열지 않음
+  useEffect(() => {
+    if (!userClosed && hidden && count > 0) {
+      setHidden(false);
+    }
+  }, [userClosed, hidden, count]);
+
+  // 선택이 모두 해제되면(userClosed 리셋) 다음 선택 시 다시 자동 표시 허용
+  useEffect(() => {
+    if (count === 0 && userClosed) {
+      setUserClosed(false);
+    }
+  }, [count, userClosed]);
+
   // 닫힘 상태에서 선택 생기면 자동 표시
-  useEffect(() => { if (hidden && count > 0) setHidden(false); }, [hidden, count]);
+  // 기존 자동 열림 효과 제거됨: userClosed를 고려하는 위 효과만 사용
 
   // 드래그 이동
   const onDragStart = useCallback((e) => {
@@ -154,7 +171,7 @@ const TestModule = ({ pollMs = 300, style }) => {
         <button type="button" onMouseDown={(e)=>{e.stopPropagation(); e.preventDefault();}} onClick={(e)=>{e.stopPropagation(); setMinimized(m=>!m);}} style={{ background:'transparent', color:'#fff', border:'none', cursor:'pointer', padding: 2, lineHeight: 0 }} aria-label={minimized ? '펼치기' : '최소화'} title={minimized ? '펼치기' : '최소화'}>
           <Minus size={14} />
         </button>
-        <button type="button" onMouseDown={(e)=>{e.stopPropagation(); e.preventDefault();}} onClick={(e)=>{e.stopPropagation(); setHidden(true);}} style={{ background:'transparent', color:'#fff', border:'none', cursor:'pointer', padding: 2, lineHeight: 0 }} aria-label="닫기" title="닫기">
+        <button type="button" onMouseDown={(e)=>{e.stopPropagation(); e.preventDefault();}} onClick={(e)=>{e.stopPropagation(); setHidden(true); setUserClosed(true);}} style={{ background:'transparent', color:'#fff', border:'none', cursor:'pointer', padding: 2, lineHeight: 0 }} aria-label="닫기" title="닫기">
           <X size={14} />
         </button>
       </div>
@@ -181,7 +198,8 @@ const TestModule = ({ pollMs = 300, style }) => {
 
   const currentItems = selectedType === 'ALL' ? [] : (typeMap[selectedType] || []);
 
-  if (hidden && count === 0) return null;
+  // 사용자가 닫았다면 선택이 남아 있어도 보이지 않게 처리
+  if (hidden) return null;
 
   return (
     <div ref={containerRef} style={containerStyle} aria-live="polite">
