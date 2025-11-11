@@ -6,10 +6,17 @@
 .tab-item {
   position: relative;
   padding: 8px 0;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-color-primary);
   cursor: pointer;
   transition: none;
   overflow: hidden;
 }
+
+/* Default: show full labels, hide short labels */
+.tab-item .label-short { display: none; }
+
+/* In compact resizable panels, show short labels instead */
+.resizable-panel-container.compact .panel-tabs .tab-item .label-full { display: none; }
+.resizable-panel-container.compact .panel-tabs .tab-item .label-short { display: inline; }

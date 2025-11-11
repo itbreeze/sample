@@ -2,7 +2,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import './DwgDisplay.css';
-import { attachWheelZoom, attachPan, attachClickInfo } from './viewerControls';
+import { attachWheelZoom, attachPan, attachClickInfo, attachDragSelect } from './viewerControls';
+import TestModule from './testmodule';
 import { fixFonts, loadFonts } from './fontUtils';
 
 const fileCache = new Map();
@@ -37,7 +38,7 @@ const createViewer = async (lib, canvas) => {
     });
 };
 
-const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
+const DwgDisplay = ({ filePath, isActive, initialState, onStateChange, onSelectionChange }) => {
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
     const containerRef = useRef(null);
@@ -57,12 +58,27 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
         cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
         cleanupFunctionsRef.current = [];
 
-        // 안전하게 callback 없이 attach
         const cleanup1 = attachWheelZoom(viewerRef.current, canvasRef.current);
         const cleanup2 = attachPan(viewerRef.current, canvasRef.current);
         const cleanup3 = attachClickInfo(viewerRef.current, canvasRef.current);
+        const cleanup4 = attachDragSelect(viewerRef.current, canvasRef.current, {
+            onSelect: (handles, screenBox, additive, mode) => {
+                console.log('[DwgDisplay] Selection:', { 
+                    count: handles.length, 
+                    handles, 
+                    screenBox, 
+                    additive, 
+                    mode 
+                });
+                
+                // 상위 컴포넌트로 선택 정보 전달
+                if (onSelectionChange) {
+                    onSelectionChange(handles, screenBox, additive, mode);
+                }
+            },
+        });
 
-        cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3].filter(Boolean);
+        cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3, cleanup4].filter(Boolean);
     };
 
     // Resize
@@ -106,6 +122,8 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
                     return;
                 }
                 viewerRef.current = viewerInstance;
+                // 선택 개수 표시를 위한 전역 노출
+                window.currentViewerInstance = viewerRef.current;
 
                 let arrayBuffer;
                 if (fileCache.has(filePath)) {
@@ -187,9 +205,8 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     // isActive 변경 시 이벤트 재등록
     useEffect(() => {
         if (isInitializedRef.current && isActive) attachEventListeners();
-    }, [isActive]);
+    }, [isActive, onSelectionChange]);
 
-    // ResizeObserver
     // ResizeObserver
     useEffect(() => {
         if (!containerRef.current) return;
@@ -228,6 +245,7 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
             <div className="viewer-canvas-container" style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
                 <canvas ref={canvasRef} id="viewerCanvas" />
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
+                {!isLoading && <TestModule />}
             </div>
         </div>
     );

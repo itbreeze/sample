@@ -4,7 +4,7 @@
 
 /* ------------------------------ */
 /* 전체 컨테이너 */
-.advanced-search-container {
+.advanced-search-container {  
   display: flex;
   flex-direction: column;
   height: 100%; /* 부모 높이 기준 */

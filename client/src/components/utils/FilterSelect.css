@@ -15,3 +15,30 @@
     cursor: pointer;
     transition: all 0.2s ease;
 }
+
+/* Radio variant: centered horizontally, theme-consistent */
+.combo-container.radio-variant {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 100%;
+}
+
+.combo-container.radio-variant .radio-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-color, #333);
+    user-select: none;
+}
+
+/* Show full labels by default; switch to short within compact panels */
+.combo-container.radio-variant .label-short { display: none; }
+.resizable-panel-container.compact .combo-container.radio-variant .label-full { display: none; }
+.resizable-panel-container.compact .combo-container.radio-variant .label-short { display: inline; }
+
+.combo-container.radio-variant input[type="radio"] {
+    accent-color: var(--primary-color, #3b82f6);
+}

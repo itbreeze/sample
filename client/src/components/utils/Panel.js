@@ -76,7 +76,7 @@ export const Panel = (props) => {
       {/* Filters (optional) */}
       {activeTabObj && showFilterTabs.includes(activeTabObj.id) && (
         <div className="panel middle">
-          <FilterSelect type="documents" filter={filter} onChange={setFilter} />
+          <FilterSelect type="documents" filter={filter} onChange={setFilter} variant="radio" />
         </div>
       )}
 
@@ -91,7 +91,7 @@ export const Panel = (props) => {
         {/* Tree controls: Collapse(top-right) + ScrollTop(bottom-right) */}
         {activeTabObj && showFilterTabs.includes(activeTabObj.id) && (
           <>
-            <CollapseControl wrapperClassName="tree-controls top" onCollapseAll={onCollapseAll} />
+            {/* <CollapseControl wrapperClassName="tree-controls top" onCollapseAll={onCollapseAll} /> */}
             <ScrollTopControl targetSelector=".panel.bottom" />
           </>
         )}
@@ -99,4 +99,3 @@ export const Panel = (props) => {
     </div>
   );
 };
-

@@ -12,10 +12,12 @@
 
 .panel.top {
   height: 40px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .panel.middle {
-  height: 30px;
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .panel.middle select {

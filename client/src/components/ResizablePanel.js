@@ -78,10 +78,12 @@ const ResizablePanel = ({
     </div>
   );
 
+  const isCompact = width <= 360;
+
   return (
     <div
       ref={panelRef}
-      className="resizable-panel-container"
+      className={`resizable-panel-container ${isCompact ? 'compact' : ''}`}
       style={{ width }}
     >
       <div className="resizable-panel-content">

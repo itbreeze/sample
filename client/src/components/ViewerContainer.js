@@ -21,6 +21,8 @@ const ViewerContainer = ({
   onSearchResultClick
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // 🔹 선택 상태 관리 (DOCNO별)
+  const [selectionStates, setSelectionStates] = useState({}); // DOCNO -> { handles: [], count: 0 }
 
   // 🔹 drag&drop 핸들러
   const handleOnDragEnd = useCallback((result) => {
@@ -33,7 +35,21 @@ const ViewerContainer = ({
     // ⚠️ activeFileId 재설정은 부모에서 처리 필요
   }, [openFiles, onTabReorder]);
 
-
+  // 🔹 선택 상태 업데이트 핸들러
+  const handleSelectionChange = useCallback((docno, handles, screenBox, additive, mode) => {
+    setSelectionStates(prev => ({
+      ...prev,
+      [docno]: {
+        handles,
+        count: handles.length,
+        screenBox,
+        additive,
+        mode
+      }
+    }));
+    
+    console.log(`[ViewerContainer] ${docno} - Selected:`, handles.length, 'items');
+  }, []);
 
   // 검색 결과 클릭
   const handleSearchResultClick = useCallback((result) => {
@@ -101,30 +117,36 @@ const ViewerContainer = ({
                 {...provided.droppableProps}
                 ref={provided.innerRef}
               >
-                {visibleFiles.map((file, index) => (
-                  <Draggable key={file.DOCNO} draggableId={file.DOCNO.toString()} index={index}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={`view-tab ${file.DOCNO === activeFileId ? 'active' : ''} ${snapshot.isDragging ? 'dragging' : ''}`}
-                        onClick={() => onTabClick(file.DOCNO)}
-                        title={file.DOCNM || file.DOCNUMBER}
-                      >
-                        <span className="tab-title">
-                          {file.DOCNM || file.DOCNUMBER}
-                        </span>
-                        <button
-                          className="close-tab-btn"
-                          onClick={(e) => { e.stopPropagation(); onTabClose(file.DOCNO); }}
+                {visibleFiles.map((file, index) => {
+                  const selectionInfo = selectionStates[file.DOCNO];
+                  const selectionCount = selectionInfo?.count || 0;
+                  
+                  return (
+                    <Draggable key={file.DOCNO} draggableId={file.DOCNO.toString()} index={index}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={`view-tab ${file.DOCNO === activeFileId ? 'active' : ''} ${snapshot.isDragging ? 'dragging' : ''}`}
+                          onClick={() => onTabClick(file.DOCNO)}
+                          title={`${file.DOCNM || file.DOCNUMBER}${selectionCount > 0 ? ` (선택: ${selectionCount})` : ''}`}
                         >
-                          <CloseIcon size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
+                          <span className="tab-title">
+                            {file.DOCNM || file.DOCNUMBER}
+                            {selectionCount > 0 && <span className="selection-badge">{selectionCount}</span>}
+                          </span>
+                          <button
+                            className="close-tab-btn"
+                            onClick={(e) => { e.stopPropagation(); onTabClose(file.DOCNO); }}
+                          >
+                            <CloseIcon size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
                 {provided.placeholder}
               </div>
             )}
@@ -141,6 +163,8 @@ const ViewerContainer = ({
             <>
               {openFiles.map((file) => {
                 if (!file) return null; // undefined 방어
+                const selectionInfo = selectionStates[file.DOCNO];
+                
                 return (
                   <div
                     key={`${file.DOCNO}-${file.tmpFile}`}
@@ -151,11 +175,20 @@ const ViewerContainer = ({
                       <h2 className="viewer-title">
                         {`${file.PLANTNM} / ${file.UNIT}호기 / [${file.DOCNUMBER}] ${file.DOCNM}`}
                       </h2>
+                      {selectionInfo && selectionInfo.count > 0 && (
+                        <div className="selection-info">
+                          선택됨: {selectionInfo.count}개
+                          {selectionInfo.mode && ` (${selectionInfo.mode === 'window' ? 'Window' : 'Crossing'})`}
+                        </div>
+                      )}
                     </div>
                     <DwgDisplay
                       filePath={file.tmpFile}
                       isActive={file.DOCNO === activeFileId}
                       key={`${file.DOCNO}-${file.tmpFile}`}
+                      onSelectionChange={(handles, screenBox, additive, mode) => 
+                        handleSelectionChange(file.DOCNO, handles, screenBox, additive, mode)
+                      }
                     />
                   </div>
                 );
