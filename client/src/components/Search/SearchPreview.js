@@ -72,7 +72,7 @@ function SearchPreview({
                   )}
                 </span>
                 <span className="preview-title">
-                  [{highlightText(result.DOCNUMBER, searchTerm)}]{' '}
+                  [{highlightText(result.DOCNUMBER, searchTerm)}]
                   {highlightText(result.DOCNM, searchTerm)}
                 </span>
               </div>
@@ -80,7 +80,7 @@ function SearchPreview({
                 <span>
                   {highlightText(result.PLANTNM, searchTerm)}/
                   {highlightText(result.PARENTNM, searchTerm)}/
-                  {highlightText(`${result.HOGI_GUBUN}호기`, searchTerm)}
+                  {highlightText(result.HOGI_LABEL || result.HOGI_GUBUN, searchTerm)}
                 </span>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Minus, X } from 'lucide-react';
+import './testmodule.css';
 
 const POS_KEY = 'testmodule_pos';
 const MIN_KEY = 'testmodule_min';
@@ -18,7 +19,7 @@ const extractInfo = (entityId) => {
     const handle = obj?.getNativeDatabaseHandle?.() ?? null;
     // 레이어/색상은 라이브러리 제공 여부에 따라 방어적으로 접근
     let layer = null;
-    try { layer = obj?.getLayer?.()?.openObject?.()?.getName?.() ?? null; } catch {}
+    try { layer = obj?.getLayer?.()?.openObject?.()?.getName?.() ?? null; } catch { }
     let color = null;
     return { type, handle, layer, color };
   } catch {
@@ -52,11 +53,11 @@ const TestModule = ({ pollMs = 300, style }) => {
       }
       const smin = localStorage.getItem(MIN_KEY);
       if (smin != null) setMinimized(smin === '1');
-    } catch {}
+    } catch { }
   }, []);
 
-  useEffect(() => { try { localStorage.setItem(POS_KEY, JSON.stringify(pos)); } catch {} }, [pos]);
-  useEffect(() => { try { localStorage.setItem(MIN_KEY, minimized ? '1' : '0'); } catch {} }, [minimized]);
+  useEffect(() => { try { localStorage.setItem(POS_KEY, JSON.stringify(pos)); } catch { } }, [pos]);
+  useEffect(() => { try { localStorage.setItem(MIN_KEY, minimized ? '1' : '0'); } catch { } }, [minimized]);
 
   // 선택 집계
   const readSelection = useCallback(() => {
@@ -154,7 +155,7 @@ const TestModule = ({ pollMs = 300, style }) => {
     boxShadow: '0 2px 8px rgba(5,150,105,0.45)',
     pointerEvents: 'auto',
     userSelect: 'none',
-    width: 300,
+    width: 500,
     ...style,
   };
   const headerStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', cursor: dragging ? 'grabbing' : 'grab' };
@@ -162,16 +163,25 @@ const TestModule = ({ pollMs = 300, style }) => {
   const tableHeaderCell = { textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(16,185,129,0.6)', fontSize: 12 };
   const tableCell = { padding: '6px 8px', borderBottom: '1px solid rgba(16,185,129,0.3)', fontSize: 12 };
   const listBoxStyle = { maxHeight: 140, overflow: 'auto', background: 'rgba(5,150,105,0.35)', borderRadius: 6, padding: 6 };
+  const removeButtonStyle = {
+    background: 'transparent',
+    border: '1px solid rgba(239,68,68,0.8)',
+    color: '#fee2e2',
+    borderRadius: 4,
+    padding: '2px 6px',
+    fontSize: 11,
+    cursor: 'pointer',
+  };
 
   // 헤더: 좌측 타이틀, 우측 버튼(최소화 → 닫기 순서)
   const Header = () => (
     <div style={headerStyle} onMouseDown={onDragStart} title="드래그로 이동">
       선택정보
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button type="button" onMouseDown={(e)=>{e.stopPropagation(); e.preventDefault();}} onClick={(e)=>{e.stopPropagation(); setMinimized(m=>!m);}} style={{ background:'transparent', color:'#fff', border:'none', cursor:'pointer', padding: 2, lineHeight: 0 }} aria-label={minimized ? '펼치기' : '최소화'} title={minimized ? '펼치기' : '최소화'}>
+        <button type="button" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }} onClick={(e) => { e.stopPropagation(); setMinimized(m => !m); }} style={{ background: 'transparent', color: '#fff', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 0 }} aria-label={minimized ? '펼치기' : '최소화'} title={minimized ? '펼치기' : '최소화'}>
           <Minus size={14} />
         </button>
-        <button type="button" onMouseDown={(e)=>{e.stopPropagation(); e.preventDefault();}} onClick={(e)=>{e.stopPropagation(); setHidden(true); setUserClosed(true);}} style={{ background:'transparent', color:'#fff', border:'none', cursor:'pointer', padding: 2, lineHeight: 0 }} aria-label="닫기" title="닫기">
+        <button type="button" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }} onClick={(e) => { e.stopPropagation(); setHidden(true); setUserClosed(true); }} style={{ background: 'transparent', color: '#fff', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 0 }} aria-label="닫기" title="닫기">
           <X size={14} />
         </button>
       </div>
@@ -198,6 +208,32 @@ const TestModule = ({ pollMs = 300, style }) => {
 
   const currentItems = selectedType === 'ALL' ? [] : (typeMap[selectedType] || []);
 
+  const handleRemoveItem = useCallback((handle) => {
+    const viewer = window.currentViewerInstance;
+    const pSelected = viewer?.getSelected?.();
+    if (!viewer || !pSelected || pSelected.isNull?.()) return;
+    const itr = pSelected.getIterator?.();
+    while (itr && !itr.done?.()) {
+      const entityId = itr.getEntity?.();
+      if (!entityId || entityId.isNull?.()) { itr.step?.(); continue; }
+      const info = extractInfo(entityId);
+      if (info.handle === handle) {
+        const obj = entityId.openObject?.() ?? entityId;
+        const methods = ['setIsSelected', 'setSelectionState', 'setActive', 'setHighlighted', 'setIsHighlighted'];
+        for (const method of methods) {
+          if (typeof obj?.[method] === 'function') {
+            try { obj[method](false); } catch { }
+          }
+        }
+        viewer.update?.();
+        readSelection();
+        return;
+      }
+      itr.step?.();
+    }
+  }, [readSelection]);
+
+
   // 사용자가 닫았다면 선택이 남아 있어도 보이지 않게 처리
   if (hidden) return null;
 
@@ -210,6 +246,7 @@ const TestModule = ({ pollMs = 300, style }) => {
             value={comboOptions.find(o => o.value === selectedType) ? selectedType : (comboOptions[0]?.value || 'ALL')}
             onChange={e => setSelectedType(e.target.value)}
             style={selectStyle}
+            className="testmodule-dropdown"
           >
             {comboOptions.map(opt => (
               <option key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
@@ -218,20 +255,31 @@ const TestModule = ({ pollMs = 300, style }) => {
 
           {selectedType !== 'ALL' && currentItems.length > 0 && (
             <div style={listBoxStyle}>
+              <div style={{ marginBottom: 6, fontSize: 12, fontWeight: '500' ,borderBottom: '1px solid yellow', paddingBottom: 5 }}>
+                객체정보
+              </div>
+
+
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={tableHeaderCell}>Handle</th>
                     <th style={tableHeaderCell}>Layer</th>
                     <th style={tableHeaderCell}>Color</th>
+                    <th style={tableHeaderCell}>작업</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentItems.map((it) => (
                     <tr key={it.handle}>
-                      <td style={{ ...tableCell, fontFamily: 'monospace' }}>{it.handle}</td>
-                      <td style={tableCell}>{it.layer}</td>
-                      <td style={tableCell}>{it.color}</td>
+                    <td style={{ ...tableCell, fontFamily: 'monospace' }}>{it.handle}</td>
+                    <td style={tableCell}>{it.layer}</td>
+                    <td style={tableCell}>{it.color}</td>
+                    <td style={tableCell}>
+                      <button type="button" style={removeButtonStyle} onClick={() => handleRemoveItem(it.handle)}>
+                        제거
+                      </button>
+                    </td>
                     </tr>
                   ))}
                 </tbody>

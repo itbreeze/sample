@@ -250,3 +250,26 @@
 .conditions-list > .search-condition-row {
   width: 100%;
 }
+
+.result-main-info {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.result-doc-number {
+  white-space: nowrap;
+}
+
+.result-doc-title {
+  flex: 1;
+}
+
+.search-result-item mark {
+  background-color: rgba(37, 99, 235, 0.15);
+  color: #2563eb;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 600;
+}

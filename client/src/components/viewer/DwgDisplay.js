@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import './DwgDisplay.css';
-import { attachWheelZoom, attachPan, attachClickInfo, attachDragSelect } from './viewerControls';
+import { attachWheelZoom, attachPan, attachLeftClickSelect, attachDragSelect } from './viewerControls';
 import TestModule from './testmodule';
 import { fixFonts, loadFonts } from './fontUtils';
 
@@ -10,6 +10,7 @@ const fileCache = new Map();
 
 const initializeVisualizeJS = async () => {
     if (!window.getVisualizeLibInst) {
+        // VisualizeJS가 로드되지 않았습니다
         throw new Error('VisualizeJS가 로드되지 않았습니다.');
     }
     const wasmUrl = window.WasmUrl || '/Visualize.js.wasm';
@@ -58,18 +59,20 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
         cleanupFunctionsRef.current.forEach(cleanup => cleanup?.());
         cleanupFunctionsRef.current = [];
 
-        // 안전하게 callback 없이 attach
+        // 안전하게 callback 타입 attach
         const cleanup1 = attachWheelZoom(viewerRef.current, canvasRef.current);
         const cleanup2 = attachPan(viewerRef.current, canvasRef.current);
-        const cleanup3 = attachClickInfo(viewerRef.current, canvasRef.current);
-        const cleanup4 = attachDragSelect(viewerRef.current, canvasRef.current, {
+        const cleanup3 = attachLeftClickSelect(viewerRef.current, canvasRef.current);
+        const cleanup4 = attachDragSelect(viewerRef.current, canvasRef.current);
+        // removed: attachClickInfo
+        /* removed: attachDragSelect
             onSelect: (handles, screenBox, additive) => {
-                // 필요한 경우 상위로 전달하도록 prop 연결 가능
+                // 필요할 경우 상위로 전달하도록 prop 연결 가능
                 // onDragSelect?.({ handles, screenBox, additive });
                 console.log('Selection Set:', { handles, screenBox, additive });
             },
-            // registeredHandles: new Set([...]) // 특정 핸들만 허용하려면 활성화
-        });
+            // registeredHandles: new Set([...]) // 특정 핸들을 사용하려면 설정
+        */
 
         cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3, cleanup4].filter(Boolean);
     };
@@ -123,6 +126,7 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
                     arrayBuffer = fileCache.get(filePath);
                 } else {
                     const response = await fetch(filePath);
+                    // VSFX 파일 불러오기 실패
                     if (!response.ok) throw new Error('VSFX 파일 불러오기 실패');
                     arrayBuffer = await response.arrayBuffer();
                     fileCache.set(filePath, arrayBuffer);
@@ -172,6 +176,7 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
             script.async = true;
             script.addEventListener('load', handleScriptLoad);
             script.onerror = () => {
+                // Visualize.js 로드 실패
                 if (isMounted) { setErrorMessage('Visualize.js 로드 실패'); setIsLoading(false); }
             };
             document.body.appendChild(script);
@@ -195,12 +200,11 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
 
     }, [viewerRef.current, initialState]);
 
-    // isActive 변경 시 이벤트 재등록
+    // isActive 변경 시 이벤트 설정
     useEffect(() => {
         if (isInitializedRef.current && isActive) attachEventListeners();
     }, [isActive]);
 
-    // ResizeObserver
     // ResizeObserver
     useEffect(() => {
         if (!containerRef.current) return;
@@ -228,15 +232,21 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
         };
     }, []);
 
+    const containerClassName = isLoading ? "viewer-app-container loading" : "viewer-app-container";
+
     return (
-        <div ref={containerRef} className="viewer-app-container">
+        <div
+            ref={containerRef}
+            className={containerClassName}
+            aria-busy={isLoading}
+        >
             {isLoading && (
-                <div className="loading-overlay">
+                <div className="loading-overlay" role="status" aria-live="polite">
                     <div className="spinner"></div>
-                    <div className="loading-text">도면 로딩 중...</div>
+                    <div className="loading-text">도면을 불러오는 중입니다...</div>
                 </div>
             )}
-            <div className="viewer-canvas-container" style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
+            <div className="viewer-canvas-container" style={{ opacity: isLoading ? 0.35 : 1 }}>
                 <canvas ref={canvasRef} id="viewerCanvas" />
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
                 {!isLoading && <TestModule />}

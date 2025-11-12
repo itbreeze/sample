@@ -1,0 +1,22 @@
+.testmodule-dropdown {
+  background: #22c55e;
+  color: #0f172a;
+  border: 1px solid #16a34a;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.testmodule-dropdown option {
+  background-color: #34d399;
+  color: #0f172a;
+}
+
+.testmodule-dropdown option:hover,
+.testmodule-dropdown option:focus {
+  background-color: #a7f3d0;
+  color: #065f46;
+}

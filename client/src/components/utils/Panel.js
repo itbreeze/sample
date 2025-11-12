@@ -54,7 +54,7 @@ export const Panel = (props) => {
   );
 
   // content can be a function expecting filter, otherwise JSX
-  const [filter, setFilter] = useState("DrawingName");
+  const [filter, setFilter] = useState("All");
   const activeContent = useMemo(() => {
     if (!activeTabObj) return null;
     if (typeof activeTabObj.content === "function") return activeTabObj.content(filter);
@@ -75,7 +75,7 @@ export const Panel = (props) => {
 
       {/* Filters (optional) */}
       {activeTabObj && showFilterTabs.includes(activeTabObj.id) && (
-        <div className="panel middle">
+        <div className="panel middle">          
           <FilterSelect type="documents" filter={filter} onChange={setFilter} variant="radio" />
         </div>
       )}

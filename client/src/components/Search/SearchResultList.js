@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Loader2, Plus, X, Search } from 'lucide-react';
 import './SearchResultList.css';
 import TreeComboBox from '../common/TreeComboBox';
 import { transformToTreeData, formatLevelDataForTree } from '../utils/dataUtils';
+import { highlightText } from './highlightText';
 
 /** 🔹 리프(말단) 노드의 ID만 수집 */
 const collectLeafNodeIds = (node) => {
@@ -45,6 +46,64 @@ const findNodeById = (nodes, id) => {
   return null;
 };
 
+const buildHighlightSource = ({ drawingNumber, drawingName, additionalConditions = [] }) => {
+  const pieces = [];
+  if (drawingNumber) pieces.push(drawingNumber);
+  if (drawingName) pieces.push(drawingName);
+  additionalConditions
+    .filter(cond => typeof cond.term === 'string' && cond.term.trim() !== '')
+    .forEach(cond => pieces.push(cond.term));
+  return pieces.join(' ');
+};
+
+const AdditionalConditionRow = memo(({ condition, operatorOptions, onOperatorChange, onTermChange, onRemove }) => (
+  <div key={condition.id} className="search-condition-row">
+    <div className="operator-section">
+      <select
+        value={condition.operator}
+        onChange={(e) => onOperatorChange(condition.id, e.target.value)}
+        className="operator-select"
+      >
+        {operatorOptions.map(option => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </div>
+    <div className="term-section-with-remove">
+      <input
+        type="text"
+        value={condition.term}
+        onChange={(e) => onTermChange(condition.id, e.target.value)}
+        placeholder="추가 검색어 입력"
+        className="term-input"
+        onKeyPress={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+      />
+      <button
+        className="remove-condition-btn"
+        onClick={() => onRemove(condition.id)}
+        title="조건 삭제"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  </div>
+));
+
+const SearchResultItem = memo(({ result, highlightTerm, onSelect }) => (
+  <div
+    className="search-result-item"
+    onClick={() => onSelect(result)}
+  >
+    <div className="result-main-info">
+      <span className="result-doc-number">[{highlightText(result.DOCNUMBER, highlightTerm)}]</span>
+      <span className="result-doc-title">{highlightText(result.DOCNM, highlightTerm)}</span>
+    </div>
+    <div className="result-sub-info">
+      {highlightText(result.PLANTNM, highlightTerm)} / {highlightText(result.PARENTNM, highlightTerm)} / {highlightText(result.HOGI_LABEL || result.HOGI_GUBUN, highlightTerm)}
+    </div>
+  </div>
+));
+
 const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,17 +117,20 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
   const [additionalConditions, setAdditionalConditions] = useState([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState('');
   const [selectedPath, setSelectedPath] = useState('');
+  const [activeHighlightTerm, setActiveHighlightTerm] = useState('');
 
   // 🔹 searchInfo 처리 여부 추적용 ref
   const processedSearchInfoRef = useRef(null);
 
   const operatorOptions = [
     { value: 'AND', label: 'AND' },
-    { value: 'OR', label: 'OR' }
+    { value: 'OR', label: 'OR' },
+    { value: 'EXCLUDE', label: '제외' }
   ];
 
   /** 🔹 상세 검색 실행 */
-  const performDetailSearch = useCallback(async (leafNodeIds, searchConditions) => {
+  const performDetailSearch = useCallback(async (leafNodeIds, searchConditions, highlightSource = '') => {
+    setActiveHighlightTerm(highlightSource.trim());
     setIsLoading(true);
     setError(null);
 
@@ -129,16 +191,15 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
       setInfoNode(null);
       setDrawingNumber('');
       setAdditionalConditions([]);
-
-      const conditions = {
+      setDrawingName(searchInfo.term);
+      const highlightSource = buildHighlightSource({
         drawingNumber: '',
         drawingName: searchInfo.term,
         additionalConditions: []
-      };
-
-      performDetailSearch('ALL', conditions);
+      });
+      setActiveHighlightTerm(highlightSource);
     }
-  }, [searchInfo?.timestamp, performDetailSearch]);
+  }, [searchInfo?.timestamp]);
 
   /** 🔹 조건 추가/삭제/수정 */
   const addAdditionalCondition = () => {
@@ -148,19 +209,22 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
       { id: newId, type: '도면', term: '', operator: 'AND' }
     ]);
   };
-  const removeAdditionalCondition = (id) => {
+  const removeAdditionalCondition = useCallback((id) => {
     setAdditionalConditions(prev => prev.filter(condition => condition.id !== id));
-  };
-  const updateAdditionalCondition = (id, field, value) => {
+  }, []);
+  const updateAdditionalCondition = useCallback((id, field, value) => {
     setAdditionalConditions(prev =>
       prev.map(condition => (condition.id === id ? { ...condition, [field]: value } : condition))
     );
-  };
+  }, []);
+  const handleOperatorChange = useCallback((id, value) => updateAdditionalCondition(id, 'operator', value), [updateAdditionalCondition]);
+  const handleTermChange = useCallback((id, value) => updateAdditionalCondition(id, 'term', value), [updateAdditionalCondition]);
 
   /** 🔹 검색 실행 */
   const performAdvancedSearch = () => {
     const currentConditions = { drawingNumber, drawingName, additionalConditions };
-    performDetailSearch(currentLeafNodeIds, currentConditions);
+    const highlightSource = buildHighlightSource(currentConditions);
+    performDetailSearch(currentLeafNodeIds, currentConditions, highlightSource);
   };
 
   /** 🔹 트리에서 노드 선택 */
@@ -176,6 +240,9 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     } else {
       console.log('[handleLevelSelect] ALL 선택됨');
       setSelectedPath('전체');
+      setInfoNode(null);
+      setCurrentLeafNodeIds('ALL');
+      processedSearchInfoRef.current = null;
     }
   };
 
@@ -191,16 +258,18 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
       setDrawingName('');
       setAdditionalConditions([]);
       processedSearchInfoRef.current = null;
-      performDetailSearch(leafNodeIds, { drawingNumber: '', drawingName: '', additionalConditions: [] });
     }
   };
 
   /** 🔹 파일 선택 시 상위 콜백 실행 */
-  const handleFileClick = async (result) => {
-    if (onFileSelect) {
-      await onFileSelect({ docId: result.DOCNO, docVr: result.DOCVR });
-    }
-  };
+  const handleFileClick = useCallback(
+    async (result) => {
+      if (onFileSelect) {
+        await onFileSelect({ docId: result.DOCNO, docVr: result.DOCVR });
+      }
+    },
+    [onFileSelect]
+  );
 
   /** 🔹 검색 조건 영역 렌더링 */
   const renderSearchConditions = () => {
@@ -223,7 +292,7 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
 
         <div className="search-condition-row">
           <div className="type-section">
-            <label>사업소 : </label>
+            <label>사 업 소 : </label>
           </div>
           <div className="term-section-with-remove"
             style={{ flexGrow: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
@@ -257,7 +326,7 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
         </div>
 
         <div className="search-condition-row">
-          <div className="type-section"><label>도면명 : </label></div>
+          <div className="type-section"><label>도 면 명 : </label></div>
           <div className="term-section-with-remove">
             <input
               type="text"
@@ -271,37 +340,15 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
 
         {/* 🔹 추가 조건 리스트 */}
         <div className="conditions-list">
-          {additionalConditions.map((condition) => (
-            <div key={condition.id} className="search-condition-row">
-              <div className="operator-section">
-                <select
-                  value={condition.operator}
-                  onChange={(e) => updateAdditionalCondition(condition.id, 'operator', e.target.value)}
-                  className="operator-select"
-                >
-                  {operatorOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="term-section-with-remove">
-                <input
-                  type="text"
-                  value={condition.term}
-                  onChange={(e) => updateAdditionalCondition(condition.id, 'term', e.target.value)}
-                  placeholder="추가 검색어 입력"
-                  className="term-input"
-                  onKeyPress={(e) => { if (e.key === 'Enter') performAdvancedSearch(); }}
-                />
-                <button
-                  className="remove-condition-btn"
-                  onClick={() => removeAdditionalCondition(condition.id)}
-                  title="조건 삭제"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
+          {additionalConditions.map(condition => (
+            <AdditionalConditionRow
+              key={condition.id}
+              condition={condition}
+              operatorOptions={operatorOptions}
+              onOperatorChange={handleOperatorChange}
+              onTermChange={handleTermChange}
+              onRemove={removeAdditionalCondition}
+            />
           ))}
         </div>
 
@@ -332,14 +379,12 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
           <span className="search-result-condition">{conditionText ? conditionText : '전체'}</span> 검색결과 ({searchResults.length}건)
         </div>
         {searchResults.map((result, idx) => (
-          <div
+          <SearchResultItem
             key={`${result.DOCNO}-${result.DOCVR}-${idx}`}
-            className="search-result-item"
-            onClick={() => handleFileClick(result)}
-          >
-            <div className="result-main-info">[{result.DOCNUMBER}] {result.DOCNM}</div>
-            <div className="result-sub-info">{result.PLANTNM} / {result.PARENTNM} / {result.HOGI_GUBUN}호기</div>
-          </div>
+            result={result}
+            highlightTerm={activeHighlightTerm}
+            onSelect={handleFileClick}
+          />
         ))}
       </div>
     );

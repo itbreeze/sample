@@ -3,6 +3,43 @@ const express = require('express');
 const router = express.Router();
 const dbClient = require('../utils/dataBase/dbClient');
 
+const buildDocInnerQuery = () => `
+    SELECT 
+      'DOC' AS KEY,
+      S.PLANTNM,
+      P.FOLNM AS PARENTNM,
+      F.HOGI_GUBUN,
+      D.PLANTCODE,
+      D.DOCNO,
+      D.DOCNUMBER,
+      D.DOCNM,
+      D.DOCVR,
+      F.FOLID,
+      CASE 
+        WHEN NVL(F.HOGI_GUBUN, '') = '0' THEN '공용' 
+        WHEN REGEXP_LIKE(NVL(F.HOGI_GUBUN, ''), '^[0-9]+$') THEN NVL(F.HOGI_GUBUN, '') || '호기'
+        ELSE NVL(F.HOGI_GUBUN, '')
+      END AS HOGI_LABEL,
+      NVL(S.PLANTNM, '') 
+        || '-' || NVL(P.FOLNM, '')                         
+        || '-' || 
+          CASE 
+            WHEN NVL(F.HOGI_GUBUN, '') = '0' THEN '공용' 
+            ELSE NVL(F.HOGI_GUBUN, '') || '호기' 
+          END
+        || '-' || NVL(D.PLANTCODE, '')
+        || '-' || NVL(TO_CHAR(D.DOCNUMBER), '') 
+        || '-' || NVL(D.DOCNM, '') 
+        AS FULL_INFO
+    FROM IDS_DOC D
+    LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
+    LEFT JOIN IDS_FOLDER P ON F.FOLPT = P.FOLID
+    LEFT JOIN IDS_SITE S ON D.PLANTCODE = S.PLANTCODE
+    WHERE F.APP_GUBUN = '001'
+      AND D.CURRENT_YN = '001'
+      AND S.FOLDER_TYPE = '003'
+  `;
+
 // GET /api/search/levels
 router.get("/levels", async (req, res) => {
   try {
@@ -84,34 +121,11 @@ router.post('/', async (req, res) => {
     });
 
     const whereCondition = whereClauses.join(' AND ');
+    const innerQuery = buildDocInnerQuery();
 
     sql = `
       SELECT * FROM (
-        SELECT 
-          'DOC' AS KEY,
-          S.PLANTNM,
-          P.FOLNM AS PARENTNM,
-          F.HOGI_GUBUN,
-          D.PLANTCODE,
-          D.DOCNO,
-          D.DOCNUMBER,
-          D.DOCNM,
-          D.DOCVR,
-          -- 여러 컬럼을 조합한 검색용 문자열
-          NVL(S.PLANTNM, '') 
-            || '-' || NVL(P.FOLNM, '')                         
-            || '-' || NVL(F.HOGI_GUBUN, '') || '호기'
-            || '-' || NVL(D.PLANTCODE, '')
-            || '-' || NVL(TO_CHAR(D.DOCNUMBER), '') 
-            || '-' || NVL(D.DOCNM, '') 
-            AS FULL_INFO                         
-        FROM IDS_DOC D
-        LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
-        LEFT JOIN IDS_FOLDER P ON F.FOLPT = P.FOLID -- 부모 폴더 JOIN
-        LEFT JOIN IDS_SITE S ON D.PLANTCODE = S.PLANTCODE
-        WHERE F.APP_GUBUN = '001'
-          AND D.CURRENT_YN = '001'
-          AND S.FOLDER_TYPE = '003'
+        ${innerQuery}
       )
       WHERE ${whereCondition}
       AND ROWNUM <= 100
@@ -162,94 +176,81 @@ router.post('/advanced', async (req, res) => {
 
   console.log('[SERVER] 상세 검색 요청 받음:', { leafNodeIds, drawingNumber, drawingName, additionalConditions });
 
-  // 기본 SQL 쿼리
+  const innerQuery = buildDocInnerQuery();
+
   let sql = `
-    SELECT
-      'DOC' AS KEY,
-      S.PLANTNM,
-      P.FOLNM AS PARENTNM,
-      F.HOGI_GUBUN,
-      D.PLANTCODE,
-      D.DOCNO,
-      D.DOCNUMBER,
-      D.DOCNM,
-      D.DOCVR,
-      F.FOLID
-    FROM IDS_DOC D
-    LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
-    LEFT JOIN IDS_FOLDER P ON F.FOLPT = P.FOLID
-    LEFT JOIN IDS_SITE S ON D.PLANTCODE = S.PLANTCODE
-    WHERE F.APP_GUBUN = '001'
-      AND D.CURRENT_YN = '001'
-      AND S.FOLDER_TYPE = '003'
+    SELECT *
+    FROM (${innerQuery}) base
+    WHERE 1 = 1
   `;
 
   const binds = {};
 
-  // 조건 1. FOLID 조건 추가 (leafNodeIds 배열/단일 처리)
+  // 1. FOLID ���� ó�� (leafNodeIds �迭/���ڿ�)
   if (leafNodeIds && leafNodeIds !== 'ALL') {
-    if (Array.isArray(leafNodeIds)) {
-      if (leafNodeIds.length > 0) {
-        const placeholders = leafNodeIds.map((_, idx) => `:folid_${idx}`).join(', ');
-        sql += ` AND F.FOLID IN (${placeholders})`;
-        leafNodeIds.forEach((id, idx) => {
-          binds[`folid_${idx}`] = id;
-        });
-        console.log('[SERVER] 배열 형태 FOLID 파라미터 사용:', leafNodeIds);
-      }
+    if (Array.isArray(leafNodeIds) && leafNodeIds.length > 0) {
+      const placeholders = leafNodeIds.map((_, idx) => ':folid_' + idx).join(', ');
+      sql += ' AND base.FOLID IN (' + placeholders + ')';
+      leafNodeIds.forEach((id, idx) => {
+        binds['folid_' + idx] = id;
+      });
+      console.log('[SERVER] �迭 ���� FOLID �Ķ���� Ȱ��:', leafNodeIds);
     } else if (typeof leafNodeIds === 'string') {
-      sql += ` AND F.FOLID = :folid_single`;
+      sql += ' AND base.FOLID = :folid_single';
       binds.folid_single = leafNodeIds;
-      console.log('[SERVER] 문자열 형태 FOLID 파라미터 사용:', leafNodeIds);
+      console.log('[SERVER] ���ڿ� ���� FOLID �Ķ���� Ȱ��:', leafNodeIds);
     }
   }
 
-  // 2. 도면번호 조건 추가
+  // 2. �����ȣ ���� �߰�
   if (drawingNumber) {
-    sql += ` AND UPPER(D.DOCNUMBER) LIKE '%' || UPPER(:drawingNumber) || '%'`;
+    sql += " AND UPPER(base.DOCNUMBER) LIKE '%' || UPPER(:drawingNumber) || '%'";
     binds.drawingNumber = drawingNumber;
   }
 
-  // 3. 도면명 조건 추가 (단어 분리)
+  // 3. ����� ���� (FULL_INFO ����)
   if (drawingName) {
     const nameTerms = drawingName.split(/\s+/).map(t => t.trim()).filter(Boolean);
     nameTerms.forEach((term, idx) => {
-      const key = `drawingName_${idx}`;
-      sql += ` AND UPPER(NVL(S.PLANTNM, '')
-        || '-' || NVL(P.FOLNM, '')
-        || '-' || NVL(F.HOGI_GUBUN, '') || '호기'
-        || '-' || NVL(D.PLANTCODE, '')
-        || '-' || NVL(TO_CHAR(D.DOCNUMBER), '')
-        || '-' || NVL(D.DOCNM, '')) LIKE '%' || UPPER(:${key}) || '%'`;
+      const key = 'drawingName_' + idx;
+      sql += " AND UPPER(base.FULL_INFO) LIKE '%' || UPPER(:" + key + ") || '%'";
       binds[key] = term;
     });
   }
 
-  // 4. AND/OR 추가 조건 처리
+  // 4. AND/OR/���� ���� ó��
   if (additionalConditions && additionalConditions.length > 0) {
-    const filteredConditions = additionalConditions.filter(c => c.term.trim() !== '');
+    const filteredConditions = additionalConditions.filter(c => c.term && c.term.trim() !== '');
     if (filteredConditions.length > 0) {
-      const clauses = filteredConditions.map((condition, index) => {
-        const bindKey = `add_term_${index}`;
+      let fullClause = '';
+      filteredConditions.forEach((condition, idx) => {
+        const bindKey = 'add_term_' + idx;
         binds[bindKey] = condition.term;
-        return `(UPPER(D.DOCNUMBER) LIKE '%' || UPPER(:${bindKey}) || '%' OR UPPER(D.DOCNM) LIKE '%' || UPPER(:${bindKey}) || '%')`;
+        const baseClause = "UPPER(base.FULL_INFO) LIKE '%' || UPPER(:" + bindKey + ") || '%'";
+        const isExclude = condition.operator === 'EXCLUDE';
+        const clauseSegment = isExclude
+          ? 'NOT (' + baseClause + ')'
+          : '(' + baseClause + ')';
+
+        if (idx === 0) {
+          fullClause = clauseSegment;
+          return;
+        }
+
+        const connector = condition.operator && condition.operator.toUpperCase() === 'OR' ? 'OR' : 'AND';
+        fullClause = fullClause + ' ' + connector + ' ' + clauseSegment;
       });
 
-      let fullClause = clauses[0];
-      for (let i = 1; i < filteredConditions.length; i++) {
-        fullClause += ` ${filteredConditions[i].operator} ${clauses[i]}`;
+      if (fullClause) {
+        sql += ' AND (' + fullClause + ')';
       }
-
-      sql += ` AND (${fullClause})`;
     }
   }
 
-  // unlimited 플래그가 없으면 상한 적용
   const unlimitedFlag = req.body && req.body.unlimited;
   if (!unlimitedFlag) {
-    sql += ` AND ROWNUM <= 500`;
+    sql += ' AND ROWNUM <= 500';
   }
-
   console.log('[SERVER] 최종 SQL:', sql);
   console.log('[SERVER] 바인드 변수:', binds);
 

@@ -1,10 +1,11 @@
 // src/components/Search/SearchBar.js
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import SearchInput from './SearchInput';
 import SearchChips from './SearchChips';
 import SearchPreview from './SearchPreview';
 import { searchPreview } from '../../services/search';
 import { FileText, HardDrive } from 'lucide-react';
+import { highlightText } from './highlightText';
 import './Search.css';
 
 function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
@@ -39,38 +40,6 @@ function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
   ];
 
   // 🔹 정규식 escape 함수
-  const escapeRegExp = (string) =>
-    string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  // 🔹 highlightText 함수
-  const highlightText = useMemo(
-    () => (text, highlight) => {
-      if (!highlight || !text) return text;
-      const highlights = highlight.split(/\s+/).filter(Boolean);
-
-      let processedText = [text];
-
-      highlights.forEach((h, hIdx) => {
-        const safeH = escapeRegExp(h);
-        const regex = new RegExp(`(${safeH})`, 'gi');
-
-        processedText = processedText.flatMap((chunk, idx) => {
-          if (typeof chunk !== 'string') return chunk;
-          return chunk.split(regex).map((part, i) =>
-            part.toLowerCase() === h.toLowerCase() ? (
-              <mark key={`${hIdx}-${idx}-${i}`}>{part}</mark>
-            ) : (
-              part
-            )
-          );
-        });
-      });
-
-      return processedText;
-    },
-    []
-  );
-
   useEffect(() => {
     if (!searchTerm.trim()) {
       setShowPreview(false);
