@@ -191,8 +191,6 @@ export const attachLeftClickSelect = (viewer, canvas, opts = {}) => {
 
         if (!additive) viewer.unselect?.();
         viewer.select?.(x1, y1, x2, y2);
-        console.log('Point pick at', { x1, y1, x2, y2 });
-
         const selectedHandles = [];
         try {
             const pSelected = viewer.getSelected?.();
@@ -222,6 +220,7 @@ export const attachLeftClickSelect = (viewer, canvas, opts = {}) => {
                     }
                 }
             }
+            console.log('Point pick selected handles:', selectedHandles);
         } catch (e) {
             // 필요 시 로깅
             // console.warn('point-pick error', e);
