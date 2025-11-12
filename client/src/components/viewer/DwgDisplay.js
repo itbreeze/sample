@@ -13,7 +13,6 @@ async function fetchArrayBufferWithProgress(url, onProgress) {
   if (!res.ok) throw new Error('VSFX 파일 불러오기 실패');
   const contentLength = res.headers.get('content-length');
 
-  // content-length 가 없거나 스트리밍 미지원인 경우
   if (!res.body || !contentLength) {
     const ab = await res.arrayBuffer();
     onProgress?.(100);
@@ -30,7 +29,7 @@ async function fetchArrayBufferWithProgress(url, onProgress) {
     if (done) break;
     chunks.push(value);
     loaded += value.byteLength;
-    const percent = Math.max(1, Math.floor((loaded / total) * 80)); // 다운로드 0~80%
+    const percent = Math.max(1, Math.floor((loaded / total) * 80));
     onProgress?.(percent);
   }
 
@@ -86,8 +85,30 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
   const [errorMessage, setErrorMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadPercent, setLoadPercent] = useState(0);
+  const [displayPercent, setDisplayPercent] = useState(1);
+  const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
 
-  // 이벤트 등록
+  // 디스플레이 퍼센트를 부드럽게 증가
+  useEffect(() => {
+    if (!isLoading || displayPercent >= 100) return;
+
+    const timer = setInterval(() => {
+      setDisplayPercent((prev) => {
+        if (prev >= loadPercent) return prev;
+        // 목표값과의 차이에 따라 증가 속도 조절
+        const diff = loadPercent - prev;
+        const step = Math.max(1, Math.ceil(diff / 10));
+        return Math.min(prev + step, loadPercent);
+      });
+    }, 50);
+
+    return () => clearInterval(timer);
+  }, [isLoading, loadPercent, displayPercent]);
+
+  const handleMouseEvent = (e) => {
+    setLastMouse({ x: e.clientX, y: e.clientY });
+  };
+
   const attachEventListeners = () => {
     if (!viewerRef.current || !canvasRef.current) return;
 
@@ -102,7 +123,6 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     cleanupFunctionsRef.current = [cleanup1, cleanup2, cleanup3, cleanup4].filter(Boolean);
   };
 
-  // Resize
   const handleResize = () => {
     const canvas = canvasRef.current;
     const viewer = viewerRef.current;
@@ -114,11 +134,7 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     const newWidth = Math.floor(rect.width * dpr);
     const newHeight = Math.floor(rect.height * dpr);
 
-    if (
-      newWidth > 0 &&
-      newHeight > 0 &&
-      (canvas.width !== newWidth || canvas.height !== newHeight)
-    ) {
+    if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
       canvas.width = newWidth;
       canvas.height = newHeight;
       viewer.resize?.(0, newWidth, newHeight, 0);
@@ -126,7 +142,6 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     }
   };
 
-  // 뷰어 초기화
   useEffect(() => {
     if (!filePath || isInitializedRef.current) return;
 
@@ -135,7 +150,8 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     const init = async () => {
       try {
         setIsLoading(true);
-        setLoadPercent(0);
+        setLoadPercent(1);
+        setDisplayPercent(1);
 
         const libInstance = await initializeVisualizeJS();
         if (!isMounted) return;
@@ -151,22 +167,20 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
         let arrayBuffer;
         if (fileCache.has(filePath)) {
           arrayBuffer = fileCache.get(filePath);
-          setLoadPercent(80); // 캐시 히트 시 즉시 80%
+          setLoadPercent(30);
         } else {
           arrayBuffer = await fetchArrayBufferWithProgress(filePath, (p) => {
-            if (isMounted) setLoadPercent(p); // 0~80%
+            if (isMounted) setLoadPercent(p);
           });
           if (!isMounted) return;
           fileCache.set(filePath, arrayBuffer);
         }
 
-        // 파싱 단계
         setLoadPercent((p) => Math.max(p, 85));
         await viewerRef.current.parseVsfx(arrayBuffer);
         if (!isMounted) return;
         setLoadPercent(90);
 
-        // 폰트 정규화/로딩
         try {
           await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
         } catch {}
@@ -175,7 +189,6 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
         } catch {}
         setLoadPercent(95);
 
-        // 초기 렌더
         viewerRef.current.setEnableSceneGraph(true);
         viewerRef.current.setEnableAnimation(false);
         viewerRef.current.zoomExtents?.();
@@ -183,6 +196,21 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
 
         isInitializedRef.current = true;
         setLoadPercent(100);
+        
+        // displayPercent가 100에 도달할 때까지 대기
+        await new Promise(resolve => {
+          const checkInterval = setInterval(() => {
+            setDisplayPercent(prev => {
+              if (prev >= 100) {
+                clearInterval(checkInterval);
+                resolve();
+                return 100;
+              }
+              return Math.min(prev + 2, 100);
+            });
+          }, 20);
+        });
+        
         setIsLoading(false);
 
         if (isActive) attachEventListeners();
@@ -225,21 +253,18 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     };
   }, [filePath, isActive]);
 
-  // initialState 적용
   useEffect(() => {
     if (!viewerRef.current || !initialState) return;
     const viewer = viewerRef.current;
     if (initialState.zoom !== undefined) viewer.setZoom(initialState.zoom);
     if (initialState.pan) viewer.setPan(initialState.pan.x, initialState.pan.y);
     if (initialState.camera) viewer.setCamera(initialState.camera);
-  }, [viewerRef.current, initialState]);
+  }, [initialState]);
 
-  // isActive 변경 시 이벤트 설정
   useEffect(() => {
     if (isInitializedRef.current && isActive) attachEventListeners();
   }, [isActive]);
 
-  // ResizeObserver
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -250,12 +275,11 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
     observer.observe(containerRef.current);
     resizeObserverRef.current = observer;
 
-    handleResize(); // 초기 강제 resize
+    handleResize();
 
     return () => observer.disconnect();
   }, [filePath]);
 
-  // 언마운트 정리
   useEffect(() => {
     return () => {
       cleanupFunctionsRef.current.forEach((fn) => fn?.());
@@ -268,13 +292,16 @@ const DwgDisplay = ({ filePath, isActive, initialState, onStateChange }) => {
 
   return (
     <div ref={containerRef} className={containerClassName} aria-busy={isLoading}>
-      {/* 전역 오버레이: 페이지 전체 덮음 */}
-      <GlobalLoadingOverlay visible={isLoading} percent={loadPercent} />
-
+      <GlobalLoadingOverlay visible={isLoading} percent={displayPercent} />
       <div className="viewer-canvas-container" style={{ opacity: isLoading ? 0.35 : 1 }}>
-        <canvas ref={canvasRef} id="viewerCanvas" />
+        <canvas
+          ref={canvasRef}
+          id="viewerCanvas"
+          onMouseMove={handleMouseEvent}
+          onMouseDown={handleMouseEvent}
+        />
         {errorMessage && <div className="error-message">{errorMessage}</div>}
-        {!isLoading && <TestModule />}
+        {!isLoading && <TestModule lastMouse={lastMouse} />}
       </div>
     </div>
   );
