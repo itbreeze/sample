@@ -153,7 +153,8 @@ const ViewerContainer = ({
           </Droppable>
           {hiddenFiles.length > 0 && (
             <div className="view-tab more-tabs-btn" onClick={() => setIsModalOpen(true)} title={`+${hiddenFiles.length}개 더보기`}>
-              <MoreHorizontal size={16} />
+              + {hiddenFiles.length}
+              {/* <MoreHorizontal size={16} /> */}
             </div>
           )}
         </div>

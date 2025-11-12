@@ -1,5 +1,6 @@
-/* client/src/components/viewer/DwgDisplay.css */
-
+/* =====================================
+   DwgDisplay 기본 컨테이너 설정
+   ===================================== */
 .viewer-app-container {
     width: 100%;
     height: 100%;
@@ -31,50 +32,9 @@
     display: block;
 }
 
-.loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(15, 20, 35, 0.9);
-    backdrop-filter: blur(3px);
-    display: flex;
-    flex-direction: column; /* 아이템을 세로로 정렬 */
-    justify-content: center;
-    align-items: center;
-    gap: 0.75rem;
-    z-index: 20;
-    pointer-events: all;
-    cursor: progress;
-}
-
-.spinner {
-    border: 4px solid rgba(255, 255, 255, 0.25);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border-left-color: #8ec5ff;
-    animation: spin 1s ease infinite;
-}
-
-
-.loading-text {
-    font-size: 15px;
-    color: #f1f5f9;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-}
-
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
+/* =====================================
+   에러 메시지 표시용
+   ===================================== */
 .error-message {
     position: absolute;
     top: 50%;
@@ -85,4 +45,68 @@
     padding: 15px;
     border-radius: 5px;
     border: 1px solid #d8000c;
+    z-index: 30;
+}
+
+/* =====================================
+   전역 로딩 오버레이(Global)
+   ===================================== */
+.global-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(1.5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 오버레이 내부 박스 */
+.global-loading-content {
+    width: min(90vw, 360px);
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    padding: 20px 18px;
+    text-align: center;
+}
+
+/* 스피너 애니메이션 */
+.global-loading-content .spinner {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* 로딩 텍스트 */
+.global-loading-content .loading-text {
+    margin-top: 12px;
+    font-weight: 600;
+    color: #222;
+    font-size: 15px;
+}
+
+/* 진행률 바 */
+.progress-wrap {
+    margin: 10px auto 0;
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #2563eb;
+    transition: width 0.15s linear;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
