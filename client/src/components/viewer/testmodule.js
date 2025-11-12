@@ -32,7 +32,7 @@ const TestModule = ({ pollMs = 300, style }) => {
   // { TYPE: Array<{ handle, layer, color }> }
   const [typeMap, setTypeMap] = useState({});
   const [selectedType, setSelectedType] = useState('ALL');
-  const [pos, setPos] = useState({ x: 1200, y: 600 });
+  const [pos, setPos] = useState({ x: 0, y: 0 });
   const [useRightBottom, setUseRightBottom] = useState(true); // 초기엔 우하단 앵커
   const [dragging, setDragging] = useState(false);
   const [minimized, setMinimized] = useState(false);
