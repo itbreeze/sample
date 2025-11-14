@@ -4,7 +4,8 @@ import { X as CloseIcon, MoreHorizontal, FileText } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './ViewerContainer.css';
 import TabListModal from './TabListModal';
-import DwgDisplay from './viewer/DwgDisplay';
+// import DwgDisplay from './viewer/DwgDisplay';
+import Canvas from './viewer/Canvas';
 
 const MAX_VISIBLE_TABS = 5;
 
@@ -47,7 +48,7 @@ const ViewerContainer = ({
         mode
       }
     }));
-    
+
     console.log(`[ViewerContainer] ${docno} - Selected:`, handles.length, 'items');
   }, []);
 
@@ -120,7 +121,7 @@ const ViewerContainer = ({
                 {visibleFiles.map((file, index) => {
                   const selectionInfo = selectionStates[file.DOCNO];
                   const selectionCount = selectionInfo?.count || 0;
-                  
+
                   return (
                     <Draggable key={file.DOCNO} draggableId={file.DOCNO.toString()} index={index}>
                       {(provided, snapshot) => (
@@ -165,7 +166,7 @@ const ViewerContainer = ({
               {openFiles.map((file) => {
                 if (!file) return null; // undefined 방어
                 const selectionInfo = selectionStates[file.DOCNO];
-                
+
                 return (
                   <div
                     key={`${file.DOCNO}-${file.tmpFile}`}
@@ -183,13 +184,10 @@ const ViewerContainer = ({
                         </div>
                       )}
                     </div>
-                    <DwgDisplay
+                    <Canvas
                       filePath={file.tmpFile}
                       isActive={file.DOCNO === activeFileId}
                       key={`${file.DOCNO}-${file.tmpFile}`}
-                      onSelectionChange={(handles, screenBox, additive, mode) => 
-                        handleSelectionChange(file.DOCNO, handles, screenBox, additive, mode)
-                      }
                     />
                   </div>
                 );

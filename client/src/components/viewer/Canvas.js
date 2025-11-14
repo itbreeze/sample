@@ -1,0 +1,373 @@
+/* eslint-env browser */
+// client/src/components/viewer/Canvas.js
+
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+
+import {
+    fileCache,
+    fetchArrayBufferWithProgress,
+    initializeVisualizeJS,
+    createViewer,
+    fixFonts,
+    loadFonts,
+    collectSelectedEntities,
+    setColorRed,
+    resetColorByHandle,
+} from './CanvasUtils';
+
+import { attachCanvasInteractions } from './CanvasController';
+import EntityPanel from './EntityPanel';
+
+const Canvas = ({ filePath, isActive }) => {
+    const canvasRef = useRef(null);
+    const containerRef = useRef(null);
+    const viewerRef = useRef(null);
+    const libRef = useRef(null);
+    const isInitializedRef = useRef(false);
+    const resizeObserverRef = useRef(null);
+    const interactionsCleanupRef = useRef(null);
+
+    const entityDataMapRef = useRef(new Map());
+    const fontNameSetRef = useRef(new Set());
+
+    const [errorMessage, setErrorMessage] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadPercent, setLoadPercent] = useState(0);
+
+    const [selectedHandles, setSelectedHandles] = useState([]);
+    const [entities, setEntities] = useState([]);
+    const [showPanel, setShowPanel] = useState(false);
+
+    /** 선택 이벤트 처리: 단일/드래그 + Ctrl/Shift 추가/제외 + 빈영역 해제 */
+    const handleSelect = useCallback(
+        ({ additive }) => {
+            const viewer = viewerRef.current;
+            const lib = libRef.current;
+            if (!viewer || !lib) return;
+
+
+            const prev = selectedHandles;
+
+            // 非 additive: 기존 선택 전체 해제 (색상 복원 + 맵 초기화)
+            if (!additive) {
+                if (prev.length > 0) {
+                    prev.forEach((h) => {
+                        resetColorByHandle(viewer, lib, entityDataMapRef.current, h);
+                    });
+                }
+                entityDataMapRef.current.clear();
+            }
+
+            // 이번 클릭/드래그로 새로 선택된 핸들 목록
+            const handles = collectSelectedEntities(
+                viewer,
+                lib,
+                entityDataMapRef,
+                additive
+            );
+
+            // additive 모드 (Ctrl/Shift): Windows 바탕화면 스타일 (토글)
+            if (additive) {
+                if (!handles || handles.length === 0) {
+                    // Ctrl/Shift + 빈영역: 아무것도 안 함
+                    return;
+                }
+
+                const toRemove = handles.filter((h) => prev.includes(h));
+                const toAdd = handles.filter((h) => !prev.includes(h));
+
+                // 제외할 것들: 원래 색상 복원 + 맵에서 제거
+                toRemove.forEach((h) => {
+                    resetColorByHandle(viewer, lib, entityDataMapRef.current, h);
+                    entityDataMapRef.current.delete(String(h));
+                });
+
+                // 새로 추가되는 것들만 빨간색
+                if (toAdd.length > 0) {
+                    setColorRed(viewer, lib, entityDataMapRef.current, toAdd);
+                }
+
+                const effectiveHandles = [
+                    ...prev.filter((h) => !toRemove.includes(h)),
+                    ...toAdd,
+                ];
+
+                setSelectedHandles(effectiveHandles);
+
+                const nextEntities = effectiveHandles.map((h) => {
+                    const info = entityDataMapRef.current.get(String(h));
+                    return {
+                        handle: h,
+                        type: info?.type ?? 'UNKNOWN',
+                        layer: info?.layer ?? '',
+                        color: info?.originalColor ?? 7,
+                    };
+                });
+
+                setEntities(nextEntities);
+                setShowPanel(nextEntities.length > 0);
+                viewer.update?.();
+                return;
+            }
+
+            // 여기부터 non-additive 모드
+            if (!handles || handles.length === 0) {
+                // 빈 영역 단일 클릭: 전체 해제
+                setSelectedHandles([]);
+                setEntities([]);
+                setShowPanel(false);
+                viewer.update?.();
+                return;
+            }
+
+            // 새로 선택된 것 전체를 빨간색
+            setColorRed(viewer, lib, entityDataMapRef.current, handles);
+
+            const effectiveHandles = Array.from(new Set(handles));
+            setSelectedHandles(effectiveHandles);
+
+            const nextEntities = effectiveHandles.map((h) => {
+                const info = entityDataMapRef.current.get(String(h));
+                return {
+                    handle: h,
+                    type: info?.type ?? 'UNKNOWN',
+                    layer: info?.layer ?? '',
+                    color: info?.originalColor ?? 7,
+                };
+            });
+
+            setEntities(nextEntities);
+            setShowPanel(true);
+            viewer.update?.();
+        },
+        [selectedHandles]
+    );
+
+    /** 상호작용(휠줌/팬/선택) attach */
+    const attachInteractions = useCallback(() => {
+        if (!viewerRef.current || !canvasRef.current || !libRef.current) return;
+
+        if (interactionsCleanupRef.current) {
+            interactionsCleanupRef.current();
+        }
+
+        const cleanup = attachCanvasInteractions(
+            viewerRef.current,
+            canvasRef.current,
+            libRef.current,
+            { onSelect: handleSelect }
+        );
+
+        interactionsCleanupRef.current = cleanup;
+    }, [handleSelect]);
+
+    /** 리사이즈 처리 */
+    const handleResize = useCallback(() => {
+        const canvas = canvasRef.current;
+        const viewer = viewerRef.current;
+        const container = containerRef.current;
+        if (!canvas || !viewer || !container) return;
+
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const newWidth = Math.floor(rect.width * dpr);
+        const newHeight = Math.floor(rect.height * dpr);
+
+        if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            viewer.resize?.(0, newWidth, newHeight, 0);
+            viewer.update?.();
+        }
+    }, []);
+
+    /** 초기 로딩 */
+    useEffect(() => {
+        if (!filePath || isInitializedRef.current) return;
+
+        let isMounted = true;
+
+        const init = async () => {
+            try {
+                setIsLoading(true);
+                setLoadPercent(1);
+
+                const libInstance = await initializeVisualizeJS();
+                if (!isMounted) return;
+
+                libRef.current = libInstance;
+
+                const viewerInstance = await createViewer(libInstance, canvasRef.current);
+                if (!isMounted) {
+                    viewerInstance?.destroy();
+                    return;
+                }
+
+                viewerRef.current = viewerInstance;
+                window.currentViewerInstance = viewerInstance; // 기존 TestModule 등 호환을 위해 유지
+
+                let arrayBuffer;
+                if (fileCache.has(filePath)) {
+                    arrayBuffer = fileCache.get(filePath);
+                    setLoadPercent(30);
+                } else {
+                    arrayBuffer = await fetchArrayBufferWithProgress(filePath, (p) => {
+                        if (isMounted) setLoadPercent(p);
+                    });
+                    if (!isMounted) return;
+                    fileCache.set(filePath, arrayBuffer);
+                }
+
+                setLoadPercent(85);
+                await viewerRef.current.parseVsfx(arrayBuffer);
+                if (!isMounted) return;
+
+                // 폰트 처리
+                try {
+                    await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
+                    await loadFonts(viewerRef.current, fontNameSetRef, '/fonts');
+                } catch (e) {
+                    console.warn('폰트 처리 실패:', e);
+                }
+
+                setLoadPercent(95);
+                viewerRef.current.setEnableSceneGraph?.(true);
+                viewerRef.current.setEnableAnimation?.(false);
+                viewerRef.current.zoomExtents?.();
+                viewerRef.current.update?.();
+
+                isInitializedRef.current = true;
+                setLoadPercent(100);
+                setIsLoading(false);
+
+                if (isActive) attachInteractions();
+            } catch (err) {
+                console.error('Canvas 초기화 실패:', err);
+                if (isMounted) {
+                    setErrorMessage(err.message);
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        const scriptId = 'visualize-script';
+        let script = document.getElementById(scriptId);
+        const handleScriptLoad = () => { init().catch(console.error); };
+
+        if (!script) {
+            script = document.createElement('script');
+            script.id = scriptId;
+            script.src = '/Visualize.js';
+            script.async = true;
+            script.addEventListener('load', handleScriptLoad);
+            script.onerror = () => {
+                if (isMounted) {
+                    setErrorMessage('Visualize.js 로드 실패');
+                    setIsLoading(false);
+                }
+            };
+            document.body.appendChild(script);
+        } else if (window.getVisualizeLibInst) {
+            handleScriptLoad();
+        } else {
+            script.addEventListener('load', handleScriptLoad);
+        }
+
+        return () => { isMounted = false; };
+    }, [filePath, isActive, attachInteractions]);
+
+    /** 탭 활성/비활성 변경 시 상호작용 attach */
+    useEffect(() => {
+        if (isInitializedRef.current && isActive) {
+            attachInteractions();
+        } else if (!isActive && interactionsCleanupRef.current) {
+            interactionsCleanupRef.current();
+            interactionsCleanupRef.current = null;
+        }
+    }, [isActive, attachInteractions]);
+
+    /** ResizeObserver */
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver(() => {
+            if (viewerRef.current) handleResize();
+        });
+        observer.observe(containerRef.current);
+        resizeObserverRef.current = observer;
+        handleResize();
+        return () => observer.disconnect();
+    }, [filePath, handleResize]);
+
+    /** 언마운트 시 정리 */
+    useEffect(() => {
+        return () => {
+            if (interactionsCleanupRef.current) interactionsCleanupRef.current();
+            if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
+            if (viewerRef.current) viewerRef.current.destroy?.();
+        };
+    }, []);
+
+    const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
+
+    return (
+        <div
+            ref={containerRef}
+            className="viewer-app-container"
+            style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
+        >
+            <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle }}>
+                <canvas
+                    ref={canvasRef}
+                    id="mainCanvas"
+                    style={{ width: '100%', height: '100%', display: 'block' }}
+                />
+
+                {isLoading && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            color: '#fff',
+                            backgroundColor: 'rgba(0,0,0,0.85)',
+                            padding: '20px 40px',
+                            borderRadius: 8,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                        }}
+                    >
+                        로딩 중... {loadPercent}%
+                    </div>
+                )}
+
+                {errorMessage && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            color: '#fff',
+                            backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                            padding: 20,
+                            borderRadius: 8,
+                        }}
+                    >
+                        {errorMessage}
+                    </div>
+                )}
+
+                {/* EntityPanel: 최초 선택 후에만 표시 */}
+                {showPanel && entities.length > 0 && (
+                    <EntityPanel
+                        entities={entities}
+                        onClose={() => setShowPanel(false)}
+                    />
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default Canvas;
