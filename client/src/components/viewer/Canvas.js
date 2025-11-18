@@ -364,7 +364,7 @@ const Canvas = ({ filePath, isActive }) => {
         };
     }, []);
 
-    const zoomFactor = 1.2;
+    const zoomFactor = 0.2;
     const handleZoomToEntity = useCallback((handle) => {
         const viewer = viewerRef.current;
         const canvas = canvasRef.current;
