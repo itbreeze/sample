@@ -213,7 +213,7 @@ router.post('/advanced', async (req, res) => {
     const nameTerms = drawingName.split(/\s+/).map(t => t.trim()).filter(Boolean);
     nameTerms.forEach((term, idx) => {
       const key = 'drawingName_' + idx;
-      sql += " AND UPPER(base.FULL_INFO) LIKE '%' || UPPER(:" + key + ") || '%'";
+      sql += " AND UPPER(base.DOCNM) LIKE '%' || UPPER(:" + key + ") || '%'";
       binds[key] = term;
     });
   }

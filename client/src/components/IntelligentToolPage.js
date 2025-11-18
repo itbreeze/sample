@@ -100,24 +100,21 @@ function IntelligentToolPage() {
   const currentViewerInstanceRef = useRef(null);
   const [activeSearchTab, setActiveSearchTab] = useState('documentList');
   const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
-
-  const [searchInfo, setSearchInfo] = useState(null);
-
-  const mapSearchTypeToTab = (searchType) => {
-    switch (searchType) {
-      case '도면': return 'searchDrawing';
-      case '설비번호': return 'searchEquipment';
-      default: return 'searchDrawing';
-    }
-  };
-
-  const handleViewDetailSearch = (searchType, searchTerm) => {
-    setSearchInfo({ type: searchType, term: searchTerm, timestamp: Date.now() });
-    setIsSidebarOpen(true);
-    setActiveMenuItem('search');
-    setActiveSearchTab(mapSearchTypeToTab(searchType));
-    setIsPanelMaximized(true);
-  };
+  
+  // 🔹 도면상세검색 탭의 검색 조건 및 결과 상태 (탭 전환해도 유지)
+  const [advancedSearchConditions, setAdvancedSearchConditions] = useState({
+    leafNodeIds: 'ALL',
+    drawingNumber: '',
+    drawingName: '',
+    additionalConditions: [],
+    selectedPath: '',
+    infoNode: null
+  });
+  const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
+  const [advancedSearchHighlight, setAdvancedSearchHighlight] = useState('');
+  
+  // 🔹 SearchBar 미리보기 결과 건수 (상세내역보기 버튼용)
+  const [previewResultCount, setPreviewResultCount] = useState(0);
 
   const handleMenuClick = (menuId) => {
     setActiveMenuItem(menuId);
@@ -151,7 +148,6 @@ function IntelligentToolPage() {
     if (isFullscreen()) await exitFs();
     else await requestFs();
     setActiveMenuItem(null);
-    setSearchInfo(null);
   };
 
   const handleMainViewClick = (e) => {
@@ -184,6 +180,35 @@ function IntelligentToolPage() {
     },
     [loadDocument]
   );
+
+  // 🔹 SearchBar의 "상세내역보기" 클릭 시 처리
+  const handleViewAllSearch = useCallback((searchTerm) => {
+    // 검색어를 공백 기준으로 분리하여 additionalConditions 생성
+    const terms = searchTerm.trim().split(/\s+/).filter(Boolean);
+    const conditions = terms.map((term, idx) => ({
+      id: idx + 1,
+      term: term,
+      operator: 'AND'
+    }));
+
+    console.log('[IntelligentToolPage] 상세내역보기 클릭:', { searchTerm, conditions });
+
+    // 검색 조건 설정 (검색은 SearchResultList에서 자동 실행)
+    setAdvancedSearchConditions({
+      leafNodeIds: 'ALL',
+      drawingNumber: '',
+      drawingName: '',
+      additionalConditions: conditions,
+      selectedPath: '',
+      infoNode: null
+    });
+
+    // 사이드바 열기 + search 메뉴 활성화 + 도면상세검색 탭으로 이동
+    setIsSidebarOpen(true);
+    setActiveMenuItem('search');
+    setIsPanelMaximized(true);
+    setActiveSearchTab('searchDrawing');
+  }, []);
 
   const handleTabClick = useCallback((docno) => {
     if (docno !== activeFileId) setActiveFileId(docno);
@@ -299,7 +324,17 @@ function IntelligentToolPage() {
     {
       id: 'searchDrawing',
       label: '도면상세검색',
-      content: () => <SearchResultList searchInfo={searchInfo} onFileSelect={handleFileSelect} />,
+      content: () => (
+        <SearchResultList
+          conditions={advancedSearchConditions}
+          results={advancedSearchResults}
+          highlightTerm={advancedSearchHighlight}
+          onConditionsChange={setAdvancedSearchConditions}
+          onResultsChange={setAdvancedSearchResults}
+          onHighlightChange={setAdvancedSearchHighlight}
+          onFileSelect={handleFileSelect}
+        />
+      ),
     },
     { id: 'searchEquipment', label: '설비상세검색', content: () => <NotImplemented /> },
   ];
@@ -309,7 +344,6 @@ function IntelligentToolPage() {
       component: (
         <Panel
           tabs={searchTabs}
-          // 컨트롤드로 변경: 부모가 현재 탭을 관리
           activeTab={activeSearchTab}
           onTabChange={setActiveSearchTab}
           defaultTab="documentList"
@@ -339,8 +373,10 @@ function IntelligentToolPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogoClick={handleLogoClick}
-        onFileSelect={(node) => handleFileSelect({ docNo: node.DOCNO, docVr: node.DOCVR }, true)}
-        onViewDetailSearch={handleViewDetailSearch}
+        onFileSelect={(node) => handleFileSelect({ docId: node.DOCNO, docVr: node.DOCVR }, true)}
+        onViewAllSearch={handleViewAllSearch}
+        previewResultCount={previewResultCount}
+        onPreviewCountChange={setPreviewResultCount}
       />
 
       <div className="content-wrapper">
@@ -363,8 +399,6 @@ function IntelligentToolPage() {
             isResizable={activePanelConfig.isResizable}
           >
             {activePanelConfig.component}
-
-            {/* TreeControls는 Panel 내부에서 탭 기준으로 관리 */}
           </ResizablePanel>
         )}
 

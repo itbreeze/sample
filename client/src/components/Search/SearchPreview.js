@@ -1,6 +1,6 @@
 // src/components/Search/SearchPreview.js
 import React from 'react';
-import { FileText, HardDrive, Loader2, Search } from 'lucide-react';
+import { FileText, HardDrive, Loader2, List } from 'lucide-react';
 import './Search.css';
 
 function SearchPreview({
@@ -11,22 +11,28 @@ function SearchPreview({
   highlightText,
   showPreview,
   onItemClick,
-  onViewDetailSearch,
+  onViewAll,
+  resultCount,
 }) {
   if (!showPreview) return null;
-
-  const handleViewDetailSearch = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onViewDetailSearch && searchTerm.trim()) {
-      onViewDetailSearch(activeChip, searchTerm); // 검색타입, 검색어 전달
-    }
-  };
 
   const handleItemClick = (e, result) => {
     e.preventDefault();
     e.stopPropagation();
     if (onItemClick) onItemClick(result);
+  };
+
+  const handleViewAllClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onViewAll) onViewAll();
+  };
+
+  // 🔹 건수 표시 텍스트 생성
+  const getCountText = () => {
+    if (resultCount === 0) return '';
+    if (resultCount >= 100) return '(100건 이상)';
+    return `(${resultCount}건)`;
   };
 
   return (
@@ -38,21 +44,18 @@ function SearchPreview({
         </div>
       ) : results.length > 0 ? (
         <div className="preview-items-wrapper">
-          {/* 전체 목록 보기 버튼 */}
+          {/* 🔹 상세내역보기 버튼 */}
           <div className="preview-view-all">
-            <button
+            <button 
               className="view-all-button"
-              onClick={handleViewDetailSearch}
-              type="button"
+              onClick={handleViewAllClick}
+              title="도면상세검색 탭에서 전체 결과 보기"
             >
-              <Search size={16} />
-              <span>
-                상세 검색 보기 ({results.length}
-                {results.length >= 100 ? '개 이상' : '개'})
-              </span>
+              <List size={16} />
+              <span>상세내역보기 {getCountText()}</span>
             </button>
           </div>
-
+          
           {/* 검색 결과 목록 */}
           {results.map((result) => (
             <div

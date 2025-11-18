@@ -9,11 +9,23 @@ const MIN_HEIGHT = 400;
 const MAX_WIDTH_MARGIN = 40;
 const MAX_HEIGHT_MARGIN = 80;
 
-const EntityPanel = ({ entities, onClose }) => {
+const computeBottomRightPos = (width, height) => {
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 0 };
+  }
+  const vw = window.innerWidth || 1200;
+  const vh = window.innerHeight || 800;
+  return {
+    x: Math.max(8, vw - width - 24),
+    y: Math.max(8, vh - height - 40),
+  };
+};
+
+const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, initialSize, onSizeChange }) => {
   const panelRef = useRef(null);
 
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [size, setSize] = useState({ width: MIN_WIDTH, height: MIN_HEIGHT });
+  const [pos, setPos] = useState(initialPosition || computeBottomRightPos(MIN_WIDTH, MIN_HEIGHT));
+  const [size, setSize] = useState(initialSize || { width: MIN_WIDTH, height: MIN_HEIGHT });
   const [isMinimized, setIsMinimized] = useState(false);
   const [selectedType, setSelectedType] = useState('ALL');
 
@@ -88,14 +100,16 @@ const EntityPanel = ({ entities, onClose }) => {
 
   // 최초 위치: 화면 우측 하단
   useEffect(() => {
-    const vw = window.innerWidth || 1200;
-    const vh = window.innerHeight || 800;
-    setPos({
-      x: vw - size.width - 24,
-      y: vh - size.height - 40,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (initialPosition) {
+      setPos(initialPosition);
+    }
+  }, [initialPosition]);
+
+  useEffect(() => {
+    if (initialSize) {
+      setSize(initialSize);
+    }
+  }, [initialSize]);
 
   ////////////////////////////////
   // 드래그 (헤더)
@@ -126,7 +140,9 @@ const EntityPanel = ({ entities, onClose }) => {
     const nextX = Math.min(Math.max(8, drag.origX + dx), vw - 100);
     const nextY = Math.min(Math.max(8, drag.origY + dy), vh - 60);
 
-    setPos({ x: nextX, y: nextY });
+    const next = { x: nextX, y: nextY };
+    setPos(next);
+    onPositionChange?.(next);
   };
 
   const onDragMouseUp = () => {
@@ -170,7 +186,9 @@ const EntityPanel = ({ entities, onClose }) => {
       );
     }
 
-    setSize({ width: nextW, height: nextH });
+    const nextSize = { width: nextW, height: nextH };
+    setSize(nextSize);
+    onSizeChange?.(nextSize);
   };
 
   const onResizeMouseUp = () => {
@@ -245,7 +263,7 @@ const EntityPanel = ({ entities, onClose }) => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontWeight: 600, fontSize: 13 }}>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>
             객체 정보 ({totalCount})
           </span>
         </div>
@@ -328,7 +346,7 @@ const EntityPanel = ({ entities, onClose }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 12,
+                fontSize: 14,
                 color: '#64748b',
               }}
             >
@@ -348,7 +366,7 @@ const EntityPanel = ({ entities, onClose }) => {
                     border: '1px solid rgba(59, 130, 246, 0.5)',
                     borderRadius: 6,
                     padding: '6px 8px',
-                    fontSize: 12,
+                    fontSize: 14,
                     outline: 'none',
                     cursor: 'pointer',
                   }}
@@ -387,7 +405,7 @@ const EntityPanel = ({ entities, onClose }) => {
                       width: '100%',
                       borderCollapse: 'collapse',
                       tableLayout: 'fixed',
-                      fontSize: 11,
+                      fontSize: 13,
                     }}
                   >
                     <thead>
@@ -512,7 +530,7 @@ const EntityPanel = ({ entities, onClose }) => {
                                 fontFamily: 'monospace',
                                 wordBreak: 'break-all',
                                 color: '#111827',
-                                fontSize: 10,
+                                fontSize: 13,
                               }}
                               title={String(ent.handle || '')}
                             >

@@ -4,8 +4,9 @@ import { X as CloseIcon, MoreHorizontal, FileText } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './ViewerContainer.css';
 import TabListModal from './TabListModal';
-// import DwgDisplay from './viewer/DwgDisplay';
 import Canvas from './viewer/Canvas';
+import TestCanvas from './viewer/testCanvas';
+
 
 const MAX_VISIBLE_TABS = 5;
 
@@ -49,7 +50,6 @@ const ViewerContainer = ({
       }
     }));
 
-    console.log(`[ViewerContainer] ${docno} - Selected:`, handles.length, 'items');
   }, []);
 
   // 검색 결과 클릭
@@ -184,11 +184,17 @@ const ViewerContainer = ({
                         </div>
                       )}
                     </div>
+                    {/* 임시로 testCanvas를 사용 */}
                     <Canvas
                       filePath={file.tmpFile}
                       isActive={file.DOCNO === activeFileId}
                       key={`${file.DOCNO}-${file.tmpFile}`}
                     />
+                    {/* <TestCanvas
+                      filePath={file.tmpFile}
+                      isActive={file.DOCNO === activeFileId}
+                      key={`${file.DOCNO}-${file.tmpFile}`}
+                    /> */}
                   </div>
                 );
               })}

@@ -273,3 +273,36 @@
   border-radius: 2px;
   font-weight: 600;
 }
+
+/* 🔹 전체초기화 버튼 스타일 */
+.reset-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #dc3545;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.reset-all-btn:hover {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.reset-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}

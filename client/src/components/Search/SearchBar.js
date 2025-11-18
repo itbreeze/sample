@@ -1,4 +1,4 @@
-// src/components/Search/SearchBar.js
+﻿// src/components/Search/SearchBar.js
 import React, { useState, useRef, useEffect } from 'react';
 import SearchInput from './SearchInput';
 import SearchChips from './SearchChips';
@@ -8,7 +8,7 @@ import { FileText, HardDrive } from 'lucide-react';
 import { highlightText } from './highlightText';
 import './Search.css';
 
-function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
+function SearchBar({ onFileSelect, onViewAll, previewResultCount, onPreviewCountChange }) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [activeChip, setActiveChip] = useState('도면');
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,21 +25,20 @@ function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
       label: '도면명/도면번호',
       placeholder: '도면명 혹은 도면번호 입력',
     },
-    {
-      id: '설비번호',
-      icon: <HardDrive size={14} />,
-      label: '태그명/설비번호',
-      placeholder: '태그명 또는 설비번호 입력',
-    },
-    {
-      id: '통지오더',
-      icon: <HardDrive size={14} />,
-      label: '통지/오더',
-      placeholder: '통지번호 또는 오더번호 입력',
-    },
+    // {
+    //   id: '설비번호',
+    //   icon: <HardDrive size={14} />,
+    //   label: '태그명/설비번호',
+    //   placeholder: '태그명 또는 설비번호 입력',
+    // },
+    // {
+    //   id: '통지오더',
+    //   icon: <HardDrive size={14} />,
+    //   label: '통지/오더',
+    //   placeholder: '통지번호 또는 오더번호 입력',
+    // },
   ];
 
-  // 🔹 정규식 escape 함수
   useEffect(() => {
     if (!searchTerm.trim()) {
       setShowPreview(false);
@@ -94,9 +93,16 @@ function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
     try {
       const data = await searchPreview(activeChip, searchTerm);
       setPreviewResults(data);
+      // 🔹 미리보기 결과 건수를 상위로 전달
+      if (onPreviewCountChange) {
+        onPreviewCountChange(data.length);
+      }
     } catch (err) {
       console.error('미리보기 검색 실패:', err);
       setPreviewResults([]);
+      if (onPreviewCountChange) {
+        onPreviewCountChange(0);
+      }
     } finally {
       setLoading(false);
     }
@@ -118,6 +124,17 @@ function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
     }
   };
 
+  // 🔹 "상세내역보기" 클릭 핸들러
+  const handleViewAll = () => {
+    if (onViewAll && searchTerm.trim()) {
+      onViewAll(searchTerm);
+      // 검색창 닫기
+      setSearchExpanded(false);
+      setSearchTerm('');
+      setPreviewResults([]);
+      setShowPreview(false);
+    }
+  };
 
   // 🔹 현재 chip의 placeholder 찾기
   const activeChipOption = chipOptions.find((chip) => chip.id === activeChip);
@@ -161,7 +178,8 @@ function SearchBar({ onSearch, onFileSelect,onViewDetailSearch  }) {
           highlightText={highlightText}
           showPreview={showPreview}
           onItemClick={handlePreviewItemClick}
-          onViewDetailSearch={onViewDetailSearch}
+          onViewAll={handleViewAll}
+          resultCount={previewResultCount}
         />
       </div>
     </div>

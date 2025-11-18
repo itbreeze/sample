@@ -6,7 +6,6 @@
 // - 테이블 형식 핸들 리스트
 
 import React, { useEffect, useRef, useState } from 'react';
-import './DwgDisplay.css';
 
 /////////////////////////
 // [UTILS]
@@ -117,7 +116,7 @@ const applyBoxCursor = (canvas, opts) => {
   };
 };
 
-/** 휠줌 */
+/** 휠 줌 */
 const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
   if (!viewer || !canvas) return () => {};
   const onWheel = (() => {
@@ -314,7 +313,6 @@ const collectSelectedEntities = (viewer, lib, entityDataMapRef, preserveExisting
         try {
           originalColor = getOriginalColor(entityId);
         } catch (e) {
-          console.warn(`원본 색상 가져오기 실패: ${handle}`, e);
         }
         entityDataMapRef.current.set(key, {
           entityId,
@@ -367,7 +365,6 @@ const setColorBasic = (lib, entityId, color) => {
 
       insert.setColor(colorDef);
     } catch (e) {
-      console.error('INSERT 색상 설정 실패:', e);
     }
   }
 };
@@ -391,7 +388,6 @@ const setColorRed = (viewer, lib, entityDataMap, handles) => {
       setColorBasic(lib, data.entityId, RED);
       successCount++;
     } catch (e) {
-      console.error('setColorRed error:', e);
       failCount++;
     }
   });
@@ -406,7 +402,6 @@ const resetColorByHandle = (viewer, lib, entityDataMap, handle) => {
     const data = entityDataMap.get(String(handle));
     if (!data || !data.entityId) {
       // 필요 시 디버깅용 로그
-      console.warn(`핸들 ${handle}에 대한 데이터가 없습니다.`);
       return false;
     }
 
@@ -415,7 +410,6 @@ const resetColorByHandle = (viewer, lib, entityDataMap, handle) => {
     viewer.update?.();
     return true;
   } catch (e) {
-    console.error(`resetColorByHandle error for handle ${handle}:`, e);
     return false;
   }
 };
@@ -491,7 +485,6 @@ const attachLeftClickSelect = (viewer, canvas, lib, options = {}) => {
       const handles = collectSelectedEntities(viewer, lib, entityDataMapRef, additive);
       onSelect(handles, { x1, y1, x2, y2 }, additive, 'click', entityDataMapRef.current);
     } catch (e) {
-      console.error('left-click select error:', e);
     }
   };
 
@@ -561,8 +554,23 @@ const attachDragSelect = (viewer, canvas, lib, options = {}) => {
     const dpr = window.devicePixelRatio || 1;
     octx.save();
     octx.lineWidth = Math.max(1, 1 * dpr);
-    octx.strokeStyle = '#2563eb';
-    octx.fillStyle = 'rgba(37,99,235,0.12)';
+    
+    // 좌→우 드래그: 윈도우 선택 (파란색 실선)
+    // 우→좌 드래그: 걸침 선택 (초록색 점선)
+    const isWindowSelection = box.x2 >= box.x1;
+    
+    if (isWindowSelection) {
+      // 윈도우 선택: 파란색
+      octx.strokeStyle = '#2563eb';
+      octx.fillStyle = 'rgba(37,99,235,0.12)';
+      octx.setLineDash([]);
+    } else {
+      // 걸침 선택: 초록색 점선
+      octx.strokeStyle = '#10b981';
+      octx.fillStyle = 'rgba(16,185,129,0.12)';
+      octx.setLineDash([8 * dpr, 4 * dpr]);
+    }
+    
     const x1 = Math.min(box.x1, box.x2);
     const y1 = Math.min(box.y1, box.y2);
     const x2 = Math.max(box.x1, box.x2);
@@ -638,9 +646,35 @@ const attachDragSelect = (viewer, canvas, lib, options = {}) => {
     const additive =
       additiveKeyDown || event.shiftKey || event.ctrlKey || event.metaKey ? true : false;
 
+    // 좌→우: 윈도우 선택 (완전히 포함된 객체만)
+    // 우→좌: 걸침 선택 (일부라도 걸친 객체)
+    const isWindowSelection = lastBox.x2 >= lastBox.x1;
+
     try {
       if (!additive) viewer.unselect?.();
-      viewer.select?.(normalized.x1, normalized.y1, normalized.x2, normalized.y2);
+      
+      // Visualize.js의 select는 4개 파라미터만 받음 (x1, y1, x2, y2)
+      // 걸침 선택을 위해서는 다른 방법 필요
+      
+      // 방법 1: lib에 SelectionMode가 있다면 설정
+      if (typeof lib !== 'undefined' && lib.SelectionMode && viewer.setSelectionMode) {
+        const mode = isWindowSelection ? lib.SelectionMode.kWindow : lib.SelectionMode.kCrossing;
+        viewer.setSelectionMode(mode);
+        viewer.select(normalized.x1, normalized.y1, normalized.x2, normalized.y2);
+      } 
+      // 방법 2: lib.SelectMode가 있다면
+      else if (typeof lib !== 'undefined' && lib.SelectMode && viewer.setSelectMode) {
+        const mode = isWindowSelection ? lib.SelectMode.Window : lib.SelectMode.Crossing;
+        viewer.setSelectMode(mode);
+        viewer.select(normalized.x1, normalized.y1, normalized.x2, normalized.y2);
+      }
+      // 방법 3: 기본 select만 사용 (일단은 윈도우 선택만)
+      else {
+        viewer.select(normalized.x1, normalized.y1, normalized.x2, normalized.y2);
+        if (!isWindowSelection) {
+        }
+      }
+      
       viewer.update?.();
 
       const handles = collectSelectedEntities(viewer, lib, entityDataMapRef, additive);
@@ -658,7 +692,6 @@ const attachDragSelect = (viewer, canvas, lib, options = {}) => {
         entityDataMapRef.current
       );
     } catch (error) {
-      console.error('attachDragSelect error:', error);
     } finally {
       viewer.unselect();
       viewer.update();
@@ -907,12 +940,13 @@ const HandlePanel = ({
 // [MAIN] TestCavas
 /////////////////////////
 
-const TestCavas = ({ filePath, isActive }) => {
+const TestCanvas = ({ filePath, isActive }) => {
   const canvasRef = useRef(null);
   const viewerRef = useRef(null);
   const containerRef = useRef(null);
   const isInitializedRef = useRef(false);
   const resizeObserverRef = useRef(null);
+  const resizeFrameRef = useRef(null);
   const cleanupFunctionsRef = useRef([]);
 
   const libRef = useRef(null);
@@ -1024,7 +1058,6 @@ const TestCavas = ({ filePath, isActive }) => {
 
   const handleRemoveHandle = (handle) => {
     if (!viewerRef.current || !libRef.current) {
-      console.warn('Viewer 또는 Library가 초기화되지 않았습니다.');
       return;
     }
 
@@ -1037,11 +1070,7 @@ const TestCavas = ({ filePath, isActive }) => {
 
     if (ok) {
       setSelectedHandles((prev) => prev.filter((h) => h !== handle));
-      // 필요 시 맵에서 제거해도 되고, 남겨 놔도 됨(원본 색상 정보 유지)
-      // entityDataMapRef.current.delete(String(handle));
-      console.log(`핸들 ${handle} 제외 완료`);
     } else {
-      console.error(`핸들 ${handle} 제외 실패`);
     }
   };
 
@@ -1134,13 +1163,40 @@ const TestCavas = ({ filePath, isActive }) => {
         viewerRef.current.zoomExtents?.();
         viewerRef.current.update?.();
 
+        // Viewer 메서드 목록 출력 (디버깅용)
+        const viewer = viewerRef.current;
+        const methods = [];
+        for (let key in viewer) {
+          if (typeof viewer[key] === 'function') {
+            methods.push(key);
+          }
+        }
+        methods.sort();
+        
+        // select 관련 메서드 찾기
+        const selectMethods = methods.filter(m => m.toLowerCase().includes('select'));
+        
+        // select 함수의 signature 확인
+        if (typeof viewer.select === 'function') {
+        }
+        if (typeof viewer.selectByRegion === 'function') {
+        }
+        if (typeof viewer.setSelected === 'function') {
+        }
+        
+        // // lib의 SelectionMode 확인
+        // if (lib.SelectionMode) {
+        // }
+        // if (lib.SelectMode) {
+        // }
+        
+
         isInitializedRef.current = true;
         setLoadPercent(100);
         setIsLoading(false);
 
         if (isActive) attachEventListeners();
       } catch (err) {
-        console.error('TestCavas 초기화 실패:', err);
         if (isMounted) {
           setErrorMessage(err.message);
           setIsLoading(false);
@@ -1151,7 +1207,6 @@ const TestCavas = ({ filePath, isActive }) => {
     const scriptId = 'visualize-script';
     let script = document.getElementById(scriptId);
     const handleScriptLoad = () => {
-      init().catch(console.error);
     };
 
     if (!script) {
@@ -1184,28 +1239,47 @@ const TestCavas = ({ filePath, isActive }) => {
     }
   }, [isActive]);
 
+  // ResizeObserver with requestAnimationFrame debouncing
   useEffect(() => {
     if (!containerRef.current) return;
+    
     const observer = new ResizeObserver(() => {
-      if (viewerRef.current) handleResize();
+      if (resizeFrameRef.current) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        if (viewerRef.current) handleResize();
+        resizeFrameRef.current = null;
+      });
     });
+    
     observer.observe(containerRef.current);
     resizeObserverRef.current = observer;
     handleResize();
-    return () => observer.disconnect();
+    
+    return () => {
+      if (resizeFrameRef.current) {
+        cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
+      observer.disconnect();
+    };
   }, [filePath]);
 
   useEffect(() => {
     return () => {
       cleanupFunctionsRef.current.forEach((fn) => fn?.());
       if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
+      if (resizeFrameRef.current) {
+        cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
       if (viewerRef.current) viewerRef.current.destroy?.();
     };
   }, []);
 
   const clearHandles = () => {
     if (!viewerRef.current || !libRef.current) {
-      console.warn('Viewer 또는 Library가 초기화되지 않았습니다.');
       return;
     }
 
@@ -1220,11 +1294,9 @@ const TestCavas = ({ filePath, isActive }) => {
         );
         if (ok) successCount++;
       });
-      console.log(`전체 초기화: ${successCount}/${selectedHandles.length}개 성공`);
     }
 
     setSelectedHandles([]);
-    // 전체 초기화 시 맵도 함께 비워도 되고, 유지해도 됨.
     entityDataMapRef.current.clear();
   };
 
@@ -1294,4 +1366,4 @@ const TestCavas = ({ filePath, isActive }) => {
   );
 };
 
-export default TestCavas;
+export default TestCanvas;

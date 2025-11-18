@@ -89,7 +89,6 @@ const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목�
 
     useEffect(() => {
         if (value) {
-            console.log('[TreeComboBox] 외부 value 변경:', value);
             setSelectedNode({ name: value, id: null }); // id는 선택용이 아니므로 null
         }
     }, [value]);
@@ -114,14 +113,12 @@ const TreeComboBox = ({ data, onNodeSelect, onTitleClick, placeholder = '항목�
     };
 
     const handleSelect = (node) => {
-        console.log('[TreeComboBox] 노드 선택:', node);
         setSelectedNode(node);
         onNodeSelect(node);
         setIsOpen(false);
     };
 
     const handleTitleAndClose = (node) => {
-        console.log('[TreeComboBox] 폴더 제목 클릭:', node);
         if (onTitleClick) {
             onTitleClick(node);
         }

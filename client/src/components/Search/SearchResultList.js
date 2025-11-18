@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { Loader2, Plus, X, Search } from 'lucide-react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
+import { Loader2, Plus, X, Search, RotateCcw } from 'lucide-react';
 import './SearchResultList.css';
 import TreeComboBox from '../common/TreeComboBox';
 import { transformToTreeData, formatLevelDataForTree } from '../utils/dataUtils';
@@ -31,19 +31,6 @@ const getNodePath = (nodes, nodeId) => {
   };
   findPathRecursive(nodes, nodeId);
   return path;
-};
-
-/** 🔹 트리에서 특정 ID를 가진 노드 탐색 */
-const findNodeById = (nodes, id) => {
-  if (!nodes || !id) return null;
-  for (const node of nodes) {
-    if (node.id == id) return node;
-    if (node.children) {
-      const found = findNodeById(node.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
 };
 
 const buildHighlightSource = ({ drawingNumber, drawingName, additionalConditions = [] }) => {
@@ -104,23 +91,22 @@ const SearchResultItem = memo(({ result, highlightTerm, onSelect }) => (
   </div>
 ));
 
-const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
-  const [searchResults, setSearchResults] = useState([]);
+const SearchResultList = ({ 
+  conditions, 
+  results, 
+  highlightTerm,
+  onConditionsChange, 
+  onResultsChange,
+  onHighlightChange,
+  onFileSelect 
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [levelTreeData, setLevelTreeData] = useState([]);
-  const [currentLeafNodeIds, setCurrentLeafNodeIds] = useState('ALL');
   const [levelsLoading, setLevelsLoading] = useState(true);
-  const [infoNode, setInfoNode] = useState(null);
-  const [drawingNumber, setDrawingNumber] = useState('');
-  const [drawingName, setDrawingName] = useState('');
-  const [additionalConditions, setAdditionalConditions] = useState([]);
-  const [selectedOfficeId, setSelectedOfficeId] = useState('');
-  const [selectedPath, setSelectedPath] = useState('');
-  const [activeHighlightTerm, setActiveHighlightTerm] = useState('');
 
-  // 🔹 searchInfo 처리 여부 추적용 ref
-  const processedSearchInfoRef = useRef(null);
+  // 🔹 조건이 변경될 때마다 자동 검색 실행 여부 결정
+  const [shouldAutoSearch, setShouldAutoSearch] = useState(false);
 
   const operatorOptions = [
     { value: 'AND', label: 'AND' },
@@ -129,19 +115,24 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
   ];
 
   /** 🔹 상세 검색 실행 */
-  const performDetailSearch = useCallback(async (leafNodeIds, searchConditions, highlightSource = '') => {
-    setActiveHighlightTerm(highlightSource.trim());
+  const performDetailSearch = useCallback(async (searchConditions) => {
+    const highlightSource = buildHighlightSource(searchConditions);
+    if (onHighlightChange) {
+      onHighlightChange(highlightSource.trim());
+    }
+
     setIsLoading(true);
     setError(null);
 
     const payload = {
-      leafNodeIds,
+      leafNodeIds: searchConditions.leafNodeIds,
       drawingNumber: searchConditions.drawingNumber,
       drawingName: searchConditions.drawingName,
       additionalConditions: searchConditions.additionalConditions,
-      // Request server to remove any default limits for detailed search
       unlimited: true
     };
+
+    console.log('[SearchResultList] 검색 실행:', payload);
 
     try {
       const response = await fetch("http://localhost:4001/api/search/advanced", {
@@ -150,17 +141,24 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
         body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error('검색 요청에 실패했습니다.');
-      const results = await response.json();
-      setSearchResults(results);
+      const resultsData = await response.json();
+      
+      if (onResultsChange) {
+        onResultsChange(resultsData);
+      }
+      
+      console.log('[SearchResultList] 검색 결과:', resultsData.length, '건');
     } catch (err) {
       setError(err.message);
-      setSearchResults([]);
+      if (onResultsChange) {
+        onResultsChange([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [onResultsChange, onHighlightChange]);
 
-  /** 🔹 최초 렌더링 시 레벨 데이터 불러오기 */
+  /** 🔹 초기 레벨 데이터 불러오기 */
   useEffect(() => {
     const fetchLevels = async () => {
       try {
@@ -184,47 +182,87 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     fetchLevels();
   }, []);
 
-  /** 🔹 헤더 검색바에서 전달된 searchInfo 처리 */
+  /** 🔹 조건이 변경되고 shouldAutoSearch가 true일 때 자동 검색 */
   useEffect(() => {
-    if (searchInfo && searchInfo.type === '도면' && searchInfo.term) {
-      setCurrentLeafNodeIds('ALL');
-      setInfoNode(null);
-      setDrawingNumber('');
-      setAdditionalConditions([]);
-      setDrawingName(searchInfo.term);
-      const highlightSource = buildHighlightSource({
-        drawingNumber: '',
-        drawingName: searchInfo.term,
-        additionalConditions: []
-      });
-      setActiveHighlightTerm(highlightSource);
+    if (shouldAutoSearch && conditions.additionalConditions.length > 0) {
+      console.log('[SearchResultList] 자동 검색 실행 (조건 변경 감지)');
+      performDetailSearch(conditions);
+      setShouldAutoSearch(false);
     }
-  }, [searchInfo?.timestamp]);
+  }, [conditions, shouldAutoSearch, performDetailSearch]);
 
-  /** 🔹 조건 추가/삭제/수정 */
+  /** 🔹 조건 추가 */
   const addAdditionalCondition = () => {
-    const newId = (additionalConditions.length > 0 ? Math.max(...additionalConditions.map(c => c.id)) : 0) + 1;
-    setAdditionalConditions(prev => [
-      ...prev,
-      { id: newId, type: '도면', term: '', operator: 'AND' }
-    ]);
+    const newId = (conditions.additionalConditions.length > 0 
+      ? Math.max(...conditions.additionalConditions.map(c => c.id)) 
+      : 0) + 1;
+    
+    if (onConditionsChange) {
+      onConditionsChange({
+        ...conditions,
+        additionalConditions: [
+          ...conditions.additionalConditions,
+          { id: newId, type: '도면', term: '', operator: 'AND' }
+        ]
+      });
+    }
   };
+  
+  /** 🔹 조건 삭제 */
   const removeAdditionalCondition = useCallback((id) => {
-    setAdditionalConditions(prev => prev.filter(condition => condition.id !== id));
-  }, []);
+    if (onConditionsChange) {
+      onConditionsChange({
+        ...conditions,
+        additionalConditions: conditions.additionalConditions.filter(c => c.id !== id)
+      });
+    }
+  }, [conditions, onConditionsChange]);
+  
+  /** 🔹 조건 수정 */
   const updateAdditionalCondition = useCallback((id, field, value) => {
-    setAdditionalConditions(prev =>
-      prev.map(condition => (condition.id === id ? { ...condition, [field]: value } : condition))
-    );
-  }, []);
-  const handleOperatorChange = useCallback((id, value) => updateAdditionalCondition(id, 'operator', value), [updateAdditionalCondition]);
-  const handleTermChange = useCallback((id, value) => updateAdditionalCondition(id, 'term', value), [updateAdditionalCondition]);
+    if (onConditionsChange) {
+      onConditionsChange({
+        ...conditions,
+        additionalConditions: conditions.additionalConditions.map(c => 
+          c.id === id ? { ...c, [field]: value } : c
+        )
+      });
+    }
+  }, [conditions, onConditionsChange]);
+  
+  const handleOperatorChange = useCallback((id, value) => {
+    updateAdditionalCondition(id, 'operator', value);
+  }, [updateAdditionalCondition]);
+  
+  const handleTermChange = useCallback((id, value) => {
+    updateAdditionalCondition(id, 'term', value);
+  }, [updateAdditionalCondition]);
+
+  /** 🔹 전체 초기화 */
+  const handleResetAll = () => {
+    console.log('[SearchResultList] 전체 초기화');
+    if (onConditionsChange) {
+      onConditionsChange({
+        leafNodeIds: 'ALL',
+        drawingNumber: '',
+        drawingName: '',
+        additionalConditions: [],
+        selectedPath: '',
+        infoNode: null
+      });
+    }
+    if (onResultsChange) {
+      onResultsChange([]);
+    }
+    if (onHighlightChange) {
+      onHighlightChange('');
+    }
+    setError(null);
+  };
 
   /** 🔹 검색 실행 */
   const performAdvancedSearch = () => {
-    const currentConditions = { drawingNumber, drawingName, additionalConditions };
-    const highlightSource = buildHighlightSource(currentConditions);
-    performDetailSearch(currentLeafNodeIds, currentConditions, highlightSource);
+    performDetailSearch(conditions);
   };
 
   /** 🔹 트리에서 노드 선택 */
@@ -232,36 +270,65 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     if (node && node !== 'ALL') {
       const path = getNodePath(levelTreeData, node.id);
       const pathStr = path.join('/');
-      console.log('[handleLevelSelect] node:', node);
-      console.log('[handleLevelSelect] path array:', path);
-      console.log('[handleLevelSelect] path string:', pathStr);
-
-      setSelectedPath(pathStr); // 상태 업데이트
+      console.log('[handleLevelSelect] 선택된 경로:', pathStr);
+      
+      if (onConditionsChange) {
+        onConditionsChange({
+          ...conditions,
+          selectedPath: pathStr
+        });
+      }
     } else {
-      console.log('[handleLevelSelect] ALL 선택됨');
-      setSelectedPath('전체');
-      setInfoNode(null);
-      setCurrentLeafNodeIds('ALL');
-      processedSearchInfoRef.current = null;
+      console.log('[handleLevelSelect] ALL 선택');
+      if (onConditionsChange) {
+        onConditionsChange({
+          ...conditions,
+          selectedPath: '전체',
+          infoNode: null,
+          leafNodeIds: 'ALL'
+        });
+      }
     }
   };
 
-
-
-  /** 🔹 노드 제목 클릭 시 조건 초기화 후 검색 실행 */
+  /** 🔹 노드 제목 클릭 */
   const handleTitleClick = (node) => {
-    setInfoNode(node);
-    if (node) {
-      const leafNodeIds = collectLeafNodeIds(node);
-      setCurrentLeafNodeIds(leafNodeIds);
-      setDrawingNumber('');
-      setDrawingName('');
-      setAdditionalConditions([]);
-      processedSearchInfoRef.current = null;
+    if (onConditionsChange) {
+      if (node) {
+        const leafNodeIds = collectLeafNodeIds(node);
+        onConditionsChange({
+          ...conditions,
+          infoNode: node,
+          leafNodeIds: leafNodeIds,
+          drawingNumber: '',
+          drawingName: '',
+          additionalConditions: []
+        });
+      }
     }
   };
 
-  /** 🔹 파일 선택 시 상위 콜백 실행 */
+  /** 🔹 도면번호 변경 */
+  const handleDrawingNumberChange = (value) => {
+    if (onConditionsChange) {
+      onConditionsChange({
+        ...conditions,
+        drawingNumber: value
+      });
+    }
+  };
+
+  /** 🔹 도면명 변경 */
+  const handleDrawingNameChange = (value) => {
+    if (onConditionsChange) {
+      onConditionsChange({
+        ...conditions,
+        drawingName: value
+      });
+    }
+  };
+
+  /** 🔹 파일 선택 */
   const handleFileClick = useCallback(
     async (result) => {
       if (onFileSelect) {
@@ -271,18 +338,27 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
     [onFileSelect]
   );
 
+  /** 🔹 SearchBar에서 넘어온 조건으로 자동 검색 트리거 */
+  useEffect(() => {
+    // additionalConditions가 있고, 이전에 없었다면 자동 검색
+    if (conditions.additionalConditions.length > 0) {
+      const hasSearchableTerms = conditions.additionalConditions.some(c => c.term && c.term.trim());
+      if (hasSearchableTerms) {
+        setShouldAutoSearch(true);
+      }
+    }
+  }, [conditions.additionalConditions]);
+
   /** 🔹 검색 조건 영역 렌더링 */
   const renderSearchConditions = () => {
     let conditionText = null;
-    if (infoNode) {
-      const path = getNodePath(levelTreeData, infoNode.id);
+    if (conditions.infoNode) {
+      const path = getNodePath(levelTreeData, conditions.infoNode.id);
       conditionText = `선택: ${path.join(' / ')}`;
     }
 
-
     return (
       <div className="search-conditions">
-
         <div className="search-conditions-header">
           <h3></h3>
           <button className="search-execute-btn" onClick={performAdvancedSearch} disabled={isLoading} title="검색">
@@ -305,11 +381,10 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
                 onNodeSelect={handleLevelSelect}
                 onTitleClick={handleTitleClick}
                 placeholder="전체"
-                value={selectedPath}
+                value={conditions.selectedPath}
               />
             )}
           </div>
-
         </div>
 
         <div className="search-condition-row">
@@ -317,8 +392,8 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
           <div className="term-section-with-remove">
             <input
               type="text"
-              value={drawingNumber}
-              onChange={(e) => setDrawingNumber(e.target.value)}
+              value={conditions.drawingNumber}
+              onChange={(e) => handleDrawingNumberChange(e.target.value)}
               placeholder="도면번호 입력"
               className="term-input"
             />
@@ -330,8 +405,8 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
           <div className="term-section-with-remove">
             <input
               type="text"
-              value={drawingName}
-              onChange={(e) => setDrawingName(e.target.value)}
+              value={conditions.drawingName}
+              onChange={(e) => handleDrawingNameChange(e.target.value)}
               placeholder="도면명 입력"
               className="term-input"
             />
@@ -340,7 +415,7 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
 
         {/* 🔹 추가 조건 리스트 */}
         <div className="conditions-list">
-          {additionalConditions.map(condition => (
+          {conditions.additionalConditions.map(condition => (
             <AdditionalConditionRow
               key={condition.id}
               condition={condition}
@@ -352,9 +427,13 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
           ))}
         </div>
 
+        {/* 🔹 조건추가 + 전체초기화 버튼 */}
         <div className="search-actions">
           <button className="add-condition-btn" onClick={addAdditionalCondition} title="조건 추가">
             <Plus size={16} /> 검색조건추가
+          </button>
+          <button className="reset-all-btn" onClick={handleResetAll} title="전체 초기화">
+            <RotateCcw size={16} /> 검색초기화
           </button>
         </div>
       </div>
@@ -365,24 +444,24 @@ const SearchResultList = ({ searchInfo = null, onFileSelect }) => {
   const renderSearchResults = () => {
     if (isLoading) return <div className="search-result-loading"><Loader2 className="loading-spinner large" /> 검색 중...</div>;
     if (error) return <div className="search-result-error">검색 오류: {error}</div>;
-    if (searchResults.length === 0) return <div className="search-result-no-results">❌ 검색 결과 없음</div>;
+    if (results.length === 0) return <div className="search-result-no-results">❌ 검색 결과 없음</div>;
 
     let conditionText = null;
-    if (infoNode) {
-      const path = getNodePath(levelTreeData, infoNode.id);
+    if (conditions.infoNode) {
+      const path = getNodePath(levelTreeData, conditions.infoNode.id);
       conditionText = path.join(' / ');
     }
 
     return (
       <div className="search-result-list">
         <div className="search-result-title">
-          <span className="search-result-condition">{conditionText ? conditionText : '전체'}</span> 검색결과 ({searchResults.length}건)
+          <span className="search-result-condition">{conditionText ? conditionText : '전체'}</span> 검색결과 ({results.length}건)
         </div>
-        {searchResults.map((result, idx) => (
+        {results.map((result, idx) => (
           <SearchResultItem
             key={`${result.DOCNO}-${result.DOCVR}-${idx}`}
             result={result}
-            highlightTerm={activeHighlightTerm}
+            highlightTerm={highlightTerm}
             onSelect={handleFileClick}
           />
         ))}

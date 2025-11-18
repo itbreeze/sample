@@ -17,6 +17,7 @@ import {
 
 import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel from './EntityPanel';
+import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
 const Canvas = ({ filePath, isActive }) => {
     const canvasRef = useRef(null);
@@ -25,6 +26,7 @@ const Canvas = ({ filePath, isActive }) => {
     const libRef = useRef(null);
     const isInitializedRef = useRef(false);
     const resizeObserverRef = useRef(null);
+    const resizeFrameRef = useRef(null);
     const interactionsCleanupRef = useRef(null);
 
     const entityDataMapRef = useRef(new Map());
@@ -37,6 +39,27 @@ const Canvas = ({ filePath, isActive }) => {
     const [selectedHandles, setSelectedHandles] = useState([]);
     const [entities, setEntities] = useState([]);
     const [showPanel, setShowPanel] = useState(false);
+    const PANEL_DEFAULT = { width: 500, height: 400 };
+    const computePanelPosition = (width, height) => {
+        const vw = window?.innerWidth || 1200;
+        const vh = window?.innerHeight || 800;
+        return {
+            x: Math.max(8, vw - width - 24),
+            y: Math.max(8, vh - height - 40),
+        };
+    };
+    const [panelPosition, setPanelPosition] = useState(() => computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height));
+    const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
+    const clampPanelPosition = (position, size) => {
+        const vw = window?.innerWidth || 1200;
+        const vh = window?.innerHeight || 800;
+        const maxX = Math.max(8, vw - size.width - 24);
+        const maxY = Math.max(8, vh - size.height - 40);
+        return {
+            x: Math.min(Math.max(8, position.x), maxX),
+            y: Math.min(Math.max(8, position.y), maxY),
+        };
+    };
 
     /** 선택 이벤트 처리: 단일/드래그 + Ctrl/Shift 추가/제외 + 빈영역 해제 */
     const handleSelect = useCallback(
@@ -105,7 +128,9 @@ const Canvas = ({ filePath, isActive }) => {
                 });
 
                 setEntities(nextEntities);
-                setShowPanel(nextEntities.length > 0);
+                if (nextEntities.length > 0) {
+                    setShowPanel(true);
+                }
                 viewer.update?.();
                 return;
             }
@@ -115,7 +140,6 @@ const Canvas = ({ filePath, isActive }) => {
                 // 빈 영역 단일 클릭: 전체 해제
                 setSelectedHandles([]);
                 setEntities([]);
-                setShowPanel(false);
                 viewer.update?.();
                 return;
             }
@@ -143,12 +167,16 @@ const Canvas = ({ filePath, isActive }) => {
         [selectedHandles]
     );
 
+    const handleZoomToEntity = useCallback(() => {}, []);
+
     /** 상호작용(휠줌/팬/선택) attach */
     const attachInteractions = useCallback(() => {
         if (!viewerRef.current || !canvasRef.current || !libRef.current) return;
 
         if (interactionsCleanupRef.current) {
             interactionsCleanupRef.current();
+
+
         }
 
         const cleanup = attachCanvasInteractions(
@@ -227,7 +255,6 @@ const Canvas = ({ filePath, isActive }) => {
                     await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
                     await loadFonts(viewerRef.current, fontNameSetRef, '/fonts');
                 } catch (e) {
-                    console.warn('폰트 처리 실패:', e);
                 }
 
                 setLoadPercent(95);
@@ -242,7 +269,6 @@ const Canvas = ({ filePath, isActive }) => {
 
                 if (isActive) attachInteractions();
             } catch (err) {
-                console.error('Canvas 초기화 실패:', err);
                 if (isMounted) {
                     setErrorMessage(err.message);
                     setIsLoading(false);
@@ -250,9 +276,13 @@ const Canvas = ({ filePath, isActive }) => {
             }
         };
 
+        const handleScriptLoad = () => {
+            if (!isMounted) return;
+            init();
+        };
+
         const scriptId = 'visualize-script';
         let script = document.getElementById(scriptId);
-        const handleScriptLoad = () => { init().catch(console.error); };
 
         if (!script) {
             script = document.createElement('script');
@@ -276,6 +306,18 @@ const Canvas = ({ filePath, isActive }) => {
         return () => { isMounted = false; };
     }, [filePath, isActive, attachInteractions]);
 
+    useEffect(() => {
+        const handleWindowResize = () => {
+            setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
+        };
+        window.addEventListener('resize', handleWindowResize);
+        return () => window.removeEventListener('resize', handleWindowResize);
+    }, [panelSize]);
+
+    useEffect(() => {
+        setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
+    }, [panelSize]);
+
     /** 탭 활성/비활성 변경 시 상호작용 attach */
     useEffect(() => {
         if (isInitializedRef.current && isActive) {
@@ -290,12 +332,24 @@ const Canvas = ({ filePath, isActive }) => {
     useEffect(() => {
         if (!containerRef.current) return;
         const observer = new ResizeObserver(() => {
-            if (viewerRef.current) handleResize();
+            if (resizeFrameRef.current) {
+                cancelAnimationFrame(resizeFrameRef.current);
+            }
+            resizeFrameRef.current = requestAnimationFrame(() => {
+                if (viewerRef.current) handleResize();
+                resizeFrameRef.current = null;
+            });
         });
         observer.observe(containerRef.current);
         resizeObserverRef.current = observer;
         handleResize();
-        return () => observer.disconnect();
+        return () => {
+            if (resizeFrameRef.current) {
+                cancelAnimationFrame(resizeFrameRef.current);
+                resizeFrameRef.current = null;
+            }
+            observer.disconnect();
+        };
     }, [filePath, handleResize]);
 
     /** 언마운트 시 정리 */
@@ -303,6 +357,10 @@ const Canvas = ({ filePath, isActive }) => {
         return () => {
             if (interactionsCleanupRef.current) interactionsCleanupRef.current();
             if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
+            if (resizeFrameRef.current) {
+                cancelAnimationFrame(resizeFrameRef.current);
+                resizeFrameRef.current = null;
+            }
             if (viewerRef.current) viewerRef.current.destroy?.();
         };
     }, []);
@@ -315,31 +373,17 @@ const Canvas = ({ filePath, isActive }) => {
             className="viewer-app-container"
             style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
         >
+            <GlobalLoadingOverlay
+                visible={isLoading}
+                percent={loadPercent}
+                text="도면을 불러오는 중입니다..."
+            />
             <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle }}>
                 <canvas
                     ref={canvasRef}
                     id="mainCanvas"
                     style={{ width: '100%', height: '100%', display: 'block' }}
                 />
-
-                {isLoading && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            color: '#fff',
-                            backgroundColor: 'rgba(0,0,0,0.85)',
-                            padding: '20px 40px',
-                            borderRadius: 8,
-                            fontSize: 16,
-                            fontWeight: 'bold',
-                        }}
-                    >
-                        로딩 중... {loadPercent}%
-                    </div>
-                )}
 
                 {errorMessage && (
                     <div
@@ -359,10 +403,14 @@ const Canvas = ({ filePath, isActive }) => {
                 )}
 
                 {/* EntityPanel: 최초 선택 후에만 표시 */}
-                {showPanel && entities.length > 0 && (
+                {showPanel && (
                     <EntityPanel
                         entities={entities}
                         onClose={() => setShowPanel(false)}
+                        initialPosition={panelPosition}
+                        onPositionChange={setPanelPosition}
+                        initialSize={panelSize}
+                        onSizeChange={setPanelSize}
                     />
                 )}
             </div>

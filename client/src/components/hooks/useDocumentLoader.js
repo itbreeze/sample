@@ -23,13 +23,11 @@ export const useDocumentLoader = () => {
 
     try {
       const documentData = await selectDocument(docId, docVr);
-      console.log("문서 로딩 성공 (useDocumentLoader):", documentData);
       setIsLoading(false);
       return documentData;
     } catch (err) {
       setError(err);
       setIsLoading(false);
-      console.error("문서 로딩 실패 (useDocumentLoader):", err);
       return null;
     }
   }, []);
