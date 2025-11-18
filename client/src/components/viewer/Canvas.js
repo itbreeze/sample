@@ -1,4 +1,3 @@
-/* eslint-env browser */
 // client/src/components/viewer/Canvas.js
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -232,7 +231,7 @@ const Canvas = ({ filePath, isActive }) => {
                 }
 
                 viewerRef.current = viewerInstance;
-                window.currentViewerInstance = viewerInstance; // 기존 TestModule 등 호환을 위해 유지
+                window.currentViewerInstance = viewerInstance; 
 
                 let arrayBuffer;
                 if (fileCache.has(filePath)) {
@@ -365,7 +364,7 @@ const Canvas = ({ filePath, isActive }) => {
         };
     }, []);
 
-    const zoomFactor = 0.3;
+    const zoomFactor = 1.2;
     const handleZoomToEntity = useCallback((handle) => {
         const viewer = viewerRef.current;
         const canvas = canvasRef.current;
