@@ -316,13 +316,13 @@ export const attachLeftClickSelect = (viewer, canvas, lib, options = {}) => {
         }
       }
 
-      // 아무 tolerance에서도 안 잡혔으면 finalBox는 마지막 tolerance 기준
-      console.log('[CanvasController] select mode: click (tolerance scan)', {
-        additive,
-        handlesCount: handles.length,
-        handles,
-        box: finalBox,
-      });
+      // // 아무 tolerance에서도 안 잡혔으면 finalBox는 마지막 tolerance 기준
+      // console.log('[CanvasController] select mode: click (tolerance scan)', {
+      //   additive,
+      //   handlesCount: handles.length,
+      //   handles,
+      //   box: finalBox,
+      // });
 
       const box = finalBox || { x1: x, y1: y, x2: x, y2: y };
       const screenBox = {
@@ -566,12 +566,12 @@ export const attachDragSelect = (viewer, canvas, lib, options = {}) => {
 
       const handles = collectHandlesFromSelection();
 
-      console.log('[CanvasController] select mode: drag', {
-        additive,
-        handlesCount: handles.length,
-        handles,
-        box: normalized,
-      });
+      // console.log('[CanvasController] select mode: drag', {
+      //   additive,
+      //   handlesCount: handles.length,
+      //   handles,
+      //   box: normalized,
+      // });
 
       onSelect({
         additive,

@@ -16,7 +16,7 @@ import {
 } from './CanvasUtils';
 
 import { attachCanvasInteractions } from './CanvasController';
-import EntityPanel from './EntityPanel';
+import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
 import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
 const Canvas = ({ filePath, isActive }) => {
@@ -39,7 +39,7 @@ const Canvas = ({ filePath, isActive }) => {
     const [selectedHandles, setSelectedHandles] = useState([]);
     const [entities, setEntities] = useState([]);
     const [showPanel, setShowPanel] = useState(false);
-    const PANEL_DEFAULT = { width: 500, height: 400 };
+    const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
     const computePanelPosition = (width, height) => {
         const vw = window?.innerWidth || 1200;
         const vh = window?.innerHeight || 800;
@@ -157,6 +157,7 @@ const Canvas = ({ filePath, isActive }) => {
                     type: info?.type ?? 'UNKNOWN',
                     layer: info?.layer ?? '',
                     color: info?.originalColor ?? 7,
+                    entityId: info?.entityId,
                 };
             });
 
@@ -167,7 +168,6 @@ const Canvas = ({ filePath, isActive }) => {
         [selectedHandles]
     );
 
-    const handleZoomToEntity = useCallback(() => {}, []);
 
     /** 상호작용(휠줌/팬/선택) attach */
     const attachInteractions = useCallback(() => {
@@ -365,6 +365,18 @@ const Canvas = ({ filePath, isActive }) => {
         };
     }, []);
 
+    const zoomFactor = 0.3;
+    const handleZoomToEntity = useCallback((handle) => {
+        const viewer = viewerRef.current;
+        const canvas = canvasRef.current;
+        if (!viewer || !handle || !canvas) return;
+        viewer.zoomToEntity?.(handle);
+        const rect = canvas.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        viewer.zoomAt?.(zoomFactor, centerX, centerY);
+        viewer.update?.();
+    }, [zoomFactor]);
     const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
 
     return (
@@ -411,6 +423,7 @@ const Canvas = ({ filePath, isActive }) => {
                         onPositionChange={setPanelPosition}
                         initialSize={panelSize}
                         onSizeChange={setPanelSize}
+                        onZoomToEntity={handleZoomToEntity}
                     />
                 )}
             </div>

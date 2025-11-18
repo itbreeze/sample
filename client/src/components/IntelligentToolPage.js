@@ -281,8 +281,7 @@ function IntelligentToolPage() {
     if (documentTree.length && !isDefaultExpandApplied) {
       const defaults = collectIdsToLevel(documentTree, DEFAULT_EXPAND_LEVEL);
       setExpandedNodes(new Set(defaults));
-      setIsDefaultExpandApplied(true);
-      console.log(`기본 확장 레벨 ${DEFAULT_EXPAND_LEVEL} 적용: ${defaults.length}개 노드`);
+      setIsDefaultExpandApplied(true);      
     }
   }, [documentTree, isDefaultExpandApplied]);
 

@@ -4,8 +4,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, X } from 'lucide-react';
 
-const MIN_WIDTH = 500;
-const MIN_HEIGHT = 400;
+export const MIN_WIDTH = 600;
+export const MIN_HEIGHT = 400;
 const MAX_WIDTH_MARGIN = 40;
 const MAX_HEIGHT_MARGIN = 80;
 
@@ -21,7 +21,7 @@ const computeBottomRightPos = (width, height) => {
   };
 };
 
-const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, initialSize, onSizeChange }) => {
+const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, initialSize, onSizeChange, onZoomToEntity }) => {
   const panelRef = useRef(null);
 
   const [pos, setPos] = useState(initialPosition || computeBottomRightPos(MIN_WIDTH, MIN_HEIGHT));
@@ -566,6 +566,32 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                                 }}
                                 title={colorTitle}
                               />
+                            </td>
+                            <td
+                              style={{
+                                padding: '5px 8px',
+                                textAlign: 'center',
+                              }}
+                            >
+                              <button
+                                type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onZoomToEntity?.(ent.entityId);
+                              }}
+                                style={{
+                                  border: '1px solid rgba(15, 23, 42, 0.2)',
+                                  borderRadius: 4,
+                                  background: '#2563eb',
+                                  color: '#fff',
+                                  padding: '3px 8px',
+                                  fontSize: 12,
+                                  cursor: 'pointer',
+                                }}
+                                title="해당 엔티티로 줌인"
+                              >
+                                줌인
+                              </button>
                             </td>
                           </tr>
                         );

@@ -236,7 +236,7 @@ export async function loadFonts(viewer, fontNameSetRef, basePath = '/fonts') {
 // [SELECTION / COLOR UTILS]
 /////////////////////////
 
-/** 선택 엔티티에서 type / layer 추출 */
+/** 선택 엔티티에서 type / layer 추출 (간단 버전) */
 export const extractTypeAndLayer = (entityId) => {
   try {
     const t = entityId.getType?.();
@@ -271,32 +271,66 @@ export const extractTypeAndLayer = (entityId) => {
 };
 
 /**
- * viewer.getSelected()에서
- *  - handle 배열
- *  - handle → { entityId, originalColor, type, layer } 맵
- * 을 갱신해서 반환.
- *
- * preserveExisting = true 이면 기존 entityDataMapRef는 유지하면서 새 것만 추가.
+ * ENTITY / INSERT 에서 원본 색상을 추출
+ * - { r, g, b } 또는 인덱스 번호(7 등)를 반환
  */
-/**
- * viewer.getSelected()에서
- *  - handle 배열
- *  - handle → { entityId, originalColor, type, layer } 맵
- * 을 갱신해서 반환.
- *
- * additive = true 이면 기존 entityDataMapRef 유지하면서 새 것만 추가/갱신.
- */
-// CanvasUtils.js 안의 기존 collectSelectedEntities 를 이걸로 교체
+const getOriginalColorFromEntity = (lib, entityId) => {
+  if (!lib || !entityId || typeof entityId.getType !== 'function') return 7;
 
-/**
- * viewer.getSelected()에서
- *  - handle 배열
- *  - handle → { entityId, originalColor, type, layer } 맵(entityDataMapRef.current)
- * 을 갱신해서 반환.
- *
- * additive = true 이면 기존 entityDataMapRef 유지하면서 새 것만 추가/보정.
- */
-// CanvasUtils.js 안의 기존 collectSelectedEntities 를 이걸로 교체
+  const t = entityId.getType();
+  try {
+    if (t === 1) {
+      // ENTITY
+      const obj = entityId.openObject?.();
+      if (!obj) return 7;
+      const colorDef = obj.getColor(lib.GeometryTypes.kAll);
+      if (!colorDef) return 7;
+
+      let colorArr = colorDef.getColor();
+      // 상속 색상일 경우 레이어 색상 사용
+      if (typeof colorDef.getInheritedColor === 'function' && colorDef.getInheritedColor() === 0) {
+        const layerColor = obj
+          .getLayer(lib.GeometryTypes.kAll)
+          .openObject()
+          .getColor()
+          .getColor();
+        colorArr = layerColor;
+      }
+
+      if (Array.isArray(colorArr) && colorArr.length >= 3) {
+        return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
+      }
+      return 7;
+    }
+
+    if (t === 2) {
+      // INSERT
+      const insert = entityId.openObjectAsInsert?.();
+      if (!insert) return 7;
+      const colorDef = insert.getColor();
+      if (!colorDef) return 7;
+
+      let colorArr = colorDef.getColor();
+      if (typeof colorDef.getInheritedColor === 'function' && colorDef.getInheritedColor() === 0) {
+        const layerColor = insert
+          .getLayer()
+          .openObject()
+          .getColor()
+          .getColor();
+        colorArr = layerColor;
+      }
+
+      if (Array.isArray(colorArr) && colorArr.length >= 3) {
+        return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
+      }
+      return 7;
+    }
+  } catch (e) {
+    return 7;
+  }
+
+  return 7;
+};
 
 /**
  * viewer.getSelected()에서
@@ -310,6 +344,11 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
   const handles = [];
   if (!viewer || !lib || !entityDataMapRef) return handles;
 
+  if (!entityDataMapRef.current || !(entityDataMapRef.current instanceof Map)) {
+    entityDataMapRef.current = new Map();
+  }
+  const dataMap = entityDataMapRef.current;
+
   const pSelected = viewer.getSelected?.();
   if (!pSelected || pSelected.isNull?.() || pSelected.numItems?.() <= 0) {
     return handles;
@@ -318,64 +357,29 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
   const itr = pSelected.getIterator?.();
   if (!itr) return handles;
 
-  // testCavas에서 쓰던 원본 색상 추출 로직 그대로
-  const getOriginalColor = (entityId) => {
-    const t = entityId.getType?.();
-    try {
-      if (t === 1) {
-        const obj = entityId.openObject?.();
-        if (!obj) return 7;
-        const colorDef = obj.getColor(lib.GeometryTypes.kAll);
-        let color = colorDef.getColor();
-        if (typeof colorDef.getInheritedColor === 'function' && colorDef.getInheritedColor() === 0) {
-          const layerColor = obj
-            .getLayer(lib.GeometryTypes.kAll)
-            .openObject()
-            .getColor()
-            .getColor();
-          color = layerColor;
-        }
-        return { r: color[0], g: color[1], b: color[2] };
-      }
-      if (t === 2) {
-        const insert = entityId.openObjectAsInsert?.();
-        if (!insert) return 7;
-        const colorDef = insert.getColor();
-        let color = colorDef.getColor();
-        if (typeof colorDef.getInheritedColor === 'function' && colorDef.getInheritedColor() === 0) {
-          const layerColor = insert.getLayer().openObject().getColor().getColor();
-          color = layerColor;
-        }
-        return { r: color[0], g: color[1], b: color[2] };
-      }
-    } catch (e) {
-      // 실패 시 숫자 인덱스 색으로 fallback
-    }
-    return 7;
-  };
-
   while (!itr.done?.()) {
     const entityId = itr.getEntity?.();
-    if (!entityId || entityId.isNull?.() && entityId.isNull()) {
+    if (!entityId || (entityId.isNull?.() && entityId.isNull())) {
       itr.step?.();
       continue;
     }
 
-    // ENTITY / INSERT 각각에서 handle 뽑기
     const t = entityId.getType?.();
-    const target =
-      t === 2 && entityId.openObjectAsInsert
-        ? entityId.openObjectAsInsert()
-        : entityId.openObject?.();
+    let target = null;
+    try {
+      target =
+        t === 2 && entityId.openObjectAsInsert
+          ? entityId.openObjectAsInsert()
+          : entityId.openObject?.();
+    } catch (_) {
+      target = null;
+    }
 
     const handle = target?.getNativeDatabaseHandle?.();
     if (handle) {
       const key = String(handle);
       handles.push(key);
 
-      const dataMap = entityDataMapRef.current;
-
-      // type/layer 정보
       let rawName = null;
       try {
         rawName = target.getName?.();
@@ -390,8 +394,7 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
         layer = '';
       }
 
-      // 원본 색상
-      const originalColor = getOriginalColor(entityId);
+      const originalColor = getOriginalColorFromEntity(lib, entityId);
 
       if (!dataMap.has(key)) {
         dataMap.set(key, {
@@ -401,7 +404,6 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
           layer,
         });
       } else if (additive) {
-        // additive 모드에서 기존 정보 보존/보정
         const prev = dataMap.get(key);
         dataMap.set(key, {
           entityId: prev.entityId || entityId,
@@ -419,52 +421,47 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
   return Array.from(new Set(handles));
 };
 
-
-
-
-/** 기본 색상 설정 (ENTITY / INSERT 공통 처리) */
+/**
+ * 기본 색상 설정 (ENTITY / INSERT 공통, ColorDef 기반)
+ * - GeometryData 수준 setColor 호출은 하지 않는다.
+ */
 export const setColorBasic = (lib, entityId, color) => {
   if (!lib || !entityId || typeof entityId.getType !== 'function') return;
   const t = entityId.getType();
 
-  if (t === 1) {
-    const entity = entityId.openObject?.();
-    if (!entity) return;
-
-    if (typeof color !== 'number') {
-      entity.setColor(color.r, color.g, color.b);
-      if (typeof entity.getGeometryDataIterator === 'function') {
-        const geomIter = entity.getGeometryDataIterator();
-        for (; !geomIter.done(); geomIter.step()) {
-          const geo = geomIter.getGeometryData().openObject();
-          geo.setColor(color.r, color.g, color.b);
-        }
-      }
-    } else {
-      const colorObj = entity.getColor(lib.GeometryTypes.kAll);
-      colorObj.setIndexedColor(color);
-      entity.setColor(colorObj, lib.GeometryTypes.kAll);
+  const applyColorToColorDef = (colorDef, col) => {
+    if (!colorDef) return;
+    if (typeof col === 'number') {
+      colorDef.setIndexedColor(col);
+    } else if (col && typeof col === 'object') {
+      const { r, g, b } = col;
+      colorDef.setColor(r, g, b);
     }
-  } else if (t === 2) {
-    const insert = entityId.openObjectAsInsert?.();
-    if (!insert) return;
+  };
 
-    try {
+  try {
+    if (t === 1) {
+      // ENTITY
+      const entity = entityId.openObject?.();
+      if (!entity) return;
+      const colorDef = entity.getColor(lib.GeometryTypes.kAll);
+      applyColorToColorDef(colorDef, color);
+      entity.setColor(colorDef, lib.GeometryTypes.kAll);
+    } else if (t === 2) {
+      // INSERT
+      const insert = entityId.openObjectAsInsert?.();
+      if (!insert) return;
       const colorDef = insert.getColor();
-
-      if (typeof color !== 'number') {
-        colorDef.setColor(color.r, color.g, color.b);
-      } else {
-        colorDef.setIndexedColor(color);
-      }
-
+      applyColorToColorDef(colorDef, color);
       insert.setColor(colorDef);
-    } catch (e) {
     }
+  } catch (e) {
+    // 필요하면 로그
+    // console.warn('[setColorBasic] error', e);
   }
 };
 
-/** 지정 핸들들을 빨간색으로 설정 */
+/** 지정 핸들들을 빨간색으로 설정 (viewer.update는 한 번만 호출) */
 export const setColorRed = (viewer, lib, entityDataMap, handles) => {
   if (!viewer || !lib || !entityDataMap || !handles || handles.length === 0) {
     return { successCount: 0, failCount: 0 };
@@ -492,7 +489,7 @@ export const setColorRed = (viewer, lib, entityDataMap, handles) => {
   return { successCount, failCount };
 };
 
-/** 특정 핸들의 원본 색상으로 복원 */
+/** 특정 핸들의 원본 색상으로 복원 (update는 호출하지 않음) */
 export const resetColorByHandle = (viewer, lib, entityDataMap, handle) => {
   if (!viewer || !lib || !entityDataMap || !handle) return false;
 
@@ -504,16 +501,106 @@ export const resetColorByHandle = (viewer, lib, entityDataMap, handle) => {
 
     const originalColor = data.originalColor ?? 7;
     setColorBasic(lib, data.entityId, originalColor);
-    viewer.update?.();
     return true;
   } catch (e) {
     return false;
   }
 };
 
+/**
+ * 여러 핸들의 색상을 원본으로 복원하고 마지막에 한 번만 update()
+ */
+export const resetColorsForHandles = (viewer, lib, entityDataMap, handles) => {
+  if (!viewer || !lib || !entityDataMap || !handles || handles.length === 0) {
+    return { successCount: 0, failCount: 0 };
+  }
+
+  let successCount = 0;
+  let failCount = 0;
+
+  handles.forEach((handle) => {
+    const ok = resetColorByHandle(viewer, lib, entityDataMap, handle);
+    if (ok) successCount++;
+    else failCount++;
+  });
+
+  viewer.update?.();
+  return { successCount, failCount };
+};
+
+/**
+ * 이전 빨간 핸들(prevRedHandlesRef.current)과
+ * 새로 칠해야 할 핸들(nextHandles)을 비교해서
+ * - 빠진 것만 원래 색으로 복원
+ * - 새로 추가된 것만 빨간색으로 칠함
+ *
+ * prevRedHandlesRef: { current: Set<string> }
+ */
+export const updateRedSelection = (
+  viewer,
+  lib,
+  entityDataMap,
+  prevRedHandlesRef,
+  nextHandles
+) => {
+  if (!viewer || !lib || !entityDataMap || !prevRedHandlesRef) {
+    return { added: 0, removed: 0 };
+  }
+
+  const prevSet =
+    prevRedHandlesRef.current instanceof Set
+      ? prevRedHandlesRef.current
+      : (prevRedHandlesRef.current = new Set());
+
+  const nextSet = new Set(nextHandles?.map(String) || []);
+
+  const toReset = [];
+  const toRed = [];
+
+  // 예전에 빨간색이었는데, 이제는 포함되지 않는 것 → 원래 색으로
+  prevSet.forEach((h) => {
+    if (!nextSet.has(h)) {
+      toReset.push(h);
+    }
+  });
+
+  // 이제 새로 빨간색이 되어야 하는 것 → 빨간색
+  nextSet.forEach((h) => {
+    if (!prevSet.has(h)) {
+      toRed.push(h);
+    }
+  });
+
+  const RED = { r: 255, g: 0, b: 0 };
+
+  let removed = 0;
+  let added = 0;
+
+  // 빠진 것들 원래 색으로 복원
+  toReset.forEach((handle) => {
+    const ok = resetColorByHandle(viewer, lib, entityDataMap, handle);
+    if (ok) removed++;
+  });
+
+  // 새로 빨갛게
+  toRed.forEach((handle) => {
+    const data = entityDataMap.get(String(handle));
+    if (!data || !data.entityId) return;
+    setColorBasic(lib, data.entityId, RED);
+    added++;
+  });
+
+  // 마지막에 딱 한 번만 update
+  viewer.update?.();
+
+  // prevRedHandlesRef 갱신
+  prevRedHandlesRef.current = nextSet;
+
+  return { added, removed };
+};
 
 // DWG 클래스 이름 → 화면 표시용 타입명 변환
-// 예) "AcDbMText" → "mtext", "AcDbLine" → "line"
+// 예) "AcDbMText" → "MText", "AcDbLine" → "Line"
 const normalizeEntityType = (rawName, typeCode) => {
   // typeCode가 2면 INSERT로 고정 (블록참조)
   if (typeCode === 2) return 'Insert';
@@ -527,5 +614,6 @@ const normalizeEntityType = (rawName, typeCode) => {
     name = name.slice(4); // "MText" → "MText", "Line" → "Line"
   }
   return name;
-  // return name.toUpperCase(); // "MText" → "MTEXT"
+  // 필요하면 대문자 변환
+  // return name.toUpperCase();
 };
