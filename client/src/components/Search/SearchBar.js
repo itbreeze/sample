@@ -25,6 +25,12 @@ function SearchBar({ onFileSelect, onViewAll, previewResultCount, onPreviewCount
       label: '도면명/도면번호',
       placeholder: '도면명 혹은 도면번호 입력',
     },
+    {
+      id: 'sample',
+      icon: <HardDrive size={14} />,
+      label: 'Sample Button',
+      placeholder: '샘플 기능 (추후 구현 예정)',
+    },
     // {
     //   id: '설비번호',
     //   icon: <HardDrive size={14} />,
@@ -58,6 +64,12 @@ function SearchBar({ onFileSelect, onViewAll, previewResultCount, onPreviewCount
 
   const handleChipClick = (chipName, event) => {
     event.preventDefault();
+
+    if (chipName === 'sample') {
+      // TODO: Sample Button 기능은 추후 구현 예정
+      return;
+    }
+
     setActiveChip(chipName);
     setSearchTerm('');
     setPreviewResults([]);
