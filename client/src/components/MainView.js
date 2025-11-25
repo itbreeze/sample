@@ -12,7 +12,8 @@ const MainView = ({
   activeFileId,
   onTabClick,
   onTabClose,
-  onTabReorder
+  onTabReorder,
+  onCloseAllTabs
 }) => {
   
   if (!openFiles || openFiles.length === 0) {
@@ -34,6 +35,7 @@ const MainView = ({
         onTabClick={onTabClick}
         onTabClose={onTabClose}
         onTabReorder={onTabReorder}
+        onCloseAllTabs={onCloseAllTabs}
       />
     </main>
   );

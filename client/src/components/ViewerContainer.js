@@ -1,5 +1,5 @@
 // client/src/components/ViewerContainer.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { X as CloseIcon, MoreHorizontal } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './ViewerContainer.css';
@@ -14,6 +14,7 @@ const ViewerContainer = ({
   activeFileId,
   onTabClick,
   onTabClose,
+  onCloseAllTabs,
   onTabReorder,
   viewerStates,          // DOCNO -> {zoom, pan, camera, ...}
   setViewerStates,       // 상태 업데이트 콜백
@@ -23,6 +24,7 @@ const ViewerContainer = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectionStates, setSelectionStates] = useState({}); // DOCNO -> { handles: [], count: 0 }
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, docno: null, target: null });
 
   // drag&drop 탭 재정렬
   const handleOnDragEnd = useCallback((result) => {
@@ -59,6 +61,76 @@ const ViewerContainer = ({
     setIsModalOpen(false);
   }, [openFiles, onTabReorder]);
 
+  const clampMenuPosition = (x, y, menuWidth = 180, menuHeight = 90, margin = 8) => {
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    return {
+      x: Math.max(margin, Math.min(x, vw - menuWidth - margin)),
+      y: Math.max(margin, Math.min(y, vh - menuHeight - margin)),
+    };
+  };
+
+  const handleTabContextMenu = (event, docno) => {
+    event.preventDefault();
+    const { x, y } = clampMenuPosition(event.clientX, event.clientY);
+    setContextMenu({
+      visible: true,
+      x,
+      y,
+      docno,
+      target: 'tab',
+    });
+  };
+
+  const handleMoreContextMenu = (event) => {
+    event.preventDefault();
+    const { x, y } = clampMenuPosition(event.clientX, event.clientY);
+    setContextMenu({
+      visible: true,
+      x,
+      y,
+      docno: null,
+      target: 'more',
+    });
+  };
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+  }, []);
+
+  useEffect(() => {
+    const hideMenu = () => closeContextMenu();
+    window.addEventListener('click', hideMenu);
+    window.addEventListener('scroll', hideMenu, true);
+    return () => {
+      window.removeEventListener('click', hideMenu);
+      window.removeEventListener('scroll', hideMenu, true);
+    };
+  }, [closeContextMenu]);
+
+  const handleCloseCurrent = () => {
+    if (contextMenu.docno) {
+      onTabClose(contextMenu.docno);
+    }
+    closeContextMenu();
+  };
+
+  const handleCloseAll = () => {
+    if (typeof onCloseAllTabs === 'function') {
+      onCloseAllTabs();
+    } else if (openFiles && openFiles.length) {
+      const docnos = openFiles.map((f) => f.DOCNO);
+      docnos.forEach((id) => onTabClose(id));
+    }
+    closeContextMenu();
+  };
+
+  const handleCloseHiddenTabs = () => {
+    const hiddenFiles = openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : [];
+    hiddenFiles.forEach((f) => onTabClose(f.DOCNO));
+    closeContextMenu();
+  };
+
   // 뷰어 렌더링
   const renderViewer = () => {
     const visibleFiles = openFiles.length > MAX_VISIBLE_TABS
@@ -91,6 +163,7 @@ const ViewerContainer = ({
                           {...providedDrag.dragHandleProps}
                           className={`view-tab ${file.DOCNO === activeFileId ? 'active' : ''} ${snapshot.isDragging ? 'dragging' : ''}`}
                           onClick={() => onTabClick(file.DOCNO)}
+                          onContextMenu={(e) => handleTabContextMenu(e, file.DOCNO)}
                           title={`${file.DOCNM || file.DOCNUMBER}${selectionCount > 0 ? ` (선택: ${selectionCount})` : ''}`}
                         >
                           <span className="tab-title">
@@ -116,9 +189,10 @@ const ViewerContainer = ({
             <div
               className="view-tab more-tabs-btn"
               onClick={() => setIsModalOpen(true)}
-              title={`+${hiddenFiles.length}개 더보기`}
+              onContextMenu={handleMoreContextMenu}
+              title={`더보기 (${hiddenFiles.length})`}
             >
-              + {hiddenFiles.length}
+              더보기 + {hiddenFiles.length}
             </div>
           )}
         </div>
@@ -167,11 +241,30 @@ const ViewerContainer = ({
   };
 
   return (
-    <div className="canvas-viewer-container">
+    <div className="canvas-viewer-container" id="viewer-container">
       {isSearchMode ? (
         <SearchResultPanel results={searchResults} onSelect={onSearchResultClick} />
       ) : (
         renderViewer()
+      )}
+      {contextMenu.visible && contextMenu.target === 'tab' && (
+        <div
+          className="tab-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button type="button" onClick={handleCloseCurrent}>현재 도면 닫기</button>
+          <button type="button" onClick={handleCloseAll}>활성화된 모든 도면 닫기</button>
+        </div>
+      )}
+      {contextMenu.visible && contextMenu.target === 'more' && (
+        <div
+          className="tab-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button type="button" onClick={handleCloseHiddenTabs}>더보기 도면 모두 닫기</button>
+        </div>
       )}
       {!isSearchMode && (
         <TabListModal

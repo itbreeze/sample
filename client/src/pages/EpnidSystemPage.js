@@ -41,8 +41,6 @@ const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
 };
 
 const triggerResize = () => {
-  const viewerContainer = document.getElementById('viewer-container');
-  if (!viewerContainer) return;
   window.dispatchEvent(new Event('resize'));
 };
 
@@ -260,6 +258,12 @@ function EpnidSystemPage() {
     }
   };
 
+  const handleCloseAllTabs = useCallback(() => {
+    setOpenFiles([]);
+    setActiveFileId(null);
+    setIsFileLoaded(false);
+  }, []);
+
   const handleTabReorder = (newFiles, draggedFileId) => {
     setOpenFiles(newFiles);
     setActiveFileId(draggedFileId);
@@ -386,15 +390,32 @@ function EpnidSystemPage() {
     }
   }, [documentTree, isDefaultExpandApplied]);
 
-  useEffect(() => {
-    if (!isFileLoaded) return;
-    const t = setTimeout(triggerResize, 150);
-    return () => clearTimeout(t);
-  }, [activeMenuItem, isFileLoaded]);
+useEffect(() => {
+  if (!isFileLoaded) return;
+  const t = setTimeout(triggerResize, 150);
+  return () => clearTimeout(t);
+}, [activeMenuItem, isFileLoaded]);
 
   useEffect(() => {
-    return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);
-  }, []);
+    if (!isFileLoaded) return;
+    const resizeTimer = setTimeout(triggerResize, 30);
+    const fitTimer = setTimeout(() => {
+      const viewer = window.currentViewerInstance;
+      if (viewer) {
+        viewer.zoomExtents?.();
+        viewer.update?.();
+      }
+    }, 140);
+
+    return () => {
+      clearTimeout(resizeTimer);
+      clearTimeout(fitTimer);
+    };
+  }, [isSidebarOpen, activeMenuItem, isPanelMaximized, isFileLoaded]);
+
+useEffect(() => {
+  return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);
+}, []);
 
   if (loading) {
     return (
@@ -511,6 +532,7 @@ function EpnidSystemPage() {
           onTabClick={handleTabClick}
           onTabClose={handleTabClose}
           onTabReorder={handleTabReorder}
+          onCloseAllTabs={handleCloseAllTabs}
           onMainViewClick={handleMainViewClick}
           onViewerReady={handleViewerReady}
           onViewStateChange={handleViewStateChange}

@@ -38,6 +38,19 @@ const Canvas = ({ filePath, isActive }) => {
   const [showPanel, setShowPanel] = useState(false);
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
 
+  const loadSavedPanelPosition = () => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('entityPanelPosition') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Number.isFinite(parsed?.x) && Number.isFinite(parsed?.y)) {
+          return { x: parsed.x, y: parsed.y };
+        }
+      }
+    } catch (_) {}
+    return null;
+  };
+
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
     const vh = window?.innerHeight || 800;
@@ -46,11 +59,6 @@ const Canvas = ({ filePath, isActive }) => {
       y: Math.max(8, vh - height - 40),
     };
   };
-
-  const [panelPosition, setPanelPosition] = useState(() =>
-    computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height)
-  );
-  const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
 
   const clampPanelPosition = (position, size) => {
     const vw = window?.innerWidth || 1200;
@@ -62,6 +70,13 @@ const Canvas = ({ filePath, isActive }) => {
       y: Math.min(Math.max(8, position.y), maxY),
     };
   };
+
+  const [panelPosition, setPanelPosition] = useState(() => {
+    const saved = loadSavedPanelPosition();
+    const initial = saved || computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height);
+    return clampPanelPosition(initial, PANEL_DEFAULT);
+  });
+  const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
 
   // 선택 이벤트 처리
   const handleSelect = useCallback(
@@ -277,6 +292,14 @@ const Canvas = ({ filePath, isActive }) => {
     setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
   }, [panelSize]);
 
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('entityPanelPosition', JSON.stringify(panelPosition));
+      }
+    } catch (_) {}
+  }, [panelPosition]);
+
   const zoomFactor = 0.2;
 
   // 초기 로딩이 끝난 후 화면 맞추기(뷰어 영역 자동 조정)
@@ -343,12 +366,14 @@ const Canvas = ({ filePath, isActive }) => {
       {showPanel && (
         <EntityPanel
           entities={entities}
-          selectedHandles={selectedHandles}
           onClose={() => setShowPanel(false)}
-          panelPosition={panelPosition}
-          setPanelPosition={(pos) => setPanelPosition(clampPanelPosition(pos, panelSize))}
-          panelSize={panelSize}
-          setPanelSize={(size) => setPanelSize(clampPanelPosition(panelPosition, size) && size)}
+          initialPosition={panelPosition}
+          onPositionChange={(pos) => setPanelPosition(clampPanelPosition(pos, panelSize))}
+          initialSize={panelSize}
+          onSizeChange={(size) => {
+            setPanelSize(size);
+            setPanelPosition((prev) => clampPanelPosition(prev, size));
+          }}
           resolveEntityColorDetails={(entityId) => {
             // entityDataMapRef에 기록된 원본 색상 / 레이어 / 타입 정보 반환
             const entry = entityDataMapRef.current?.get(String(entityId)) || null;

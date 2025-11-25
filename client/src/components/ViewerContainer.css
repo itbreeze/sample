@@ -14,7 +14,7 @@
   align-items: center;
   background-color: var(--background-color-light);
   overflow: hidden;
-  border-bottom: 1px solid var(--border-color-dark);
+  border-bottom: none;
 }
 
 .visible-tabs-wrapper {
@@ -41,6 +41,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   transition: background-color 0.2s ease;
+  position: relative;
 }
 
 .view-tab.dragging {
@@ -50,11 +51,11 @@
 }
 
 .view-tab.more-tabs-btn {
-  flex: 0 0 40px !important;
+  flex: 0 0 60px !important;
   justify-content: center;
-  padding: 6px 8px;
-  min-width: 40px;
-  max-width: 40px;
+  padding: 6px 10px;
+  min-width: 60px;
+  max-width: 60px;
   flex-shrink: 0;
 }
 
@@ -63,6 +64,18 @@
   color: #000;
   z-index: 2;
   border-bottom-color: var(--background-color); /* 활성 탭 하단 경계선이 보이지 않게 처리 */
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
+.view-tab:not(.active)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--border-color-dark);
 }
 
 .view-tab:not(.active):hover {
@@ -235,6 +248,33 @@
   font-size: 12px;
   color: var(--text-color-secondary);
   padding-left: 24px; /* 아이콘 크기만큼 들여쓰기 */
+}
+
+.tab-context-menu {
+  position: fixed;
+  z-index: 50;
+  background: #ffffff;
+  border: 1px solid var(--border-color-dark);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.tab-context-menu button {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 12px;
+  width: 100%;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab-context-menu button:hover {
+  background: var(--hover-background-color);
 }
 
 /* 반응형 스타일 */

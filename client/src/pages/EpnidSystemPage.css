@@ -12,7 +12,7 @@
   flex-grow: 1;
   overflow: visible;
   position: relative; /* overlay panel anchor */
-  gap: 12px;
+  gap: 0px;
 }
 
 .loading-container {
