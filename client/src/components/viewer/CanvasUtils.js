@@ -286,16 +286,7 @@ const getOriginalColorFromEntity = (lib, entityId) => {
       const colorDef = obj.getColor(lib.GeometryTypes.kAll);
       if (!colorDef) return 7;
 
-      let colorArr = colorDef.getColor();
-      // 상속 색상일 경우 레이어 색상 사용
-      if (typeof colorDef.getInheritedColor === 'function' && colorDef.getInheritedColor() === 0) {
-        const layerColor = obj
-          .getLayer(lib.GeometryTypes.kAll)
-          .openObject()
-          .getColor()
-          .getColor();
-        colorArr = layerColor;
-      }
+      const colorArr = colorDef.getColor();
 
       if (Array.isArray(colorArr) && colorArr.length >= 3) {
         return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
@@ -310,15 +301,7 @@ const getOriginalColorFromEntity = (lib, entityId) => {
       const colorDef = insert.getColor();
       if (!colorDef) return 7;
 
-      let colorArr = colorDef.getColor();
-      if (typeof colorDef.getInheritedColor === 'function' && colorDef.getInheritedColor() === 0) {
-        const layerColor = insert
-          .getLayer()
-          .openObject()
-          .getColor()
-          .getColor();
-        colorArr = layerColor;
-      }
+      const colorArr = colorDef.getColor();
 
       if (Array.isArray(colorArr) && colorArr.length >= 3) {
         return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };

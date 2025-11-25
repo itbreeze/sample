@@ -67,6 +67,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
   // 선택 이벤트 처리
   const handleSelect = useCallback(
     (payload) => {
+      const additive = !!payload?.additive;
       // 현재 선택 상태에서 메타데이터를 매핑(선택 핸들이 이미 payload로 넘어와도 메타데이터 채움)
       const selectionHandles = collectSelectedEntities(
         viewerRef.current,
@@ -74,10 +75,24 @@ const Canvas = ({ filePath, docno, isActive }) => {
         entityDataMapRef,
         true
       );
-      const handles =
+      const incoming =
         payload?.handles && Array.isArray(payload.handles) && payload.handles.length
           ? payload.handles
           : selectionHandles;
+
+      let handles = incoming;
+      if (additive) {
+        const current = new Set(selectedHandles || []);
+        incoming.forEach((h) => {
+          const key = String(h);
+          if (current.has(key)) {
+            current.delete(key); // 이미 있으면 토글해서 제거
+          } else {
+            current.add(key);
+          }
+        });
+        handles = Array.from(current);
+      }
 
       // 선택된 것이 없으면 상태 초기화
       if (!handles || handles.length === 0) {
@@ -109,7 +124,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
       setEntities(mappedEntities);
       setShowPanel(true);
     },
-    []
+    [selectedHandles]
   );
 
   useEffect(() => {

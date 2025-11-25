@@ -685,7 +685,7 @@ const EntityPanel = ({
                                 </span>
                               </div>
                             </td>
-                            {renderColorCell(ent.objectColor ?? ent.layerColor, '색상', {
+                            {renderColorCell(ent.objectColor, '색상', {
                               borderRight: '1px solid rgba(226, 232, 240, 0.5)',
                             })}
                             <td
