@@ -14,7 +14,7 @@ import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
 import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
-const Canvas = ({ filePath, isActive }) => {
+const Canvas = ({ filePath, docno, isActive }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -116,9 +116,12 @@ const Canvas = ({ filePath, isActive }) => {
 
   useEffect(() => {
     if (isActive && !isLoading && viewerRef.current) {
+      // 활성 탭 전환 시 현재 뷰어를 전역 포인터로 등록해 상위에서 올바른 뷰어를 대상으로 갱신/fit하도록 한다.
+      window.currentViewerInstance = viewerRef.current;
+      window.currentViewerDocno = docno || null;
       viewerRef.current.update?.();
     }
-  }, [isActive, isLoading]);
+  }, [isActive, isLoading, docno]);
 
   const attachInteractions = useCallback(() => {
     const cleanup = attachCanvasInteractions(
@@ -158,16 +161,12 @@ const Canvas = ({ filePath, isActive }) => {
     const newHeight = Math.floor(rect.height * dpr);
 
     if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
-      console.log('[Canvas] resize -> cssSize:', { width: rect.width, height: rect.height }, 'dpr:', dpr, 'canvasSize:', { newWidth, newHeight });
       canvas.width = newWidth;
       canvas.height = newHeight;
       viewer.resize?.(0, newWidth, newHeight, 0);
       viewer.update?.();
-      if (!isLoading) {
-        scheduleZoomExtents(80);
-      }
     }
-  }, [isLoading, scheduleZoomExtents]);
+  }, [isLoading]);
 
   /** 초기 로딩 */
   useEffect(() => {

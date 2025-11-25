@@ -110,6 +110,7 @@ function EpnidSystemPage() {
   const [previewResultCount, setPreviewResultCount] = useState(0);
   const [redirectedForAuth, setRedirectedForAuth] = useState(false);
   const isPanelOpen = activeMenuItem !== null;
+  const fittedDocsRef = useRef(new Set());
 
   const isAuthorized = !!user && !authError;
   const { documentTree, loading: documentsLoading, reloadTree, error: documentError } = useDocumentTree(isAuthorized);
@@ -252,6 +253,7 @@ function EpnidSystemPage() {
 
   const handleTabClose = (docnoToClose) => {
     const next = openFiles.filter(f => f.DOCNO !== docnoToClose);
+    fittedDocsRef.current.delete(docnoToClose);
     setOpenFiles(next);
     if (activeFileId === docnoToClose) {
       setActiveFileId(next.length ? next[0].DOCNO : null);
@@ -263,6 +265,7 @@ function EpnidSystemPage() {
     setOpenFiles([]);
     setActiveFileId(null);
     setIsFileLoaded(false);
+    fittedDocsRef.current = new Set();
   }, []);
 
   const handleTabReorder = (newFiles, draggedFileId) => {
@@ -393,28 +396,28 @@ useEffect(() => {
 
 // 패널(사이드 메뉴) 열림/닫힘 로그
 useEffect(() => {
-  console.log('[Panel] isPanelOpen =', isPanelOpen, 'activeMenuItem =', activeMenuItem);
 }, [isPanelOpen, activeMenuItem]);
 
 useEffect(() => {
   if (!isFileLoaded) return;
 
-  const fit = () => {
-    console.log('[Fit] layout change -> sidebar:', isSidebarOpen, 'activeMenuItem:', activeMenuItem, 'activeFileId:', activeFileId);
+  const shouldFitForNewFile = activeFileId && !fittedDocsRef.current.has(activeFileId);
+  if (shouldFitForNewFile) {
+    fittedDocsRef.current.add(activeFileId);
+  }
+
+  const runUpdate = (doFit) => {
     triggerResize();
     const viewer = window.currentViewerInstance;
-    if (viewer) {
-      console.log('[Fit] running zoomExtents + update');
-      viewer.zoomExtents?.();
-      viewer.update?.();
-    } else {
-      console.log('[Fit] viewer not ready, zoomExtents skipped');
-    }
+    if (!viewer) return;
+    const viewerDocno = window.currentViewerDocno;
+    if (!viewerDocno || viewerDocno !== activeFileId) return; // 활성 탭 뷰어가 아닐 경우 건너뜀
+    if (doFit) viewer.zoomExtents?.();
+    viewer.update?.();
   };
 
-  fit();
-  return undefined;
-}, [isSidebarOpen, activeMenuItem, isPanelMaximized, activeFileId, isFileLoaded]);
+  runUpdate(shouldFitForNewFile);
+}, [isFileLoaded, activeFileId]);
 
 useEffect(() => {
   return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);

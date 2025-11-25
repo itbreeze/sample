@@ -223,6 +223,7 @@ const ViewerContainer = ({
                     </div>
                     <Canvas
                       filePath={file.tmpFile}
+                      docno={file.DOCNO}
                       isActive={file.DOCNO === activeFileId}
                       key={`${file.DOCNO}-${file.tmpFile}`}
                     />

@@ -14,11 +14,6 @@ function Sidebar({
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
-  // 사이드바 열린/닫힘 상태 로깅
-  React.useEffect(() => {
-    console.log('[Sidebar] isOpen =', isOpen);
-  }, [isOpen]);
-
   // 비활성화할 메뉴 아이템 ID 목록
   const disabledMenuItems = ['equipments', 'pipeLayers', 'layers'];
 
