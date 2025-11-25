@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require("express");
 const router = express.Router();
 const oracleClient = require('../utils/dataBase/oracleClient');
@@ -6,36 +5,7 @@ const path = require("path");
 const fs = require("fs").promises; // fs.promises 사용
 const { exec } = require('child_process'); // exec 사용
 
-const usePlantScopeFilter =
-  String(process.env.USE_PLANT_SCOPE_FILTER || 'false').toLowerCase() === 'true';
-
-const normalizePlantCode = (value) =>
-  typeof value === 'string' ? value.trim() : '';
-
-const extractPlantCode = (req) =>
-  normalizePlantCode(
-    (req.headers && req.headers['x-plant-code']) ||
-      (req.body && req.body.plantCode) ||
-      (req.query && req.query.plantCode) ||
-      ''
-  );
-
-const buildPlantFilter = (req, columnAlias = '') => {
-  const plantCode = extractPlantCode(req);
-  const shouldFilter =
-    usePlantScopeFilter && plantCode && plantCode !== '0001';
-
-  if (!shouldFilter) {
-    return { clause: '', binds: {}, shouldFilter: false };
-  }
-
-  const column = columnAlias ? `${columnAlias}.PLANTCODE` : 'PLANTCODE';
-  return {
-    clause: ` AND ${column} = :plantCode`,
-    binds: { plantCode },
-    shouldFilter: true,
-  };
-};
+const { buildPlantFilter } = require('../utils/plantFilter');
 
 const VIEWER_FOLDER = path.resolve(process.env.VIEWER_DOC_FOLDER);
 const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);

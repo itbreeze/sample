@@ -1,7 +1,5 @@
 const { executeQuery } = require('../utils/dataBase/oracleClient');
-
-const usePlantScopeFilter =
-  String(process.env.USE_PLANT_SCOPE_FILTER || 'false').toLowerCase() === 'true';
+const { usePlantScopeFilter } = require('../utils/plantFilter');
 
 const DEPT_TO_PLANT = {
   '3200': '5800',

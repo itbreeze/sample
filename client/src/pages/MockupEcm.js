@@ -28,7 +28,7 @@ function MockUpECM() {
     const authLabel = authId ? `${authName} (${authId})` : authName;
 
     const text = [
-      '✔ 사용자 검증 완료',
+      '✅ 사용자 검증 완료',
       '',
       `아이디: ${id}`,
       name ? `이름: ${name}` : '',

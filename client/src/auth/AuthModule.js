@@ -31,8 +31,6 @@ export async function checkUser(userId) {
   }
 }
 
-export default { checkUser };
-
 export async function getAuthConfig() {
   try {
     const res = await api.get('/api/auth/config');
