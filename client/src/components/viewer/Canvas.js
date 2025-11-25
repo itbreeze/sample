@@ -18,6 +18,62 @@ import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
 import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
+const toRgbColor = (colorArr) => {
+    if (!Array.isArray(colorArr) || colorArr.length < 3) return null;
+    const [r, g, b] = colorArr;
+    if ([r, g, b].some((value) => typeof value !== 'number')) return null;
+    return { r, g, b };
+};
+
+const extractRgbFromColorDef = (colorDef, { allowInherited = true } = {}) => {
+    if (!colorDef || typeof colorDef.getColor !== 'function') return null;
+    if (
+        !allowInherited &&
+        typeof colorDef.getInheritedColor === 'function' &&
+        colorDef.getInheritedColor() === 0
+    ) {
+        return null;
+    }
+    return toRgbColor(colorDef.getColor?.());
+};
+
+const resolveEntityColorDetails = (lib, entityId) => {
+    if (!lib || !entityId || typeof entityId.getType !== 'function') {
+        return { objectColor: null, layerColor: null };
+    }
+
+    try {
+        const t = entityId.getType?.();
+        if (t === 1) {
+            const obj = entityId.openObject?.();
+            if (!obj) return { objectColor: null, layerColor: null };
+
+            const objectColor = extractRgbFromColorDef(obj.getColor?.(lib.GeometryTypes.kAll), {
+                allowInherited: false,
+            });
+            const layerObj = obj.getLayer?.(lib.GeometryTypes.kAll)?.openObject?.();
+            const layerColor = extractRgbFromColorDef(layerObj?.getColor?.());
+            return { objectColor, layerColor };
+        }
+
+        if (t === 2) {
+            const insertObj = entityId.openObjectAsInsert?.();
+            if (!insertObj) return { objectColor: null, layerColor: null };
+
+            const objectColor = extractRgbFromColorDef(insertObj.getColor?.(), {
+                allowInherited: false,
+            });
+            const layerObj = insertObj.getLayer?.()?.openObject?.();
+            const layerColor = extractRgbFromColorDef(layerObj?.getColor?.());
+            return { objectColor, layerColor };
+        }
+    } catch (error) {
+        console.warn('[resolveEntityColorDetails]', error);
+    }
+
+    return { objectColor: null, layerColor: null };
+};
+
 const Canvas = ({ filePath, isActive }) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
@@ -88,6 +144,27 @@ const Canvas = ({ filePath, isActive }) => {
                 additive
             );
 
+            const buildEntityList = (handleList) =>
+                (handleList || []).map((handle) => {
+                    const info = entityDataMapRef.current.get(String(handle));
+                    const colorDetails =
+                        info?.entityId && lib
+                            ? resolveEntityColorDetails(lib, info.entityId)
+                            : { objectColor: null, layerColor: null };
+                    const highlightColor =
+                        colorDetails.objectColor ?? colorDetails.layerColor ?? info?.originalColor ?? 7;
+
+                    return {
+                        handle,
+                        type: info?.type ?? 'UNKNOWN',
+                        layer: info?.layer ?? '',
+                        color: highlightColor,
+                        objectColor: colorDetails.objectColor,
+                        layerColor: colorDetails.layerColor,
+                        entityId: info?.entityId,
+                    };
+                });
+
             // additive 모드 (Ctrl/Shift): Windows 바탕화면 스타일 (토글)
             if (additive) {
                 if (!handles || handles.length === 0) {
@@ -116,15 +193,7 @@ const Canvas = ({ filePath, isActive }) => {
 
                 setSelectedHandles(effectiveHandles);
 
-                const nextEntities = effectiveHandles.map((h) => {
-                    const info = entityDataMapRef.current.get(String(h));
-                    return {
-                        handle: h,
-                        type: info?.type ?? 'UNKNOWN',
-                        layer: info?.layer ?? '',
-                        color: info?.originalColor ?? 7,
-                    };
-                });
+                const nextEntities = buildEntityList(effectiveHandles);
 
                 setEntities(nextEntities);
                 if (nextEntities.length > 0) {
@@ -149,16 +218,7 @@ const Canvas = ({ filePath, isActive }) => {
             const effectiveHandles = Array.from(new Set(handles));
             setSelectedHandles(effectiveHandles);
 
-            const nextEntities = effectiveHandles.map((h) => {
-                const info = entityDataMapRef.current.get(String(h));
-                return {
-                    handle: h,
-                    type: info?.type ?? 'UNKNOWN',
-                    layer: info?.layer ?? '',
-                    color: info?.originalColor ?? 7,
-                    entityId: info?.entityId,
-                };
-            });
+            const nextEntities = buildEntityList(effectiveHandles);
 
             setEntities(nextEntities);
             setShowPanel(true);

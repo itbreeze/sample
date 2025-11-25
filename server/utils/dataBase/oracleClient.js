@@ -1,23 +1,27 @@
 const oracledb = require("oracledb");
 
-const env = process.env.NODE_ENV || 'development';
+const appEnv = process.env.APP_ENV || process.env.NODE_ENV || 'development';
 let dbConfigStr;
 
-switch (env) {
+switch (appEnv) {
+  case 'dev':
   case 'development':
     dbConfigStr = process.env.DEV_DB_CFG;
     break;
   case 'kospo':
     dbConfigStr = process.env.KOSPO_DB_CFG;
     break;
+  case 'khnp':
+    dbConfigStr = process.env.KHNP_DB_CFG;
+    break;
   default:
-    console.warn(`[DB] NODE_ENV "${env}"에 대한 설정 없음. 'development' 설정 사용.`);
+    console.warn(`[DB] APP_ENV "${appEnv}"에 대한 설정 없음. 'dev' 설정 사용.`);
     dbConfigStr = process.env.DEV_DB_CFG;
     break;
 }
 
 if (!dbConfigStr) {
-  console.error(`'${env}' 환경의 DB 설정이 .env 파일에 없습니다.`);
+  console.error(`'${appEnv}' 환경의 DB 설정이 .env 파일에 없습니다.`);
   process.exit(1);
 }
 
@@ -64,7 +68,7 @@ async function initPool() {
     });
     
     poolInitialized = true;
-    console.log(`Oracle DB Connection Pool created for ${env} environment.`);
+    console.log(`Oracle DB Connection Pool created for ${appEnv} environment.`);
   } catch (err) {
     console.error("Oracle DB Pool 초기화 실패:", err);
     throw err;

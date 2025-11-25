@@ -1,9 +1,40 @@
 // server/routes/search.js
 const express = require('express');
 const router = express.Router();
-const dbClient = require('../utils/dataBase/dbClient');
+const oracleClient = require('../utils/dataBase/oracleClient');
 
-const buildDocInnerQuery = () => `
+const usePlantScopeFilter =
+  String(process.env.USE_PLANT_SCOPE_FILTER || 'false').toLowerCase() === 'true';
+
+const normalizePlantCode = (value) =>
+  typeof value === 'string' ? value.trim() : '';
+
+const extractPlantCode = (req) =>
+  normalizePlantCode(
+    (req.headers && req.headers['x-plant-code']) ||
+      (req.body && req.body.plantCode) ||
+      (req.query && req.query.plantCode) ||
+      ''
+  );
+
+const buildPlantFilter = (req, columnAlias = 'D') => {
+  const plantCode = extractPlantCode(req);
+  const shouldFilter =
+    usePlantScopeFilter && plantCode && plantCode !== '0001';
+
+  if (!shouldFilter) {
+    return { clause: '', binds: {}, shouldFilter: false };
+  }
+
+  const column = columnAlias ? `${columnAlias}.PLANTCODE` : 'PLANTCODE';
+  return {
+    clause: ` AND ${column} = :plantCode`,
+    binds: { plantCode },
+    shouldFilter: true,
+  };
+};
+
+const buildDocInnerQuery = (plantClause = '') => `
     SELECT 
       'DOC' AS KEY,
       S.PLANTNM,
@@ -38,11 +69,14 @@ const buildDocInnerQuery = () => `
     WHERE F.APP_GUBUN = '001'
       AND D.CURRENT_YN = '001'
       AND S.FOLDER_TYPE = '003'
+      ${plantClause}
   `;
 
 // GET /api/search/levels
 router.get("/levels", async (req, res) => {
   try {
+    const { clause: plantClause, binds: plantBinds } = buildPlantFilter(req, '');
+
     const sql = `
       WITH RECURSIVE_TREE (ID, PARENTID, NAME, LVL, ORDER_SEQ, PLANTCODE) AS (
         -- 최상위 폴더
@@ -70,11 +104,11 @@ router.get("/levels", async (req, res) => {
       )
       SELECT LVL AS LEV, ID, PARENTID, NAME, PLANTCODE, ORDER_SEQ
       FROM RECURSIVE_TREE
-      WHERE LVL > 0
+      WHERE LVL > 0${plantClause}
       ORDER BY PLANTCODE
     `;
 
-    const result = await dbClient.executeQuery(sql);
+    const result = await oracleClient.executeQuery(sql, plantBinds);
 
     const levelData = result.map(row => ({
       LEV: row.LEV,
@@ -110,18 +144,22 @@ router.post('/', async (req, res) => {
   }
 
   let sql = '';
-  const binds = [];
+  let binds = {};
 
   console.log(`[API] 검색 요청 수신: 유형='${searchType}', 검색어='${terms.join(', ')}'`);
 
+  const { clause: plantClause, binds: plantBinds } = buildPlantFilter(req, 'D');
+
   if (searchType === '도면') {
-    const whereClauses = terms.map(() => `UPPER(FULL_INFO) LIKE UPPER(:bv)`);
-    terms.forEach(term => {
-      binds.push(`%${term}%`);
+    const whereClauses = terms.map((term, idx) => {
+      const key = `bv${idx}`;
+      binds[key] = `%${term}%`;
+      return `UPPER(FULL_INFO) LIKE UPPER(:${key})`;
     });
 
     const whereCondition = whereClauses.join(' AND ');
-    const innerQuery = buildDocInnerQuery();
+    const innerQuery = buildDocInnerQuery(plantClause);
+    binds = { ...binds, ...plantBinds };
 
     sql = `
       SELECT * FROM (
@@ -132,13 +170,16 @@ router.post('/', async (req, res) => {
     `;
 
   } else if (searchType === '설비번호') {
-    const whereClauses = terms.map(() => `(UPPER(T.FUNCTION) LIKE UPPER(:bv) OR UPPER(M.EQUIPMENT) LIKE UPPER(:bv))`);
-    terms.forEach(term => {
-      binds.push(`%${term}%`);
-      binds.push(`%${term}%`);
+    const whereClauses = terms.map((term, idx) => {
+      const fnKey = `fn_${idx}`;
+      const eqKey = `eq_${idx}`;
+      binds[fnKey] = `%${term}%`;
+      binds[eqKey] = `%${term}%`;
+      return `(UPPER(T.FUNCTION) LIKE UPPER(:${fnKey}) OR UPPER(M.EQUIPMENT) LIKE UPPER(:${eqKey}))`;
     });
 
     const whereCondition = whereClauses.join(' AND ');
+    binds = { ...binds, ...plantBinds };
 
     sql = `
       SELECT * FROM (
@@ -151,7 +192,7 @@ router.post('/', async (req, res) => {
                            AND T.DOCVR = D.DOCVR
         WHERE M.GUBUN IS NOT NULL
           AND D.CURRENT_YN = '001'
-          AND T.TAG_TYPE <> '002'
+          AND T.TAG_TYPE <> '002'${plantClause}
           AND ${whereCondition}
       )
       WHERE ROWNUM <= 100
@@ -162,7 +203,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const results = await dbClient.executeQuery(sql, binds);
+    const results = await oracleClient.executeQuery(sql, binds);
     res.status(200).json(results);
   } catch (err) {
     console.error("검색 API 오류:", err);
@@ -176,7 +217,8 @@ router.post('/advanced', async (req, res) => {
 
   console.log('[SERVER] 상세 검색 요청 받음:', { leafNodeIds, drawingNumber, drawingName, additionalConditions });
 
-  const innerQuery = buildDocInnerQuery();
+  const { clause: plantClause, binds: plantBinds } = buildPlantFilter(req, 'D');
+  const innerQuery = buildDocInnerQuery(plantClause);
 
   let sql = `
     SELECT *
@@ -184,9 +226,9 @@ router.post('/advanced', async (req, res) => {
     WHERE 1 = 1
   `;
 
-  const binds = {};
+  const binds = { ...plantBinds };
 
-  // 1. FOLID ���� ó�� (leafNodeIds �迭/���ڿ�)
+  // 1. FOLID 필터 처리 (leafNodeIds 배열/문자열)
   if (leafNodeIds && leafNodeIds !== 'ALL') {
     if (Array.isArray(leafNodeIds) && leafNodeIds.length > 0) {
       const placeholders = leafNodeIds.map((_, idx) => ':folid_' + idx).join(', ');
@@ -194,21 +236,21 @@ router.post('/advanced', async (req, res) => {
       leafNodeIds.forEach((id, idx) => {
         binds['folid_' + idx] = id;
       });
-      console.log('[SERVER] �迭 ���� FOLID �Ķ���� Ȱ��:', leafNodeIds);
+      console.log('[SERVER] 배열 방식 FOLID 파라미터 적용:', leafNodeIds);
     } else if (typeof leafNodeIds === 'string') {
       sql += ' AND base.FOLID = :folid_single';
       binds.folid_single = leafNodeIds;
-      console.log('[SERVER] ���ڿ� ���� FOLID �Ķ���� Ȱ��:', leafNodeIds);
+      console.log('[SERVER] 문자열 방식 FOLID 파라미터 적용:', leafNodeIds);
     }
   }
 
-  // 2. �����ȣ ���� �߰�
+  // 2. 도면번호 조건 추가
   if (drawingNumber) {
     sql += " AND UPPER(base.DOCNUMBER) LIKE '%' || UPPER(:drawingNumber) || '%'";
     binds.drawingNumber = drawingNumber;
   }
 
-  // 3. ����� ���� (FULL_INFO ����)
+  // 3. 도면명 조건 (DOCNM 기준)
   if (drawingName) {
     const nameTerms = drawingName.split(/\s+/).map(t => t.trim()).filter(Boolean);
     nameTerms.forEach((term, idx) => {
@@ -218,7 +260,7 @@ router.post('/advanced', async (req, res) => {
     });
   }
 
-  // 4. AND/OR/���� ���� ó��
+  // 4. AND/OR/제외 조건 처리
   if (additionalConditions && additionalConditions.length > 0) {
     const filteredConditions = additionalConditions.filter(c => c.term && c.term.trim() !== '');
     if (filteredConditions.length > 0) {
@@ -255,7 +297,7 @@ router.post('/advanced', async (req, res) => {
   console.log('[SERVER] 바인드 변수:', binds);
 
   try {
-    const results = await dbClient.executeQuery(sql, binds);
+    const results = await oracleClient.executeQuery(sql, binds);
     console.log(`[SERVER] 검색 결과: ${results.length}개`);
     res.status(200).json(results);
   } catch (err) {

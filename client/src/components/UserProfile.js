@@ -22,8 +22,7 @@ const UserProfile = ({ user, isOpen }) => {
 
       {/* 사용자 상세 정보 (확장 시 표시) */}
       <div className="user-info">
-        <span className="user-name">안녕하세요. {user.userName}님</span>
-        <span className="user-position">{user.department}/{user.positionName}</span>
+        <span className="user-name">안녕하세요. {user.userName} 님</span>
       </div>
     </div>
   );

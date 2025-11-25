@@ -1,11 +1,11 @@
-require('dotenv').config();
+const path = require('path');
+const envPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: envPath });
 const express = require('express');
 const cors = require('cors'); 
 const cookieParser = require('cookie-parser');
-const path = require('path');
 
-const { identifyUser } = require('./middleware/auth');
-const userRoutes = require('./routes/users');
+const authRoutes = require('./routes/authRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const searchRoutes = require('./routes/search');
 
@@ -35,8 +35,7 @@ app.use(
   express.static(path.join(__dirname, 'viewer_doc')) 
 );
 
-app.use('/api', identifyUser);
-app.use('/api/users', userRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes); 
 app.use('/api/search', searchRoutes);
 

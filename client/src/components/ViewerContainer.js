@@ -5,7 +5,6 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './ViewerContainer.css';
 import TabListModal from './TabListModal';
 import Canvas from './viewer/Canvas';
-import TestCanvas from './viewer/testCanvas';
 
 
 const MAX_VISIBLE_TABS = 5;
@@ -183,18 +182,12 @@ const ViewerContainer = ({
                           {selectionInfo.mode && ` (${selectionInfo.mode === 'window' ? 'Window' : 'Crossing'})`}
                         </div>
                       )}
-                    </div>
-                    {/* 임시로 testCanvas를 사용 */}
+                    </div>                    
                     <Canvas
                       filePath={file.tmpFile}
                       isActive={file.DOCNO === activeFileId}
                       key={`${file.DOCNO}-${file.tmpFile}`}
                     />
-                    {/* <TestCanvas
-                      filePath={file.tmpFile}
-                      isActive={file.DOCNO === activeFileId}
-                      key={`${file.DOCNO}-${file.tmpFile}`}
-                    /> */}
                   </div>
                 );
               })}

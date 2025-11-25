@@ -4,6 +4,7 @@ import './SearchResultList.css';
 import TreeComboBox from '../common/TreeComboBox';
 import { transformToTreeData, formatLevelDataForTree } from '../utils/dataUtils';
 import { highlightText } from './highlightText';
+import { fetchSearchLevels, advancedSearch } from '../../services/search';
 
 /** 🔹 리프(말단) 노드의 ID만 수집 */
 const collectLeafNodeIds = (node) => {
@@ -135,21 +136,15 @@ const SearchResultList = ({
     console.log('[SearchResultList] 검색 실행:', payload);
 
     try {
-      const response = await fetch("http://localhost:4001/api/search/advanced", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error('검색 요청에 실패했습니다.');
-      const resultsData = await response.json();
-      
+      const resultsData = await advancedSearch(payload);
+
       if (onResultsChange) {
         onResultsChange(resultsData);
       }
-      
+
       console.log('[SearchResultList] 검색 결과:', resultsData.length, '건');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || '검색 요청에 실패했습니다.');
       if (onResultsChange) {
         onResultsChange([]);
       }
@@ -163,9 +158,7 @@ const SearchResultList = ({
     const fetchLevels = async () => {
       try {
         setLevelsLoading(true);
-        const response = await fetch("http://localhost:4001/api/search/levels");
-        if (!response.ok) throw new Error('레벨 데이터를 불러오는데 실패했습니다.');
-        const data = await response.json();
+        const data = await fetchSearchLevels();
 
         if (data) {
           const formattedData = formatLevelDataForTree(data);

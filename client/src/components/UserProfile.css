@@ -6,6 +6,7 @@
   border-top: 1px solid var(--border-color);
   overflow: hidden;
   box-sizing: border-box;
+  gap: 10px;
 }
 
 .user-profile-container.open {
@@ -16,8 +17,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 60px;
   flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  margin-left: 10px;
 }
 
 .user-info {
@@ -39,9 +44,4 @@
   font-size: var(--font-size-base);
   font-weight: 600;
   color: #343a40;
-}
-
-.user-position {
-  font-size: 12px;
-  color: var(--text-color-secondary);
 }

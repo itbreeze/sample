@@ -8,6 +8,7 @@ export const MIN_WIDTH = 600;
 export const MIN_HEIGHT = 400;
 const MAX_WIDTH_MARGIN = 40;
 const MAX_HEIGHT_MARGIN = 80;
+const INDICATOR_SIZE = 12;
 
 const computeBottomRightPos = (width, height) => {
   if (typeof window === 'undefined') {
@@ -82,6 +83,102 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
               : ent?.type || 'UNKNOWN';
           return t === selectedType;
         });
+
+  const renderColorSwatch = (color, label) => {
+    const isRgb =
+      color &&
+      typeof color === 'object' &&
+      typeof color.r === 'number' &&
+      typeof color.g === 'number' &&
+      typeof color.b === 'number';
+    const stringColor = typeof color === 'string' && color.trim().length > 0 ? color.trim() : null;
+    const swatchColor = isRgb ? `rgb(${color.r},${color.g},${color.b})` : stringColor || '#e2e8f0';
+    const labelText = isRgb
+      ? `${color.r}, ${color.g}, ${color.b}`
+      : stringColor
+      ? stringColor
+      : '정보 없음';
+    const title = label ? `${label} ${labelText}` : labelText;
+    const borderColor = isRgb ? 'rgba(15, 23, 42, 0.3)' : 'rgba(148, 163, 184, 0.5)';
+
+    if (labelText === '정보 없음') {
+      console.log('EntityPanel color missing', { label, color });
+    }
+
+    return {
+      swatchColor,
+      labelText,
+      title,
+      borderColor,
+    };
+  };
+
+  const renderColorCell = (color, label, { borderRight = null } = {}) => {
+    const { swatchColor, labelText, title, borderColor } = renderColorSwatch(color, label);
+
+    return (
+      <td
+        style={{
+          padding: '5px 8px',
+          textAlign: 'left',
+          verticalAlign: 'middle',
+          borderRight: borderRight || undefined,
+        }}
+        title={title}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                width: INDICATOR_SIZE,
+                height: INDICATOR_SIZE,
+                minWidth: INDICATOR_SIZE,
+                minHeight: INDICATOR_SIZE,
+                background: swatchColor,
+                border: `1px solid ${borderColor}`,
+                borderRadius: 2,
+                flexShrink: 0,
+                flexGrow: 0,
+                boxSizing: 'border-box',
+              }}
+            />
+            <span style={{ fontSize: 12, color: '#0f172a' }}>
+              {labelText}
+            </span>
+          </div>
+        </td>
+      );
+    };
+
+  const renderLayerIndicator = (color) => {
+    const { swatchColor, title } = renderColorSwatch(color, '도면층 색상');
+
+    return (
+      <span
+        style={{
+          width: INDICATOR_SIZE,
+          height: INDICATOR_SIZE,
+          minWidth: INDICATOR_SIZE,
+          minHeight: INDICATOR_SIZE,
+          boxSizing: 'border-box',
+          borderRadius: 2,
+          border: '1px solid rgba(15, 23, 42, 0.2)',
+          background: swatchColor,
+          display: 'inline-flex',
+          flexShrink: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title={title}
+      />
+    );
+  };
 
   // 엔티티 집합이 바뀌었을 때, selectedType 보정
   useEffect(() => {
@@ -419,20 +516,24 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                           style={{
                             padding: '6px 8px',
                             textAlign: 'left',
-                            width: 50,
+                            verticalAlign: 'middle',
+                            width: 30,
                             fontWeight: 600,
                             color: '#475569',
+                            borderRight: '1px solid rgba(203, 213, 225, 0.6)',
                           }}
                         >
-                          번호
-                        </th>
+                            번호
+                          </th>
                         <th
                           style={{
                             padding: '6px 8px',
                             textAlign: 'left',
-                            width: 90,
+                            verticalAlign: 'middle',
+                            width: 80,
                             fontWeight: 600,
                             color: '#475569',
+                            borderRight: '1px solid rgba(203, 213, 225, 0.6)',
                           }}
                         >
                           요소명
@@ -441,8 +542,11 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                           style={{
                             padding: '6px 8px',
                             textAlign: 'left',
+                            verticalAlign: 'middle',
+                            width: 60,
                             fontWeight: 600,
                             color: '#475569',
+                            borderRight: '1px solid rgba(203, 213, 225, 0.6)',
                           }}
                         >
                           핸들
@@ -451,40 +555,45 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                           style={{
                             padding: '6px 8px',
                             textAlign: 'left',
-                            width: 100,
+                            verticalAlign: 'middle',
+                            width: 120,
                             fontWeight: 600,
                             color: '#475569',
+                            borderRight: '1px solid rgba(203, 213, 225, 0.6)',
                           }}
                         >
-                          레이어
+                          도면층
                         </th>
                         <th
                           style={{
                             padding: '6px 8px',
-                            textAlign: 'center',
-                            width: 70,
+                            textAlign: 'left',
+                            verticalAlign: 'middle',
+                            width: 100,
+                            fontWeight: 600,
+                            color: '#475569',
+                            borderRight: '1px solid rgba(203, 213, 225, 0.6)',
+                          }}
+                        >
+                          색상
+                        </th>
+                        <th
+                          style={{
+                            padding: '6px 8px',
+                            textAlign: 'left',
+                            verticalAlign: 'middle',
+                            width: 50,
                             fontWeight: 600,
                             color: '#475569',
                           }}
                         >
-                          컬러
+                          줌
                         </th>
+
                       </tr>
                     </thead>
                     <tbody>
                       {visibleEntities.map((ent, idx) => {
-                        const color = ent.color;
-                        const isRgb =
-                          color &&
-                          typeof color === 'object' &&
-                          typeof color.r === 'number' &&
-                          typeof color.g === 'number' &&
-                          typeof color.b === 'number';
-
-                        const colorSwatch = isRgb
-                          ? `rgb(${color.r},${color.g},${color.b})`
-                          : '#ef4444';
-
                         const typeLabel =
                           ent.type === 'INSERT'
                             ? 'INSERT'
@@ -492,11 +601,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                             ? 'ENTITY'
                             : ent.type || 'UNKNOWN';
 
-                        const colorTitle = isRgb
-                          ? `RGB(${color.r}, ${color.g}, ${color.b})`
-                          : '색상 정보 없음';
-
-                        return (
+                                                return (
                           <tr
                             key={`${ent.handle}-${idx}`}
                             style={{
@@ -507,6 +612,8 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                               style={{
                                 padding: '5px 8px',
                                 color: '#64748b',
+                                borderRight: '1px solid rgba(226, 232, 240, 0.5)',
+                                verticalAlign: 'middle',
                               }}
                             >
                               {idx + 1}
@@ -519,6 +626,8 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
+                                borderRight: '1px solid rgba(226, 232, 240, 0.5)',
+                                verticalAlign: 'middle',
                               }}
                               title={typeLabel}
                             >
@@ -531,6 +640,8 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                                 wordBreak: 'break-all',
                                 color: '#111827',
                                 fontSize: 13,
+                                borderRight: '1px solid rgba(226, 232, 240, 0.5)',
+                                verticalAlign: 'middle',
                               }}
                               title={String(ent.handle || '')}
                             >
@@ -540,37 +651,35 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                               style={{
                                 padding: '5px 8px',
                                 color: '#1e293b',
+                                verticalAlign: 'middle',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
+                                borderRight: '1px solid rgba(226, 232, 240, 0.5)',
                               }}
                               title={ent.layer || ''}
                             >
-                              {ent.layer || ''}
-                            </td>
-                            <td
-                              style={{
-                                padding: '5px 8px',
-                                textAlign: 'center',
-                              }}
-                            >
                               <div
                                 style={{
-                                  width: 18,
-                                  height: 18,
-                                  margin: '0 auto',
-                                  background: colorSwatch,
-                                  border: '1px solid rgba(15, 23, 42, 0.3)',
-                                  borderRadius: 3,
-                                  boxSizing: 'border-box',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
                                 }}
-                                title={colorTitle}
-                              />
+                              >
+                                {renderLayerIndicator(ent.layerColor)}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {ent.layer || ''}
+                                </span>
+                              </div>
                             </td>
+                            {renderColorCell(ent.objectColor ?? ent.layerColor, '색상', {
+                              borderRight: '1px solid rgba(226, 232, 240, 0.5)',
+                            })}
                             <td
                               style={{
                                 padding: '5px 8px',
                                 textAlign: 'center',
+                                verticalAlign: 'middle',
                               }}
                             >
                               <button
@@ -588,9 +697,9 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                                   fontSize: 12,
                                   cursor: 'pointer',
                                 }}
-                                title="해당 엔티티로 줌인"
+                                title="확대"
                               >
-                                줌인
+                                확대
                               </button>
                             </td>
                           </tr>

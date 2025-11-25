@@ -3,14 +3,20 @@ client/node_modules/
 server/node_modules/
 
 # 빌드/배포용 정적 파일
-client/public
+client/public/
 
 # 환경 설정 파일
 server/.env
+client/.env
 
 # 바이너리/유틸/도면 파일
 server/utils/fileConverter/
 server/viewer_doc/
 
+# 패키지 lock 파일 제외
 server/package-lock.json
 client/package-lock.json
+
+# 특정 확장자 무시
+*.txt
+*.zip

@@ -1,20 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
-import './IntelligentToolPage.css';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import './EpnidSystemPage.css';
 import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText, History } from 'lucide-react';
 
-import Header from './Header';
-import Sidebar from './Sidebar';
-import MainView from './MainView';
-import { Panel } from './utils/Panel';
-import DrawingList from './DrawingList';
-import ResizablePanel from './ResizablePanel';
-import { useDocumentTree } from './hooks/useDocumentTree';
-import { useDocumentLoader } from './hooks/useDocumentLoader';
-import SearchResultList from './Search/SearchResultList';
-
-axios.defaults.baseURL = 'http://localhost:4001';
-axios.defaults.withCredentials = true;
+import Header from '../components/Header';
+import Sidebar from '../components/Sidebar';
+import MainView from '../components/MainView';
+import { Panel } from '../components/utils/Panel';
+import DrawingList from '../components/DrawingList';
+import ResizablePanel from '../components/ResizablePanel';
+import { useDocumentTree } from '../components/hooks/useDocumentTree';
+import { useDocumentLoader } from '../components/hooks/useDocumentLoader';
+import SearchResultList from '../components/Search/SearchResultList';
+import { persistPlantContext } from '../services/api';
 
 const DEFAULT_EXPAND_LEVEL = 0;
 
@@ -51,36 +48,36 @@ const triggerResize = () => {
 const tabItems = [
   { id: 'drawing', label: 'P&ID' },
   { id: 'pld', label: 'PLD' },
-  { id: 'intelligent', label: '지능화' },
-  { id: 'inherit', label: '지능화 승계' },
+  { id: 'intelligent', label: '지능화', requiresAuth: true },
+  { id: 'inherit', label: '지능화 승계', requiresAuth: true },
 ];
 
 const sidebarMenus = {
   drawing: [
-    { id: 'search', icon: <Search size={20} />, label: '상세검색' },
+    { id: 'search', icon: <Search size={20} />, label: '도면검색' },
     { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },
-    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서' },
+    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 도면' },
     { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
     { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
-    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '유체색목록' },
-    { id: 'layers', icon: <Layers size={20} />, label: '레이어목록' },
+    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관목록' },
+    { id: 'layers', icon: <Layers size={20} />, label: '레이어' },
   ],
-  pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD Menu' }],
-  intelligent: [{ id: 'intelligent', icon: <FileText size={20} />, label: 'Sample Menu' }],
-  inherit: [{ id: 'inherit', icon: <FileText size={20} />, label: 'Sample Menu' }],
+  pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD 메뉴' }],
+  intelligent: [{ id: 'intelligent', icon: <FileText size={20} />, label: '샘플 메뉴' }],
+  inherit: [{ id: 'inherit', icon: <FileText size={20} />, label: '샘플 메뉴' }],
 };
 
 const NotImplemented = () => (
-  <div style={{ padding: '20px', textAlign: 'center' }}>준비 중인 기능입니다.</div>
+  <div style={{ padding: '20px', textAlign: 'center' }}>해당 기능은 아직 준비되지 않았습니다.</div>
 );
 
 const equipmentTabs = [
   { id: 'equipmentList', label: '설비목록', content: () => <NotImplemented /> },
-  { id: 'searchEquipment', label: '설비상세검색', content: () => <NotImplemented /> },
+  { id: 'searchEquipment', label: '설비 상세검색', content: () => <NotImplemented /> },
 ];
 
-function IntelligentToolPage() {
-  const { documentTree, loading: documentsLoading } = useDocumentTree();
+function EpnidSystemPage() {
+  const { documentTree, loading: documentsLoading, reloadTree } = useDocumentTree();
   const { isLoading: isDocumentLoading, loadDocument } = useDocumentLoader();
 
   const [loading, setLoading] = useState(true);
@@ -101,7 +98,6 @@ function IntelligentToolPage() {
   const [activeSearchTab, setActiveSearchTab] = useState('documentList');
   const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
   
-  // 🔹 도면상세검색 탭의 검색 조건 및 결과 상태 (탭 전환해도 유지)
   const [advancedSearchConditions, setAdvancedSearchConditions] = useState({
     leafNodeIds: 'ALL',
     drawingNumber: '',
@@ -113,8 +109,19 @@ function IntelligentToolPage() {
   const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
   const [advancedSearchHighlight, setAdvancedSearchHighlight] = useState('');
   
-  // 🔹 SearchBar 미리보기 결과 건수 (상세내역보기 버튼용)
   const [previewResultCount, setPreviewResultCount] = useState(0);
+
+  const limitedAuth =
+    !user || !user.sAuthId || String(user.sAuthId).trim().toUpperCase() === 'A003';
+  const filteredTabItems = limitedAuth
+    ? tabItems.filter(t => !t.requiresAuth)
+    : tabItems;
+
+  useEffect(() => {
+    if (limitedAuth && filteredTabItems.every(t => t.id !== activeTab)) {
+      setActiveTab(filteredTabItems[0]?.id || tabItems[0].id);
+    }
+  }, [limitedAuth, activeTab]);
 
   const handleMenuClick = (menuId) => {
     setActiveMenuItem(menuId);
@@ -181,9 +188,7 @@ function IntelligentToolPage() {
     [loadDocument]
   );
 
-  // 🔹 SearchBar의 "상세내역보기" 클릭 시 처리
   const handleViewAllSearch = useCallback((searchTerm) => {
-    // 검색어를 공백 기준으로 분리하여 additionalConditions 생성
     const terms = searchTerm.trim().split(/\s+/).filter(Boolean);
     const conditions = terms.map((term, idx) => ({
       id: idx + 1,
@@ -191,9 +196,6 @@ function IntelligentToolPage() {
       operator: 'AND'
     }));
 
-    console.log('[IntelligentToolPage] 상세내역보기 클릭:', { searchTerm, conditions });
-
-    // 검색 조건 설정 (검색은 SearchResultList에서 자동 실행)
     setAdvancedSearchConditions({
       leafNodeIds: 'ALL',
       drawingNumber: '',
@@ -203,7 +205,6 @@ function IntelligentToolPage() {
       infoNode: null
     });
 
-    // 사이드바 열기 + search 메뉴 활성화 + 도면상세검색 탭으로 이동
     setIsSidebarOpen(true);
     setActiveMenuItem('search');
     setIsPanelMaximized(true);
@@ -241,7 +242,6 @@ function IntelligentToolPage() {
     });
   };
 
-  // 트리 모두 접기 → 기본 확장 레벨로 복원
   const handleCollapseAll = useCallback(() => {
     if (documentTree && documentTree.length) {
       const defaults = collectIdsToLevel(documentTree, DEFAULT_EXPAND_LEVEL);
@@ -252,19 +252,47 @@ function IntelligentToolPage() {
   }, [documentTree]);
 
   useEffect(() => {
-    const checkUserAccess = async () => {
+    const parseWindowPayload = () => {
+      if (!window.name) return null;
       try {
-        const res = await axios.get('/api/users/profile');
-        setUser(res.data);
+        const parsed = JSON.parse(window.name);
+        if (parsed && parsed.userId) {
+          console.log('ECM 인증 payload 확인:', parsed);
+          return parsed;
+        }
       } catch (err) {
-        alert(err.response?.data?.message || '접근 권한이 없습니다.');
-        window.close();
-      } finally {
-        setLoading(false);
+        console.warn('window.name payload 파싱 실패:', err);
       }
+      return null;
     };
-    checkUserAccess();
-  }, []);
+
+    const ecmPayload = parseWindowPayload();
+    if (ecmPayload) {
+      const nextUser = {
+        userId: ecmPayload.userId,
+        userName: ecmPayload.name || '',
+        positionName: ecmPayload.authName || '',
+        department: ecmPayload.deptName || '',
+        departCode: ecmPayload.deptCode || '',
+        plantCode: ecmPayload.plantCode || '',
+        sAuthId: ecmPayload.sAuthId || '',
+        endDate: ecmPayload.endDate || '',
+        plantScopeFilter: ecmPayload.plantScopeFilter,
+      };
+
+      setUser(nextUser);
+      persistPlantContext({
+        plantCode: nextUser.plantCode,
+        plantScopeFilter: nextUser.plantScopeFilter,
+      });
+      reloadTree();
+      setLoading(false);
+      return;
+    }
+
+    persistPlantContext(null);
+    setLoading(false);
+  }, [reloadTree]);
 
   useEffect(() => {
     setActiveMenuItem(null);
@@ -299,7 +327,7 @@ function IntelligentToolPage() {
     return (
       <div className="loading-container">
         <div className="spinner" />
-        <p>사용자 권한을 확인 중입니다...</p>
+        <p>사용자 정보를 확인 중입니다...</p>
       </div>
     );
   }
@@ -307,7 +335,7 @@ function IntelligentToolPage() {
   const searchTabs = [
     {
       id: 'documentList',
-      label: '전체도면목록',
+      label: '전체 도면 목록',
       content: (filter) => (
         <DrawingList
           filter={filter}
@@ -322,7 +350,7 @@ function IntelligentToolPage() {
     },
     {
       id: 'searchDrawing',
-      label: '도면상세검색',
+      label: '도면 상세검색',
       content: () => (
         <SearchResultList
           conditions={advancedSearchConditions}
@@ -335,7 +363,7 @@ function IntelligentToolPage() {
         />
       ),
     },
-    { id: 'searchEquipment', label: '설비상세검색', content: () => <NotImplemented /> },
+    { id: 'searchEquipment', label: '설비 상세검색', content: () => <NotImplemented /> },
   ];
 
   const PANEL_CONFIG = {
@@ -368,7 +396,7 @@ function IntelligentToolPage() {
     <div className="tool-page-layout">
       <Header
         user={user}
-        tabItems={tabItems}
+        tabItems={filteredTabItems}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogoClick={handleLogoClick}
@@ -416,4 +444,4 @@ function IntelligentToolPage() {
   );
 }
 
-export default IntelligentToolPage;
+export default EpnidSystemPage;
