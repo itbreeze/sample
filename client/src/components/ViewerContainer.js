@@ -254,7 +254,7 @@ const ViewerContainer = ({
           onClick={(e) => e.stopPropagation()}
         >
           <button type="button" onClick={handleCloseCurrent}>현재 도면 닫기</button>
-          <button type="button" onClick={handleCloseAll}>활성화된 모든 도면 닫기</button>
+          <button type="button" onClick={handleCloseAll}>모든 도면 닫기</button>
         </div>
       )}
       {contextMenu.visible && contextMenu.target === 'more' && (

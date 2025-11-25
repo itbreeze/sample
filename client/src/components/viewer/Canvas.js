@@ -158,6 +158,7 @@ const Canvas = ({ filePath, isActive }) => {
     const newHeight = Math.floor(rect.height * dpr);
 
     if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
+      console.log('[Canvas] resize -> cssSize:', { width: rect.width, height: rect.height }, 'dpr:', dpr, 'canvasSize:', { newWidth, newHeight });
       canvas.width = newWidth;
       canvas.height = newHeight;
       viewer.resize?.(0, newWidth, newHeight, 0);
@@ -331,7 +332,7 @@ const Canvas = ({ filePath, isActive }) => {
     <div
       ref={containerRef}
       className="viewer-app-container"
-      style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}
     >
       <GlobalLoadingOverlay
         visible={isLoading}

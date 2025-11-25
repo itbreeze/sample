@@ -109,6 +109,7 @@ function EpnidSystemPage() {
   
   const [previewResultCount, setPreviewResultCount] = useState(0);
   const [redirectedForAuth, setRedirectedForAuth] = useState(false);
+  const isPanelOpen = activeMenuItem !== null;
 
   const isAuthorized = !!user && !authError;
   const { documentTree, loading: documentsLoading, reloadTree, error: documentError } = useDocumentTree(isAuthorized);
@@ -371,16 +372,16 @@ function EpnidSystemPage() {
     hydrateUser();
   }, [reloadTree]);
 
-  useEffect(() => {
-    setActiveMenuItem(null);
-  }, [activeTab]);
+useEffect(() => {
+  setActiveMenuItem(null);
+}, [activeTab]);
 
-  useEffect(() => {
-    if (documentTree.length && activeFileId) {
-      const path = findPathToNode(documentTree, activeFileId);
-      if (path.length) setExpandedNodes(new Set(path.slice(0, -1)));
-    }
-  }, [activeFileId, documentTree]);
+useEffect(() => {
+  if (documentTree.length && activeFileId) {
+    const path = findPathToNode(documentTree, activeFileId);
+    if (path.length) setExpandedNodes(new Set(path.slice(0, -1)));
+  }
+}, [activeFileId, documentTree]);
 
   useEffect(() => {
     if (documentTree.length && !isDefaultExpandApplied) {
@@ -390,28 +391,30 @@ function EpnidSystemPage() {
     }
   }, [documentTree, isDefaultExpandApplied]);
 
+// 패널(사이드 메뉴) 열림/닫힘 로그
+useEffect(() => {
+  console.log('[Panel] isPanelOpen =', isPanelOpen, 'activeMenuItem =', activeMenuItem);
+}, [isPanelOpen, activeMenuItem]);
+
 useEffect(() => {
   if (!isFileLoaded) return;
-  const t = setTimeout(triggerResize, 150);
-  return () => clearTimeout(t);
-}, [activeMenuItem, isFileLoaded]);
 
-  useEffect(() => {
-    if (!isFileLoaded) return;
-    const resizeTimer = setTimeout(triggerResize, 30);
-    const fitTimer = setTimeout(() => {
-      const viewer = window.currentViewerInstance;
-      if (viewer) {
-        viewer.zoomExtents?.();
-        viewer.update?.();
-      }
-    }, 140);
+  const fit = () => {
+    console.log('[Fit] layout change -> sidebar:', isSidebarOpen, 'activeMenuItem:', activeMenuItem, 'activeFileId:', activeFileId);
+    triggerResize();
+    const viewer = window.currentViewerInstance;
+    if (viewer) {
+      console.log('[Fit] running zoomExtents + update');
+      viewer.zoomExtents?.();
+      viewer.update?.();
+    } else {
+      console.log('[Fit] viewer not ready, zoomExtents skipped');
+    }
+  };
 
-    return () => {
-      clearTimeout(resizeTimer);
-      clearTimeout(fitTimer);
-    };
-  }, [isSidebarOpen, activeMenuItem, isPanelMaximized, isFileLoaded]);
+  fit();
+  return undefined;
+}, [isSidebarOpen, activeMenuItem, isPanelMaximized, activeFileId, isFileLoaded]);
 
 useEffect(() => {
   return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);
@@ -487,7 +490,6 @@ useEffect(() => {
   };
 
   const activePanelConfig = PANEL_CONFIG[activeMenuItem];
-  const isPanelOpen = activeMenuItem !== null;
 
   return (
     <div className="tool-page-layout">

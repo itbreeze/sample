@@ -64,6 +64,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 code {
   font-family: var(--font-family-code);
 }

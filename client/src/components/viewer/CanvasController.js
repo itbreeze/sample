@@ -103,6 +103,7 @@ export const attachPan = (viewer, canvas) => {
       const now = Date.now();
       if (now - lastMiddleClickTime < doubleClickThreshold) {
         try {
+          console.log('[WheelDoubleClick] zoomExtents triggered via middle-click');
           viewer.zoomExtents?.();
           viewer.update?.();
         } catch { }
