@@ -1,4 +1,4 @@
-import api from './api';
+import api, { readPlantContext } from './api';
 
 export const searchPreview = async (searchType, searchTerm) => {
   const response = await api.post('/api/search', { searchType, searchTerm });
@@ -11,7 +11,10 @@ export const selectDocument = async (docId, docVr) => {
 };
 
 export const fetchSearchLevels = async () => {
-  const response = await api.get('/api/search/levels');
+  const { plantCode } = readPlantContext();
+  const response = await api.get('/api/search/levels', {
+    params: plantCode ? { plantCode } : {},
+  });
   return response.data;
 };
 

@@ -1,31 +1,65 @@
 :root {
-  --primary-color: #0d6efd;
-  --primary-color-light: #e8f0fe;
-  --primary-color-border: #d2e3fc;
-  --text-color-primary: #333;
-  --text-color-secondary: #6c757d;
-  --text-color-light: #555;
-  --text-color-code: #abb2bf;
-  --background-color: #ffffff;
-  --background-color-light: #f8f9fa;
-  --background-color-dark: #282c34;
-  --background-color-secondary: #e9ecef;
-  --hover-background-color: #f0f2f5;
-  --hover-background-color-dark: #e2e6ea;
-  --border-color: #dee2e6;
-  --border-color-dark: #ccc;
-  --shadow-color: rgba(0, 0, 0, 0.05);
-  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  /* palette */
+  --color-primary: #007fff;
+  --color-primary-hover: #0066d1;
+  --color-accent: #f5a524;
+  --color-accent-2: #3fb496;
+  --color-success: #2ebd85;
+  --color-warning: #f5a524;
+  --color-danger: #e85a5a;
+
+  /* neutrals */
+  --color-text: #0e121b;
+  --color-text-muted: #5c6578;
+  --color-surface: #f7f9fc;
+  --color-surface-2: #e8ecf5;
+  --color-panel: #2d3650;
+  --color-bg: #ffffff;
+  --color-border: #e8ecf5;
+  --color-divider: #e8ecf5;
+  --color-shadow: rgba(0, 0, 0, 0.08);
+
+  /* typography */
+  --font-family-base: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-family-code: 'Courier New', Courier, monospace;
   --font-size-base: 14px;
+
+  /* layout */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* motion */
+  --transition-fast: 120ms ease;
+
+  /* legacy aliases for existing components */
+  --primary-color: var(--color-primary);
+  --primary-color-light: #e0f2ff;
+  --primary-color-border: #b3d8ff;
+  --background-color: #ffffff;
+  --background-color-light: #f7f9fc;
+  --background-color-dark: #f0f2f7;
+  --hover-background-color: #f0f2f5;
+  --hover-background-color-dark: #e8ecf5;
+  --border-color: var(--color-border);
+  --border-color-dark: #cdd4e0;
+  --text-color-primary: var(--color-text);
+  --text-color-secondary: var(--color-text-muted);
+  --text-color-light: #6c768a;
 }
 
 body {
   margin: 0;
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -35,10 +69,10 @@ code {
 }
 
 .spinner {
-    border: 8px solid #f3f3f3;
-    border-top: 8px solid var(--primary-color);
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    margin-bottom: 20px;
+  border: 8px solid #f3f3f3;
+  border-top: 8px solid var(--color-primary);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 20px;
 }

@@ -61,9 +61,9 @@ function MockUpECM() {
 
     if (!data.ok || !data.allowed) {
       if (data.stage === 'EXPIRED') {
-        setResultMessage(<p className="mockup-ecm-output-text">❗ 권한이 만료되었습니다.</p>);
+        setResultMessage(<p className="mockup-ecm-output-text">권한이 만료되었습니다.</p>);
       } else {
-        setResultMessage(<p className="mockup-ecm-output-text">❌ 권한이 없습니다.</p>);
+        setResultMessage(<p className="mockup-ecm-output-text">권한이 없습니다.</p>);
       }
       setIsRunning(false);
       return;

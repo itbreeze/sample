@@ -1,0 +1,15 @@
+.app-shell {
+  min-height: 100vh;
+  background: #ffffff;
+  color: var(--color-text);
+}
+
+.app-shell__overlay {
+  display: none;
+}
+
+.app-shell__content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}

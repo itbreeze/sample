@@ -1,493 +1,369 @@
-// client/src/components/viewer/Canvas.js
-
+﻿// client/src/components/viewer/Canvas.js
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-
 import {
-    fileCache,
-    fetchArrayBufferWithProgress,
-    initializeVisualizeJS,
-    createViewer,
-    fixFonts,
-    loadFonts,
-    collectSelectedEntities,
-    setColorRed,
-    resetColorByHandle,
+  fileCache,
+  fetchArrayBufferWithProgress,
+  initializeVisualizeJS,
+  createViewer,
+  fixFonts,
+  loadFonts,
+  collectSelectedEntities,
+  updateRedSelection,
 } from './CanvasUtils';
-
 import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
 import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
-const toRgbColor = (colorArr) => {
-    if (!Array.isArray(colorArr) || colorArr.length < 3) return null;
-    const [r, g, b] = colorArr;
-    if ([r, g, b].some((value) => typeof value !== 'number')) return null;
-    return { r, g, b };
-};
-
-const extractRgbFromColorDef = (colorDef, { allowInherited = true } = {}) => {
-    if (!colorDef || typeof colorDef.getColor !== 'function') return null;
-    if (
-        !allowInherited &&
-        typeof colorDef.getInheritedColor === 'function' &&
-        colorDef.getInheritedColor() === 0
-    ) {
-        return null;
-    }
-    return toRgbColor(colorDef.getColor?.());
-};
-
-const resolveEntityColorDetails = (lib, entityId) => {
-    if (!lib || !entityId || typeof entityId.getType !== 'function') {
-        return { objectColor: null, layerColor: null };
-    }
-
-    try {
-        const t = entityId.getType?.();
-        if (t === 1) {
-            const obj = entityId.openObject?.();
-            if (!obj) return { objectColor: null, layerColor: null };
-
-            const objectColor = extractRgbFromColorDef(obj.getColor?.(lib.GeometryTypes.kAll), {
-                allowInherited: false,
-            });
-            const layerObj = obj.getLayer?.(lib.GeometryTypes.kAll)?.openObject?.();
-            const layerColor = extractRgbFromColorDef(layerObj?.getColor?.());
-            return { objectColor, layerColor };
-        }
-
-        if (t === 2) {
-            const insertObj = entityId.openObjectAsInsert?.();
-            if (!insertObj) return { objectColor: null, layerColor: null };
-
-            const objectColor = extractRgbFromColorDef(insertObj.getColor?.(), {
-                allowInherited: false,
-            });
-            const layerObj = insertObj.getLayer?.()?.openObject?.();
-            const layerColor = extractRgbFromColorDef(layerObj?.getColor?.());
-            return { objectColor, layerColor };
-        }
-    } catch (error) {
-        console.warn('[resolveEntityColorDetails]', error);
-    }
-
-    return { objectColor: null, layerColor: null };
-};
-
 const Canvas = ({ filePath, isActive }) => {
-    const canvasRef = useRef(null);
-    const containerRef = useRef(null);
-    const viewerRef = useRef(null);
-    const libRef = useRef(null);
-    const isInitializedRef = useRef(false);
-    const resizeObserverRef = useRef(null);
-    const resizeFrameRef = useRef(null);
-    const interactionsCleanupRef = useRef(null);
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const viewerRef = useRef(null);
+  const libRef = useRef(null);
+  const isInitializedRef = useRef(false);
+  const hasFitRef = useRef(false);
+  const resizeObserverRef = useRef(null);
+  const resizeFrameRef = useRef(null);
+  const zoomTimeoutRef = useRef(null);
+  const interactionsCleanupRef = useRef(null);
+  const fontNameSetRef = useRef(new Set());
+  const entityDataMapRef = useRef(new Map());
+  const prevRedHandlesRef = useRef(new Set());
 
-    const entityDataMapRef = useRef(new Map());
-    const fontNameSetRef = useRef(new Set());
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadPercent, setLoadPercent] = useState(0);
 
-    const [errorMessage, setErrorMessage] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [loadPercent, setLoadPercent] = useState(0);
+  const [selectedHandles, setSelectedHandles] = useState([]);
+  const [entities, setEntities] = useState([]);
+  const [showPanel, setShowPanel] = useState(false);
+  const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
 
-    const [selectedHandles, setSelectedHandles] = useState([]);
-    const [entities, setEntities] = useState([]);
-    const [showPanel, setShowPanel] = useState(false);
-    const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
-    const computePanelPosition = (width, height) => {
-        const vw = window?.innerWidth || 1200;
-        const vh = window?.innerHeight || 800;
-        return {
-            x: Math.max(8, vw - width - 24),
-            y: Math.max(8, vh - height - 40),
-        };
+  const computePanelPosition = (width, height) => {
+    const vw = window?.innerWidth || 1200;
+    const vh = window?.innerHeight || 800;
+    return {
+      x: Math.max(8, vw - width - 24),
+      y: Math.max(8, vh - height - 40),
     };
-    const [panelPosition, setPanelPosition] = useState(() => computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height));
-    const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
-    const clampPanelPosition = (position, size) => {
-        const vw = window?.innerWidth || 1200;
-        const vh = window?.innerHeight || 800;
-        const maxX = Math.max(8, vw - size.width - 24);
-        const maxY = Math.max(8, vh - size.height - 40);
-        return {
-            x: Math.min(Math.max(8, position.x), maxX),
-            y: Math.min(Math.max(8, position.y), maxY),
-        };
+  };
+
+  const [panelPosition, setPanelPosition] = useState(() =>
+    computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height)
+  );
+  const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
+
+  const clampPanelPosition = (position, size) => {
+    const vw = window?.innerWidth || 1200;
+    const vh = window?.innerHeight || 800;
+    const maxX = Math.max(8, vw - size.width - 24);
+    const maxY = Math.max(8, vh - size.height - 40);
+    return {
+      x: Math.min(Math.max(8, position.x), maxX),
+      y: Math.min(Math.max(8, position.y), maxY),
     };
+  };
 
-    /** 선택 이벤트 처리: 단일/드래그 + Ctrl/Shift 추가/제외 + 빈영역 해제 */
-    const handleSelect = useCallback(
-        ({ additive }) => {
-            const viewer = viewerRef.current;
-            const lib = libRef.current;
-            if (!viewer || !lib) return;
+  // 선택 이벤트 처리
+  const handleSelect = useCallback(
+    (payload) => {
+      const handles =
+        payload?.handles && Array.isArray(payload.handles) && payload.handles.length
+          ? payload.handles
+          : collectSelectedEntities(viewerRef.current, libRef.current, entityDataMapRef, false);
 
+      // 선택된 것이 없으면 상태 초기화
+      if (!handles || handles.length === 0) {
+        // 이전 빨간 선택 모두 해제
+        if (prevRedHandlesRef.current.size > 0) {
+          updateRedSelection(viewerRef.current, libRef.current, entityDataMapRef.current, prevRedHandlesRef, []);
+        }
+        setSelectedHandles([]);
+        setEntities([]);
+        setShowPanel(false);
+        return;
+      }
 
-            const prev = selectedHandles;
+      // 선택된 엔티티의 메타 데이터 매핑
+      const mappedEntities = handles.map((h) => ({
+        handle: h,
+        ...(entityDataMapRef.current.get(String(h)) || {}),
+      }));
 
-            // 非 additive: 기존 선택 전체 해제 (색상 복원 + 맵 초기화)
-            if (!additive) {
-                if (prev.length > 0) {
-                    prev.forEach((h) => {
-                        resetColorByHandle(viewer, lib, entityDataMapRef.current, h);
-                    });
-                }
-                entityDataMapRef.current.clear();
-            }
+      // 선택된 엔티티들을 빨간색으로 표시하고, 이전 선택은 해제
+      updateRedSelection(viewerRef.current, libRef.current, entityDataMapRef.current, prevRedHandlesRef, handles);
 
-            // 이번 클릭/드래그로 새로 선택된 핸들 목록
-            const handles = collectSelectedEntities(
-                viewer,
-                lib,
-                entityDataMapRef,
-                additive
-            );
+      setSelectedHandles(handles);
+      setEntities(mappedEntities);
+      setShowPanel(true);
+    },
+    []
+  );
 
-            const buildEntityList = (handleList) =>
-                (handleList || []).map((handle) => {
-                    const info = entityDataMapRef.current.get(String(handle));
-                    const colorDetails =
-                        info?.entityId && lib
-                            ? resolveEntityColorDetails(lib, info.entityId)
-                            : { objectColor: null, layerColor: null };
-                    const highlightColor =
-                        colorDetails.objectColor ?? colorDetails.layerColor ?? info?.originalColor ?? 7;
+  useEffect(() => {
+    if (isActive && !isLoading && viewerRef.current) {
+      viewerRef.current.update?.();
+    }
+  }, [isActive, isLoading]);
 
-                    return {
-                        handle,
-                        type: info?.type ?? 'UNKNOWN',
-                        layer: info?.layer ?? '',
-                        color: highlightColor,
-                        objectColor: colorDetails.objectColor,
-                        layerColor: colorDetails.layerColor,
-                        entityId: info?.entityId,
-                    };
-                });
-
-            // additive 모드 (Ctrl/Shift): Windows 바탕화면 스타일 (토글)
-            if (additive) {
-                if (!handles || handles.length === 0) {
-                    // Ctrl/Shift + 빈영역: 아무것도 안 함
-                    return;
-                }
-
-                const toRemove = handles.filter((h) => prev.includes(h));
-                const toAdd = handles.filter((h) => !prev.includes(h));
-
-                // 제외할 것들: 원래 색상 복원 + 맵에서 제거
-                toRemove.forEach((h) => {
-                    resetColorByHandle(viewer, lib, entityDataMapRef.current, h);
-                    entityDataMapRef.current.delete(String(h));
-                });
-
-                // 새로 추가되는 것들만 빨간색
-                if (toAdd.length > 0) {
-                    setColorRed(viewer, lib, entityDataMapRef.current, toAdd);
-                }
-
-                const effectiveHandles = [
-                    ...prev.filter((h) => !toRemove.includes(h)),
-                    ...toAdd,
-                ];
-
-                setSelectedHandles(effectiveHandles);
-
-                const nextEntities = buildEntityList(effectiveHandles);
-
-                setEntities(nextEntities);
-                if (nextEntities.length > 0) {
-                    setShowPanel(true);
-                }
-                viewer.update?.();
-                return;
-            }
-
-            // 여기부터 non-additive 모드
-            if (!handles || handles.length === 0) {
-                // 빈 영역 단일 클릭: 전체 해제
-                setSelectedHandles([]);
-                setEntities([]);
-                viewer.update?.();
-                return;
-            }
-
-            // 새로 선택된 것 전체를 빨간색
-            setColorRed(viewer, lib, entityDataMapRef.current, handles);
-
-            const effectiveHandles = Array.from(new Set(handles));
-            setSelectedHandles(effectiveHandles);
-
-            const nextEntities = buildEntityList(effectiveHandles);
-
-            setEntities(nextEntities);
-            setShowPanel(true);
-            viewer.update?.();
-        },
-        [selectedHandles]
+  const attachInteractions = useCallback(() => {
+    const cleanup = attachCanvasInteractions(
+      viewerRef.current,
+      canvasRef.current,
+      libRef.current,
+      { onSelect: handleSelect }
     );
+    interactionsCleanupRef.current = cleanup;
+  }, [handleSelect]);
 
+  const runZoomExtents = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.zoomExtents?.();
+    viewer.update?.();
+  }, []);
 
-    /** 상호작용(휠줌/팬/선택) attach */
-    const attachInteractions = useCallback(() => {
-        if (!viewerRef.current || !canvasRef.current || !libRef.current) return;
+  const scheduleZoomExtents = useCallback(
+    (delay = 80) => {
+      if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+      zoomTimeoutRef.current = setTimeout(runZoomExtents, delay);
+    },
+    [runZoomExtents]
+  );
 
-        if (interactionsCleanupRef.current) {
-            interactionsCleanupRef.current();
+  /** 캔버스 리사이즈 처리 */
+  const handleResize = useCallback(() => {
+    const canvas = canvasRef.current;
+    const viewer = viewerRef.current;
+    const container = containerRef.current;
+    if (!canvas || !viewer || !container) return;
 
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const newWidth = Math.floor(rect.width * dpr);
+    const newHeight = Math.floor(rect.height * dpr);
 
+    if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      viewer.resize?.(0, newWidth, newHeight, 0);
+      viewer.update?.();
+      if (!isLoading) {
+        scheduleZoomExtents(80);
+      }
+    }
+  }, [isLoading, scheduleZoomExtents]);
+
+  /** 초기 로딩 */
+  useEffect(() => {
+    if (!filePath || isInitializedRef.current) return;
+
+    let isMounted = true;
+
+    const init = async () => {
+      try {
+        hasFitRef.current = false;
+        setIsLoading(true);
+        setLoadPercent(1);
+
+        const libInstance = await initializeVisualizeJS();
+        if (!isMounted) return;
+        libRef.current = libInstance;
+
+        const viewerInstance = await createViewer(libInstance, canvasRef.current);
+        if (!isMounted) {
+          viewerInstance?.destroy();
+          return;
         }
+        viewerRef.current = viewerInstance;
+        window.currentViewerInstance = viewerInstance;
 
-        const cleanup = attachCanvasInteractions(
-            viewerRef.current,
-            canvasRef.current,
-            libRef.current,
-            { onSelect: handleSelect }
-        );
-
-        interactionsCleanupRef.current = cleanup;
-    }, [handleSelect]);
-
-    /** 리사이즈 처리 */
-    const handleResize = useCallback(() => {
-        const canvas = canvasRef.current;
-        const viewer = viewerRef.current;
-        const container = containerRef.current;
-        if (!canvas || !viewer || !container) return;
-
-        const rect = container.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const newWidth = Math.floor(rect.width * dpr);
-        const newHeight = Math.floor(rect.height * dpr);
-
-        if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            viewer.resize?.(0, newWidth, newHeight, 0);
-            viewer.update?.();
-        }
-    }, []);
-
-    /** 초기 로딩 */
-    useEffect(() => {
-        if (!filePath || isInitializedRef.current) return;
-
-        let isMounted = true;
-
-        const init = async () => {
-            try {
-                setIsLoading(true);
-                setLoadPercent(1);
-
-                const libInstance = await initializeVisualizeJS();
-                if (!isMounted) return;
-
-                libRef.current = libInstance;
-
-                const viewerInstance = await createViewer(libInstance, canvasRef.current);
-                if (!isMounted) {
-                    viewerInstance?.destroy();
-                    return;
-                }
-
-                viewerRef.current = viewerInstance;
-                window.currentViewerInstance = viewerInstance; 
-
-                let arrayBuffer;
-                if (fileCache.has(filePath)) {
-                    arrayBuffer = fileCache.get(filePath);
-                    setLoadPercent(30);
-                } else {
-                    arrayBuffer = await fetchArrayBufferWithProgress(filePath, (p) => {
-                        if (isMounted) setLoadPercent(p);
-                    });
-                    if (!isMounted) return;
-                    fileCache.set(filePath, arrayBuffer);
-                }
-
-                setLoadPercent(85);
-                await viewerRef.current.parseVsfx(arrayBuffer);
-                if (!isMounted) return;
-
-                // 폰트 처리
-                try {
-                    await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
-                    await loadFonts(viewerRef.current, fontNameSetRef, '/fonts');
-                } catch (e) {
-                }
-
-                setLoadPercent(95);
-                viewerRef.current.setEnableSceneGraph?.(true);
-                viewerRef.current.setEnableAnimation?.(false);
-                viewerRef.current.zoomExtents?.();
-                viewerRef.current.update?.();
-
-                isInitializedRef.current = true;
-                setLoadPercent(100);
-                setIsLoading(false);
-
-                if (isActive) attachInteractions();
-            } catch (err) {
-                if (isMounted) {
-                    setErrorMessage(err.message);
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        const handleScriptLoad = () => {
-            if (!isMounted) return;
-            init();
-        };
-
-        const scriptId = 'visualize-script';
-        let script = document.getElementById(scriptId);
-
-        if (!script) {
-            script = document.createElement('script');
-            script.id = scriptId;
-            script.src = '/Visualize.js';
-            script.async = true;
-            script.addEventListener('load', handleScriptLoad);
-            script.onerror = () => {
-                if (isMounted) {
-                    setErrorMessage('Visualize.js 로드 실패');
-                    setIsLoading(false);
-                }
-            };
-            document.body.appendChild(script);
-        } else if (window.getVisualizeLibInst) {
-            handleScriptLoad();
+        let arrayBuffer;
+        if (fileCache.has(filePath)) {
+          arrayBuffer = fileCache.get(filePath);
+          setLoadPercent(30);
         } else {
-            script.addEventListener('load', handleScriptLoad);
+          arrayBuffer = await fetchArrayBufferWithProgress(filePath, (p) => {
+            if (isMounted) setLoadPercent(p);
+          });
+          if (!isMounted) return;
+          fileCache.set(filePath, arrayBuffer);
         }
 
-        return () => { isMounted = false; };
-    }, [filePath, isActive, attachInteractions]);
+        setLoadPercent(85);
+        await viewerRef.current.parseVsfx(arrayBuffer);
+        if (!isMounted) return;
 
-    useEffect(() => {
-        const handleWindowResize = () => {
-            setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
-        };
-        window.addEventListener('resize', handleWindowResize);
-        return () => window.removeEventListener('resize', handleWindowResize);
-    }, [panelSize]);
+        try {
+          await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
+          await loadFonts(viewerRef.current, fontNameSetRef, '/fonts');
+        } catch (e) {}
 
-    useEffect(() => {
-        setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
-    }, [panelSize]);
+        setLoadPercent(95);
+        viewerRef.current.setEnableSceneGraph?.(true);
+        viewerRef.current.setEnableAnimation?.(false);
+        viewerRef.current.zoomExtents?.();
+        viewerRef.current.update?.();
 
-    /** 탭 활성/비활성 변경 시 상호작용 attach */
-    useEffect(() => {
-        if (isInitializedRef.current && isActive) {
-            attachInteractions();
-        } else if (!isActive && interactionsCleanupRef.current) {
-            interactionsCleanupRef.current();
-            interactionsCleanupRef.current = null;
+        isInitializedRef.current = true;
+        setLoadPercent(100);
+        setIsLoading(false);
+
+        if (isActive) attachInteractions();
+      } catch (err) {
+        if (isMounted) {
+          setErrorMessage(err.message);
+          setIsLoading(false);
         }
-    }, [isActive, attachInteractions]);
+      }
+    };
 
-    /** ResizeObserver */
-    useEffect(() => {
-        if (!containerRef.current) return;
-        const observer = new ResizeObserver(() => {
-            if (resizeFrameRef.current) {
-                cancelAnimationFrame(resizeFrameRef.current);
-            }
-            resizeFrameRef.current = requestAnimationFrame(() => {
-                if (viewerRef.current) handleResize();
-                resizeFrameRef.current = null;
-            });
-        });
-        observer.observe(containerRef.current);
-        resizeObserverRef.current = observer;
-        handleResize();
-        return () => {
-            if (resizeFrameRef.current) {
-                cancelAnimationFrame(resizeFrameRef.current);
-                resizeFrameRef.current = null;
-            }
-            observer.disconnect();
-        };
-    }, [filePath, handleResize]);
+    init();
 
-    /** 언마운트 시 정리 */
-    useEffect(() => {
-        return () => {
-            if (interactionsCleanupRef.current) interactionsCleanupRef.current();
-            if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
-            if (resizeFrameRef.current) {
-                cancelAnimationFrame(resizeFrameRef.current);
-                resizeFrameRef.current = null;
-            }
-            if (viewerRef.current) viewerRef.current.destroy?.();
-        };
-    }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [filePath, handleResize, isActive, attachInteractions]);
 
-    const zoomFactor = 0.2;
-    const handleZoomToEntity = useCallback((handle) => {
-        const viewer = viewerRef.current;
-        const canvas = canvasRef.current;
-        if (!viewer || !handle || !canvas) return;
-        viewer.zoomToEntity?.(handle);
-        const rect = canvas.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        viewer.zoomAt?.(zoomFactor, centerX, centerY);
-        viewer.update?.();
-    }, [zoomFactor]);
-    const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
+  useEffect(() => {
+    // 로딩이 끝난 뒤에도 탭 토글 없이 인터랙션이 붙도록 보정
+    if (isInitializedRef.current && isActive && !isLoading) {
+      if (interactionsCleanupRef.current) interactionsCleanupRef.current();
+      attachInteractions();
+    } else if (!isActive && interactionsCleanupRef.current) {
+      interactionsCleanupRef.current();
+      interactionsCleanupRef.current = null;
+    }
+  }, [isActive, isLoading, attachInteractions]);
 
-    return (
-        <div
-            ref={containerRef}
-            className="viewer-app-container"
-            style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
-        >
-            <GlobalLoadingOverlay
-                visible={isLoading}
-                percent={loadPercent}
-                text="도면을 불러오는 중입니다..."
-            />
-            <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle }}>
-                <canvas
-                    ref={canvasRef}
-                    id="mainCanvas"
-                    style={{ width: '100%', height: '100%', display: 'block' }}
-                />
+  /** ResizeObserver 등록 */
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrameRef.current) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        if (viewerRef.current) handleResize();
+        resizeFrameRef.current = null;
+      });
+    });
+    observer.observe(containerRef.current);
+    resizeObserverRef.current = observer;
+    handleResize();
+    return () => {
+      if (interactionsCleanupRef.current) interactionsCleanupRef.current();
+      if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
+      if (resizeFrameRef.current) {
+        cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
+      if (zoomTimeoutRef.current) {
+        clearTimeout(zoomTimeoutRef.current);
+        zoomTimeoutRef.current = null;
+      }
+      if (viewerRef.current) viewerRef.current.destroy?.();
+    };
+  }, [handleResize]);
 
-                {errorMessage && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            color: '#fff',
-                            backgroundColor: 'rgba(220, 53, 69, 0.9)',
-                            padding: 20,
-                            borderRadius: 8,
-                        }}
-                    >
-                        {errorMessage}
-                    </div>
-                )}
+  useEffect(() => {
+    const handleWindowResize = () => {
+      setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
+    };
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [panelSize]);
 
-                {/* EntityPanel: 최초 선택 후에만 표시 */}
-                {showPanel && (
-                    <EntityPanel
-                        entities={entities}
-                        onClose={() => setShowPanel(false)}
-                        initialPosition={panelPosition}
-                        onPositionChange={setPanelPosition}
-                        initialSize={panelSize}
-                        onSizeChange={setPanelSize}
-                        onZoomToEntity={handleZoomToEntity}
-                    />
-                )}
-            </div>
-        </div>
-    );
+  useEffect(() => {
+    setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
+  }, [panelSize]);
+
+  const zoomFactor = 0.2;
+
+  // 초기 로딩이 끝난 후 화면 맞추기(뷰어 영역 자동 조정)
+  useEffect(() => {
+    if (!isLoading && isActive && !hasFitRef.current) {
+      hasFitRef.current = true;
+      scheduleZoomExtents(120);
+    }
+  }, [isActive, isLoading, scheduleZoomExtents]);
+
+  const handleZoomToEntity = useCallback(
+    (handle) => {
+      const viewer = viewerRef.current;
+      const canvas = canvasRef.current;
+      if (!viewer || !handle || !canvas) return;
+      viewer.zoomToEntity?.(handle);
+      const rect = canvas.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      viewer.zoomAt?.(zoomFactor, centerX, centerY);
+      viewer.update?.();
+    },
+    [zoomFactor]
+  );
+
+  const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
+
+  return (
+    <div
+      ref={containerRef}
+      className="viewer-app-container"
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
+    >
+      <GlobalLoadingOverlay
+        visible={isLoading}
+        percent={loadPercent}
+      />
+      <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle }}>
+        <canvas
+          ref={canvasRef}
+          id="mainCanvas"
+          style={{ width: '100%', height: '100%', display: 'block' }}
+        />
+
+        {errorMessage && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'rgba(255,255,255,0.9)',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              color: 'red',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
+      </div>
+
+      {showPanel && (
+        <EntityPanel
+          entities={entities}
+          selectedHandles={selectedHandles}
+          onClose={() => setShowPanel(false)}
+          panelPosition={panelPosition}
+          setPanelPosition={(pos) => setPanelPosition(clampPanelPosition(pos, panelSize))}
+          panelSize={panelSize}
+          setPanelSize={(size) => setPanelSize(clampPanelPosition(panelPosition, size) && size)}
+          resolveEntityColorDetails={(entityId) => {
+            // entityDataMapRef에 기록된 원본 색상 / 레이어 / 타입 정보 반환
+            const entry = entityDataMapRef.current?.get(String(entityId)) || null;
+            if (!entry) return null;
+            return {
+              objectColor: entry.originalColor || null,
+              layer: entry.layer || null,
+              type: entry.type || null,
+            };
+          }}
+          onZoomToEntity={handleZoomToEntity}
+        />
+      )}
+    </div>
+  );
 };
 
 export default Canvas;

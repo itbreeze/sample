@@ -22,7 +22,15 @@ const computeBottomRightPos = (width, height) => {
   };
 };
 
-const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, initialSize, onSizeChange, onZoomToEntity }) => {
+const EntityPanel = ({
+  entities,
+  onClose,
+  initialPosition,
+  onPositionChange,
+  initialSize,
+  onSizeChange,
+  onZoomToEntity,
+}) => {
   const panelRef = useRef(null);
 
   const [pos, setPos] = useState(initialPosition || computeBottomRightPos(MIN_WIDTH, MIN_HEIGHT));
@@ -36,7 +44,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
   const hasEntities = entities && entities.length > 0;
 
   //////////////////////////////////
-  // 타입별 집계 및 필터 옵션
+  // 타입 카운트 / 필터 관련 계산
   //////////////////////////////////
   const typeMap = React.useMemo(() => {
     const map = {};
@@ -70,7 +78,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
           })),
         ];
 
-  // 현재 선택된 타입에 따른 표시 목록
+  // 현재 선택된 타입에 따라 필터링된 목록
   const visibleEntities =
     selectedType === 'ALL'
       ? entities || []
@@ -125,62 +133,62 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
           borderRight: borderRight || undefined,
         }}
         title={title}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            gap: 6,
+          }}
         >
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              gap: 6,
+              width: INDICATOR_SIZE,
+              height: INDICATOR_SIZE,
+              minWidth: INDICATOR_SIZE,
+              minHeight: INDICATOR_SIZE,
+              background: swatchColor,
+              border: `1px solid ${borderColor}`,
+              borderRadius: 2,
+              flexShrink: 0,
+              flexGrow: 0,
+              boxSizing: 'border-box',
             }}
-          >
-            <div
-              style={{
-                width: INDICATOR_SIZE,
-                height: INDICATOR_SIZE,
-                minWidth: INDICATOR_SIZE,
-                minHeight: INDICATOR_SIZE,
-                background: swatchColor,
-                border: `1px solid ${borderColor}`,
-                borderRadius: 2,
-                flexShrink: 0,
-                flexGrow: 0,
-                boxSizing: 'border-box',
-              }}
-            />
-            <span style={{ fontSize: 12, color: '#0f172a' }}>
-              {labelText}
-            </span>
-          </div>
-        </td>
-      );
-    };
+          />
+          <span style={{ fontSize: 12, color: '#0f172a' }}>{labelText}</span>
+        </div>
+      </td>
+    );
+  };
 
   const renderLayerIndicator = (color) => {
     const { swatchColor, title } = renderColorSwatch(color, '도면층 색상');
 
     return (
       <span
-        style={{
-          width: INDICATOR_SIZE,
-          height: INDICATOR_SIZE,
-          minWidth: INDICATOR_SIZE,
-          minHeight: INDICATOR_SIZE,
-          boxSizing: 'border-box',
-          borderRadius: 2,
-          border: '1px solid rgba(15, 23, 42, 0.2)',
-          background: swatchColor,
-          display: 'inline-flex',
-          flexShrink: 0,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        style={
+          {
+            width: INDICATOR_SIZE,
+            height: INDICATOR_SIZE,
+            minWidth: INDICATOR_SIZE,
+            minHeight: INDICATOR_SIZE,
+            boxSizing: 'border-box',
+            borderRadius: 2,
+            border: '1px solid rgba(15, 23, 42, 0.2)',
+            background: swatchColor,
+            display: 'inline-flex',
+            flexShrink: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }
+        }
         title={title}
       />
     );
   };
 
-  // 엔티티 집합이 바뀌었을 때, selectedType 보정
+  // 엔티티 목록이 바뀔 때 selectedType 보정
   useEffect(() => {
     if (!hasEntities) {
       setSelectedType('ALL');
@@ -190,12 +198,12 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
     if (selectedType === 'ALL') return;
 
     if (!typeMap[selectedType]) {
-      // 현재 타입이 사라졌으면 ALL로
+      // 현재 타입이 더 이상 없으면 ALL로 되돌림
       setSelectedType('ALL');
     }
   }, [hasEntities, selectedType, typeMap]);
 
-  // 최초 위치: 화면 우측 하단
+  // 기본 위치: 화면 오른쪽 하단
   useEffect(() => {
     if (initialPosition) {
       setPos(initialPosition);
@@ -209,7 +217,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
   }, [initialSize]);
 
   ////////////////////////////////
-  // 드래그 (헤더)
+  // 드래그 이동(헤더)
   ////////////////////////////////
   const onHeaderMouseDown = (e) => {
     if (e.button !== 0) return;
@@ -249,7 +257,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
   };
 
   ////////////////////////////////
-  // 크기 조절 (우측 & 하단 가장자리)
+  // 크기 조절 (가로 & 세로 리사이즈)
   ////////////////////////////////
   const onResizeMouseMove = (e) => {
     const rs = resizingRef.current;
@@ -267,7 +275,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
     let nextW = rs.origW;
     let nextH = rs.origH;
 
-    // 가로 조절
+    // 가로 리사이즈
     if (rs.direction === 'corner' || rs.direction === 'right') {
       nextW = Math.min(
         Math.max(MIN_WIDTH, rs.origW + dx),
@@ -275,7 +283,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
       );
     }
 
-    // 세로 조절
+    // 세로 리사이즈
     if (rs.direction === 'corner' || rs.direction === 'bottom') {
       nextH = Math.min(
         Math.max(MIN_HEIGHT, rs.origH + dy),
@@ -294,7 +302,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
     window.removeEventListener('mouseup', onResizeMouseUp);
   };
 
-  // 방향별 마우스 다운 핸들러 생성 함수
+  // 우측/하단/코너 공통 리사이즈 핸들 생성 함수
   const createResizeHandler = (direction) => (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -351,7 +359,8 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
           display: 'flex',
           alignItems: 'center',
           padding: '8px 12px',
-          background: 'linear-gradient(90deg, rgba(96, 165, 250, 0.75), rgba(59, 130, 246, 0.75))',
+          background:
+            'linear-gradient(90deg, rgba(96, 165, 250, 0.75), rgba(59, 130, 246, 0.75))',
           backdropFilter: 'blur(4px)',
           color: '#ffffff',
           cursor: 'move',
@@ -433,7 +442,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
             flexDirection: 'column',
             padding: '10px 12px',
             background: 'transparent',
-            minHeight: 0, // flex 자식이 스크롤되도록 허용
+            minHeight: 0, // flex 컨테이너 안에서 스크롤 영역 확보
           }}
         >
           {!hasEntities ? (
@@ -451,7 +460,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
             </div>
           ) : (
             <>
-              {/* 타입 필터 드롭다운 */}
+              {/* 타입 필터 셀렉트 */}
               <div style={{ marginBottom: 8 }}>
                 <select
                   value={selectedType}
@@ -485,14 +494,14 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'hidden',
-                  minHeight: 0, // flex 자식이 스크롤되도록 허용
+                  minHeight: 0,
                 }}
               >
-                {/* 스크롤 영역 */}
+                {/* 스크롤 테이블 영역 */}
                 <div
                   style={{
                     flex: 1,
-                    overflowY: 'scroll', // 항상 스크롤바 표시
+                    overflowY: 'scroll',
                     overflowX: 'hidden',
                     padding: '8px',
                   }}
@@ -523,8 +532,8 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                             borderRight: '1px solid rgba(203, 213, 225, 0.6)',
                           }}
                         >
-                            번호
-                          </th>
+                          번호
+                        </th>
                         <th
                           style={{
                             padding: '6px 8px',
@@ -589,7 +598,6 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                         >
                           줌
                         </th>
-
                       </tr>
                     </thead>
                     <tbody>
@@ -601,7 +609,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                             ? 'ENTITY'
                             : ent.type || 'UNKNOWN';
 
-                                                return (
+                        return (
                           <tr
                             key={`${ent.handle}-${idx}`}
                             style={{
@@ -667,7 +675,13 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                                 }}
                               >
                                 {renderLayerIndicator(ent.layerColor)}
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span
+                                  style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
                                   {ent.layer || ''}
                                 </span>
                               </div>
@@ -684,10 +698,10 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
                             >
                               <button
                                 type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onZoomToEntity?.(ent.entityId);
-                              }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onZoomToEntity?.(ent.entityId);
+                                }}
                                 style={{
                                   border: '1px solid rgba(15, 23, 42, 0.2)',
                                   borderRadius: 4,
@@ -714,7 +728,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
         </div>
       )}
 
-      {/* 크기 조절 영역 (우측 가장자리) */}
+      {/* 크기 조절 바 (가로 핸들) */}
       {!isMinimized && (
         <div
           onMouseDown={onResizeRightMouseDown}
@@ -731,7 +745,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
         />
       )}
 
-      {/* 크기 조절 영역 (하단 가장자리) */}
+      {/* 크기 조절 바 (세로 핸들) */}
       {!isMinimized && (
         <div
           onMouseDown={onResizeBottomMouseDown}
@@ -748,7 +762,7 @@ const EntityPanel = ({ entities, onClose, initialPosition, onPositionChange, ini
         />
       )}
 
-      {/* 크기 조절 영역 (우측 하단 모서리) */}
+      {/* 크기 조절 코너 (우하단 핸들) */}
       {!isMinimized && (
         <div
           onMouseDown={onResizeCornerMouseDown}

@@ -5,7 +5,7 @@ import { buildTree } from '../utils/treeUtils';
 /**
  * 도면 트리 데이터를 불러오고 상태를 관리하는 커스텀 훅
  */
-export const useDocumentTree = () => {
+export const useDocumentTree = (enabled = true) => {
   // 1. 상태 관리: 이 훅은 도면 트리 데이터, 로딩 상태, 에러 상태를 내부에서 모두 관리합니다.
   const [documentTree, setDocumentTree] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +13,12 @@ export const useDocumentTree = () => {
 
   // 2. 데이터 로딩 함수: 서버에서 데이터를 가져와 트리 구조로 변환하고 상태를 업데이트합니다.
   const loadTree = useCallback(async () => {
+    if (!enabled) {
+      setDocumentTree([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -25,7 +31,7 @@ export const useDocumentTree = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   // 3. 최초 실행: 컴포넌트가 처음 렌더링될 때 데이터 로딩 함수를 한 번 실행합니다.
   useEffect(() => {

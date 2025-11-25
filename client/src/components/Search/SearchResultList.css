@@ -301,6 +301,18 @@
   cursor: not-allowed;
 }
 
+.search-actions .label-compact {
+  display: none;
+}
+
+.resizable-panel-container.compact .search-actions .label-full {
+  display: none;
+}
+
+.resizable-panel-container.compact .search-actions .label-compact {
+  display: inline;
+}
+
 .search-actions {
   display: flex;
   align-items: center;

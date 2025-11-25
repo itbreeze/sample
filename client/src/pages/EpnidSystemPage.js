@@ -12,6 +12,7 @@ import { useDocumentTree } from '../components/hooks/useDocumentTree';
 import { useDocumentLoader } from '../components/hooks/useDocumentLoader';
 import SearchResultList from '../components/Search/SearchResultList';
 import { persistPlantContext } from '../services/api';
+import { getCurrentUser } from '../auth/AuthModule';
 
 const DEFAULT_EXPAND_LEVEL = 0;
 
@@ -77,11 +78,9 @@ const equipmentTabs = [
 ];
 
 function EpnidSystemPage() {
-  const { documentTree, loading: documentsLoading, reloadTree } = useDocumentTree();
-  const { isLoading: isDocumentLoading, loadDocument } = useDocumentLoader();
-
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState(null);
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMenuItem, setActiveMenuItem] = useState(null);
@@ -97,6 +96,7 @@ function EpnidSystemPage() {
   const currentViewerInstanceRef = useRef(null);
   const [activeSearchTab, setActiveSearchTab] = useState('documentList');
   const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
+  const [searchTrigger, setSearchTrigger] = useState(0);
   
   const [advancedSearchConditions, setAdvancedSearchConditions] = useState({
     leafNodeIds: 'ALL',
@@ -110,6 +110,11 @@ function EpnidSystemPage() {
   const [advancedSearchHighlight, setAdvancedSearchHighlight] = useState('');
   
   const [previewResultCount, setPreviewResultCount] = useState(0);
+  const [redirectedForAuth, setRedirectedForAuth] = useState(false);
+
+  const isAuthorized = !!user && !authError;
+  const { documentTree, loading: documentsLoading, reloadTree, error: documentError } = useDocumentTree(isAuthorized);
+  const { isLoading: isDocumentLoading, loadDocument } = useDocumentLoader();
 
   const limitedAuth =
     !user || !user.sAuthId || String(user.sAuthId).trim().toUpperCase() === 'A003';
@@ -117,11 +122,41 @@ function EpnidSystemPage() {
     ? tabItems.filter(t => !t.requiresAuth)
     : tabItems;
 
+  // 상세검색 탭에서 벗어날 때 자동 재검색 트리거를 초기화하여 재입장 시 불필요한 재검색을 막음
+  useEffect(() => {
+    if (activeMenuItem !== 'search' || activeSearchTab !== 'searchDrawing') {
+      setSearchTrigger(0);
+    }
+  }, [activeMenuItem, activeSearchTab]);
+
   useEffect(() => {
     if (limitedAuth && filteredTabItems.every(t => t.id !== activeTab)) {
       setActiveTab(filteredTabItems[0]?.id || tabItems[0].id);
     }
   }, [limitedAuth, activeTab]);
+
+  useEffect(() => {
+    if (!documentError) return;
+    if (documentError?.response?.status === 401) {
+      setAuthError('세션이 만료되었습니다. Mockup-ECM에서 다시 로그인해주세요.');
+      setUser(null);
+      persistPlantContext(null);
+    }
+  }, [documentError]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (redirectedForAuth) return;
+    if (!user || authError) {
+      setRedirectedForAuth(true);
+      alert(authError || '인증 정보가 없거나 만료되었습니다. Mockup-ECM에서 먼저 로그인해주세요.');
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = '/';
+      }
+    }
+  }, [loading, user, authError, redirectedForAuth]);
 
   const handleMenuClick = (menuId) => {
     setActiveMenuItem(menuId);
@@ -192,7 +227,7 @@ function EpnidSystemPage() {
     const terms = searchTerm.trim().split(/\s+/).filter(Boolean);
     const conditions = terms.map((term, idx) => ({
       id: idx + 1,
-      term: term,
+      term,
       operator: 'AND'
     }));
 
@@ -201,7 +236,7 @@ function EpnidSystemPage() {
       drawingNumber: '',
       drawingName: '',
       additionalConditions: conditions,
-      selectedPath: '',
+      selectedPath: '전체',
       infoNode: null
     });
 
@@ -209,6 +244,7 @@ function EpnidSystemPage() {
     setActiveMenuItem('search');
     setIsPanelMaximized(true);
     setActiveSearchTab('searchDrawing');
+    setSearchTrigger((n) => n + 1); // 상세내역 보기 시 검색 실행 트리거
   }, []);
 
   const handleTabClick = useCallback((docno) => {
@@ -252,6 +288,21 @@ function EpnidSystemPage() {
   }, [documentTree]);
 
   useEffect(() => {
+    const normalizeUser = (payload = {}) => ({
+      userId: payload.userId || '',
+      userName: payload.name || payload.userName || '',
+      positionName: payload.authName || payload.positionName || '',
+      department: payload.deptName || payload.department || '',
+      departCode: payload.deptCode || payload.departCode || '',
+      plantCode: payload.plantCode || '',
+      sAuthId: payload.sAuthId || '',
+      endDate: payload.endDate || '',
+      plantScopeFilter:
+        typeof payload.plantScopeFilter === 'boolean'
+          ? payload.plantScopeFilter
+          : undefined,
+    });
+
     const parseWindowPayload = () => {
       if (!window.name) return null;
       try {
@@ -266,32 +317,54 @@ function EpnidSystemPage() {
       return null;
     };
 
-    const ecmPayload = parseWindowPayload();
-    if (ecmPayload) {
-      const nextUser = {
-        userId: ecmPayload.userId,
-        userName: ecmPayload.name || '',
-        positionName: ecmPayload.authName || '',
-        department: ecmPayload.deptName || '',
-        departCode: ecmPayload.deptCode || '',
-        plantCode: ecmPayload.plantCode || '',
-        sAuthId: ecmPayload.sAuthId || '',
-        endDate: ecmPayload.endDate || '',
-        plantScopeFilter: ecmPayload.plantScopeFilter,
-      };
+    const hydrateUser = async () => {
+      setAuthError(null);
 
-      setUser(nextUser);
-      persistPlantContext({
-        plantCode: nextUser.plantCode,
-        plantScopeFilter: nextUser.plantScopeFilter,
-      });
-      reloadTree();
+      const ecmPayload = parseWindowPayload();
+      if (ecmPayload) {
+        const nextUser = normalizeUser(ecmPayload);
+
+        setUser(nextUser);
+        persistPlantContext({
+          plantCode: nextUser.plantCode,
+          plantScopeFilter: nextUser.plantScopeFilter,
+        });
+        reloadTree();
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const session = await getCurrentUser();
+        if (session?.ok && session.user) {
+          const nextUser = normalizeUser({
+            ...session.user,
+            plantScopeFilter:
+              typeof session.usePlantScopeFilter === 'boolean'
+                ? session.usePlantScopeFilter
+                : session.user.plantScopeFilter,
+          });
+
+          setUser(nextUser);
+          persistPlantContext({
+            plantCode: nextUser.plantCode,
+            plantScopeFilter: nextUser.plantScopeFilter,
+          });
+          reloadTree();
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('세션 사용자 조회 실패:', err);
+      }
+
+      persistPlantContext(null);
+      setUser(null);
+      setAuthError('인증 정보가 없거나 만료되었습니다. Mockup-ECM에서 먼저 로그인해주세요.');
       setLoading(false);
-      return;
-    }
+    };
 
-    persistPlantContext(null);
-    setLoading(false);
+    hydrateUser();
   }, [reloadTree]);
 
   useEffect(() => {
@@ -332,6 +405,8 @@ function EpnidSystemPage() {
     );
   }
 
+  if (!user || authError) return null;
+
   const searchTabs = [
     {
       id: 'documentList',
@@ -360,6 +435,7 @@ function EpnidSystemPage() {
           onResultsChange={setAdvancedSearchResults}
           onHighlightChange={setAdvancedSearchHighlight}
           onFileSelect={handleFileSelect}
+          searchTrigger={searchTrigger}
         />
       ),
     },

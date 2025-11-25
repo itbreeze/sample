@@ -1,5 +1,6 @@
 const { executeQuery } = require('../utils/dataBase/oracleClient');
 const { usePlantScopeFilter } = require('../utils/plantFilter');
+const { setAuthCookie, clearAuthCookie } = require('../utils/auth');
 
 const DEPT_TO_PLANT = {
   '3200': '5800',
@@ -13,6 +14,18 @@ const DEPT_TO_PLANT = {
 };
 
 const DEFAULT_PLANT_CODE = '0001';
+
+const buildUserPayload = (userRow, plantCode, isPsn) => ({
+  userId: userRow.pernr,
+  name: userRow.name,
+  deptName: userRow.deptName,
+  deptCode: userRow.deptCode,
+  plantCode,
+  authName: userRow.sAuthName || null,
+  sAuthId: userRow.sAuthId || null,
+  endDate: userRow.endDate || null,
+  isPsn: !!isPsn,
+});
 
 async function getUpperDept(deptCode) {
   if (!deptCode) return null;
@@ -106,6 +119,7 @@ async function checkUser(req, res) {
     const trimmedUserId = rawUserId.trim();
 
     if (!trimmedUserId) {
+      clearAuthCookie(res);
       return res.status(400).json({
         ok: false,
         allowed: false,
@@ -121,6 +135,7 @@ async function checkUser(req, res) {
     const userRow = await findUserInTable(trimmedUserId);
 
     if (!userRow) {
+      clearAuthCookie(res);
       return res.json({
         ok: true,
         allowed: false,
@@ -148,7 +163,10 @@ async function checkUser(req, res) {
       plantCode = DEFAULT_PLANT_CODE;
     }
 
+    const userPayload = buildUserPayload(userRow, plantCode, isPsn);
+
     if (!isPsn) {
+      setAuthCookie(res, { ...userPayload, plantScopeFilter: usePlantScopeFilter });
       return res.json({
         ok: true,
         allowed: true,
@@ -157,27 +175,18 @@ async function checkUser(req, res) {
         hasExternalAuth: false,
         stage: 'PASS_INTERNAL',
         message: 'INTERNAL_EMPLOYEE_PASS',
-        user: {
-          userId: userRow.pernr,
-          name: userRow.name,
-          deptName: userRow.deptName,
-          deptCode,
-          plantCode,
-          authName: userRow.sAuthName || null,
-          sAuthId: userRow.sAuthId || null,
-          endDate: userRow.endDate || null,
-        },
+        user: userPayload,
         usePlantScopeFilter,
       });
     }
 
     const authId = userRow.sAuthId;
-    const authName = userRow.sAuthName;
     const endDateStr = userRow.endDate;
 
     const needsDateCheck = !authId || authId === 'A003';
 
     if (!needsDateCheck) {
+      setAuthCookie(res, { ...userPayload, plantScopeFilter: usePlantScopeFilter });
       return res.json({
         ok: true,
         allowed: true,
@@ -186,21 +195,13 @@ async function checkUser(req, res) {
         hasExternalAuth: true,
         stage: 'PASS_EXTERNAL',
         message: 'EXTERNAL_EMPLOYEE_PASS',
-        user: {
-          userId: userRow.pernr,
-          name: userRow.name,
-          deptName: userRow.deptName,
-          deptCode,
-          plantCode,
-          authName,
-          sAuthId: authId || null,
-          endDate: endDateStr,
-        },
+        user: userPayload,
         usePlantScopeFilter,
       });
     }
 
     if (!endDateStr) {
+      clearAuthCookie(res);
       return res.json({
         ok: true,
         allowed: false,
@@ -209,16 +210,7 @@ async function checkUser(req, res) {
         hasExternalAuth: !!authId,
         stage: 'NEED_EXTERNAL_AUTH',
         message: 'EXTERNAL_EMPLOYEE_NO_VALID_ENDDATE',
-        user: {
-          userId: userRow.pernr,
-          name: userRow.name,
-          deptName: userRow.deptName,
-          deptCode,
-          plantCode,
-          authName: authName || null,
-          sAuthId: authId || null,
-          endDate: null,
-        },
+        user: userPayload,
         usePlantScopeFilter,
       });
     }
@@ -231,6 +223,7 @@ async function checkUser(req, res) {
     }
 
     if (isExpired) {
+      clearAuthCookie(res);
       return res.json({
         ok: true,
         allowed: false,
@@ -239,19 +232,12 @@ async function checkUser(req, res) {
         hasExternalAuth: !!authId,
         stage: 'EXPIRED',
         message: 'EXTERNAL_AUTH_EXPIRED',
-        user: {
-          userId: userRow.pernr,
-          name: userRow.name,
-          deptName: userRow.deptName,
-          deptCode,
-          plantCode,
-          authName: authName || null,
-          sAuthId: authId || null,
-          endDate: endDateStr,
-        },
+        user: userPayload,
         usePlantScopeFilter,
       });
     }
+
+    setAuthCookie(res, { ...userPayload, plantScopeFilter: usePlantScopeFilter });
 
     return res.json({
       ok: true,
@@ -261,20 +247,12 @@ async function checkUser(req, res) {
       hasExternalAuth: !!authId,
       stage: 'PASS_EXTERNAL',
       message: 'EXTERNAL_EMPLOYEE_PASS',
-      user: {
-        userId: userRow.pernr,
-        name: userRow.name,
-        deptName: userRow.deptName,
-        deptCode,
-        plantCode,
-        authName: authName || null,
-        sAuthId: authId || null,
-        endDate: endDateStr,
-      },
+      user: userPayload,
       usePlantScopeFilter,
     });
   } catch (error) {
     console.error('checkUser error:', error);
+    clearAuthCookie(res);
     return res.status(500).json({
       ok: false,
       allowed: false,
@@ -292,7 +270,44 @@ function getConfig(req, res) {
   return res.json({ usePlantScopeFilter });
 }
 
+function getSessionUser(req, res) {
+  if (!req.authUser) {
+    return res.status(401).json({
+      ok: false,
+      allowed: false,
+      message: 'UNAUTHORIZED',
+      usePlantScopeFilter,
+    });
+  }
+
+  const userPayload = buildUserPayload(
+    {
+      pernr: req.authUser.userId,
+      name: req.authUser.name,
+      deptName: req.authUser.deptName,
+      deptCode: req.authUser.deptCode,
+      sAuthName: req.authUser.authName,
+      sAuthId: req.authUser.sAuthId,
+      endDate: req.authUser.endDate,
+    },
+    req.authUser.plantCode || DEFAULT_PLANT_CODE,
+    req.authUser.isPsn
+  );
+
+  return res.json({
+    ok: true,
+    allowed: true,
+    found: true,
+    user: userPayload,
+    usePlantScopeFilter:
+      typeof req.authUser.plantScopeFilter === 'boolean'
+        ? req.authUser.plantScopeFilter
+        : usePlantScopeFilter,
+  });
+}
+
 module.exports = {
   checkUser,
   getConfig,
+  getSessionUser,
 };

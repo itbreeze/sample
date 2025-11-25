@@ -40,9 +40,8 @@
 .panel-resizer-handle {
   width: 15px;
   height: 90px;
-  background-color: var(--background-color-secondary);
-  border: 1px solid var(--border-color);
-  border-left: 1px solid var(--border-color);
+  background-color: var(--background-color-dark);
+
   border-radius: 0px 6px 6px 0px;
   cursor: col-resize;
   display: flex;
@@ -50,17 +49,4 @@
   justify-content: center;
   color: var(--text-color-secondary);
   box-shadow: 0 2px 4px var(--shadow-color);
-}
-
-.panel-resizer-handle:hover {
-  background-color: var(--background-color-secondary);
-  color: var(--primary-color);
-}
-
-@media (max-width: 1024px) {
-  .panel-resizer-handle {
-    width: 22px;
-    height: 40px;
-    border-radius: 5px 0 0 5px;
-  }
 }

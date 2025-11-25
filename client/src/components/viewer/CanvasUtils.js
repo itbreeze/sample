@@ -11,7 +11,7 @@ export const fileCache = new Map();
 /** 진행률 콜백 지원 fetch(ArrayBuffer) */
 export async function fetchArrayBufferWithProgress(url, onProgress) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error('VSFX 파일 불러오기 실패');
+  if (!res.ok) throw new Error('Failed to load VSFX file');
   const contentLength = res.headers.get('content-length');
 
   if (!res.body || !contentLength) {
@@ -51,7 +51,7 @@ export async function fetchArrayBufferWithProgress(url, onProgress) {
 /** Visualize.js 인스턴스 초기화 */
 export async function initializeVisualizeJS() {
   if (!window.getVisualizeLibInst) {
-    throw new Error('VisualizeJS가 로드되지 않았습니다.');
+    throw new Error('VisualizeJS failed to load.');
   }
   const wasmUrl = window.WasmUrl || '/Visualize.js.wasm';
   return await window.getVisualizeLibInst({

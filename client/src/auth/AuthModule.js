@@ -45,3 +45,17 @@ export async function getAuthConfig() {
     return { usePlantScopeFilter: false };
   }
 }
+
+export async function getCurrentUser() {
+  try {
+    const res = await api.get('/api/auth/me');
+    return res.data;
+  } catch (err) {
+    if (err?.response?.status === 401) {
+      return { ok: false, allowed: false, message: 'UNAUTHORIZED' };
+    }
+
+    console.error('getCurrentUser 요청 실패:', err);
+    return { ok: false, allowed: false, message: 'REQUEST_FAILED' };
+  }
+}

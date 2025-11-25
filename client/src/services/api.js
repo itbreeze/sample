@@ -7,7 +7,7 @@ const instance = axios.create({
   withCredentials: true,
 });
 
-const readPlantContext = () => {
+export const readPlantContext = () => {
   try {
     if (typeof window === 'undefined') return {};
 

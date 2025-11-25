@@ -5,8 +5,9 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--font-family-base);
   box-sizing: border-box;
+  background: var(--color-surface);
 }
 
 /* 중앙 래퍼 */
@@ -23,10 +24,10 @@
 
 /* 카드 */
 .mockup-ecm-card {
-  background: white;
+  background: #fff;
   border-radius: 12px;
   padding: 1.8rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(15, 76, 129, 0.08);
 }
 
 /* 헤더 */
@@ -38,13 +39,13 @@
 .mockup-ecm-title {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--color-primary);
   margin: 0 0 0.4rem 0;
 }
 
 .mockup-ecm-output-sub {
   font-size: 0.85rem;
-  color: red;
+  color: var(--color-text-muted);
   margin: 0;
 }
 
@@ -61,27 +62,29 @@
   flex-direction: column;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--color-text);
 }
 
 .mockup-ecm-input {
   width: 100%;
   height: 42px;
   padding: 0 0.9rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--color-border);
   border-radius: 8px;
   font-size: 1rem;
   box-sizing: border-box;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .mockup-ecm-input:focus {
-  border-color: #38bdf8;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .mockup-ecm-run-btn {
   width: 100%;
   height: 42px;
-  background: #38bdf8;
+  background: var(--color-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -93,6 +96,15 @@
   gap: 0.4rem;
   cursor: pointer;
   box-sizing: border-box;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.mockup-ecm-run-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.mockup-ecm-run-btn:active {
+  transform: translateY(1px);
 }
 
 /* 출력 영역 */
@@ -118,7 +130,7 @@
 .mockup-ecm-output-text {
   white-space: pre-line;
   font-size: 0.92rem;
-  color: #2d3748;
+  color: var(--color-text);
   margin: 0;
 }
 
