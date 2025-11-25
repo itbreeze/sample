@@ -395,11 +395,26 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
       }
 
       const originalColor = getOriginalColorFromEntity(lib, entityId);
+      let layerColor = null;
+      try {
+        const colorArr = target
+          ?.getLayer?.()
+          ?.openObject?.()
+          ?.getColor?.()
+          ?.getColor?.();
+        if (Array.isArray(colorArr) && colorArr.length >= 3) {
+          layerColor = { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
+        }
+      } catch (_) {
+        layerColor = null;
+      }
 
       if (!dataMap.has(key)) {
         dataMap.set(key, {
           entityId,
           originalColor,
+          objectColor: originalColor,
+          layerColor,
           type,
           layer,
         });
@@ -408,6 +423,8 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
         dataMap.set(key, {
           entityId: prev.entityId || entityId,
           originalColor: prev.originalColor ?? originalColor,
+          objectColor: prev.objectColor ?? originalColor,
+          layerColor: prev.layerColor ?? layerColor,
           type: prev.type || type,
           layer: prev.layer || layer,
         });

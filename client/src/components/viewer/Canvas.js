@@ -38,19 +38,6 @@ const Canvas = ({ filePath, docno, isActive }) => {
   const [showPanel, setShowPanel] = useState(false);
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
 
-  const loadSavedPanelPosition = () => {
-    try {
-      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('entityPanelPosition') : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Number.isFinite(parsed?.x) && Number.isFinite(parsed?.y)) {
-          return { x: parsed.x, y: parsed.y };
-        }
-      }
-    } catch (_) {}
-    return null;
-  };
-
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
     const vh = window?.innerHeight || 800;
@@ -72,8 +59,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
   };
 
   const [panelPosition, setPanelPosition] = useState(() => {
-    const saved = loadSavedPanelPosition();
-    const initial = saved || computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height);
+    const initial = computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height);
     return clampPanelPosition(initial, PANEL_DEFAULT);
   });
   const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
@@ -81,10 +67,17 @@ const Canvas = ({ filePath, docno, isActive }) => {
   // 선택 이벤트 처리
   const handleSelect = useCallback(
     (payload) => {
+      // 현재 선택 상태에서 메타데이터를 매핑(선택 핸들이 이미 payload로 넘어와도 메타데이터 채움)
+      const selectionHandles = collectSelectedEntities(
+        viewerRef.current,
+        libRef.current,
+        entityDataMapRef,
+        true
+      );
       const handles =
         payload?.handles && Array.isArray(payload.handles) && payload.handles.length
           ? payload.handles
-          : collectSelectedEntities(viewerRef.current, libRef.current, entityDataMapRef, false);
+          : selectionHandles;
 
       // 선택된 것이 없으면 상태 초기화
       if (!handles || handles.length === 0) {
@@ -99,10 +92,15 @@ const Canvas = ({ filePath, docno, isActive }) => {
       }
 
       // 선택된 엔티티의 메타 데이터 매핑
-      const mappedEntities = handles.map((h) => ({
-        handle: h,
-        ...(entityDataMapRef.current.get(String(h)) || {}),
-      }));
+      const mappedEntities = handles.map((h) => {
+        const data = entityDataMapRef.current.get(String(h)) || {};
+        return {
+          handle: h,
+          ...data,
+          objectColor: data.objectColor ?? data.originalColor ?? null,
+          layerColor: data.layerColor ?? null,
+        };
+      });
 
       // 선택된 엔티티들을 빨간색으로 표시하고, 이전 선택은 해제
       updateRedSelection(viewerRef.current, libRef.current, entityDataMapRef.current, prevRedHandlesRef, handles);
@@ -292,13 +290,11 @@ const Canvas = ({ filePath, docno, isActive }) => {
     setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
   }, [panelSize]);
 
+  // 도면이 바뀌면(신규 탭 등) 패널 위치를 기본 우하단으로 리셋
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('entityPanelPosition', JSON.stringify(panelPosition));
-      }
-    } catch (_) {}
-  }, [panelPosition]);
+    const base = computePanelPosition(panelSize.width, panelSize.height);
+    setPanelPosition(clampPanelPosition(base, panelSize));
+  }, [docno, panelSize.width, panelSize.height]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomFactor = 0.2;
 

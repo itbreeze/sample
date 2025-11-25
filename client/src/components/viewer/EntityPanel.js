@@ -644,10 +644,9 @@ const EntityPanel = ({
                             <td
                               style={{
                                 padding: '5px 8px',
-                                fontFamily: 'monospace',
+                                color: '#0f172a',
+                                fontWeight: 500,
                                 wordBreak: 'break-all',
-                                color: '#111827',
-                                fontSize: 13,
                                 borderRight: '1px solid rgba(226, 232, 240, 0.5)',
                                 verticalAlign: 'middle',
                               }}
