@@ -21,9 +21,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background: #fafafa;
+  border-bottom: 1px solid var(--border-color);
 }
 
 /* 헤더 (제목 + 검색 버튼) */

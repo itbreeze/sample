@@ -67,7 +67,7 @@ const sidebarMenus = {
 };
 
 const NotImplemented = () => (
-    <div style={{ padding: '20px', textAlign: 'center' }}>❌ 해당 기능은 아직 준비되지 않았습니다.</div>
+    <div style={{ padding: '20px', textAlign: 'center' }}>🚧 해당 기능은 아직 준비되지 않았습니다.</div>
   );
 
 const equipmentTabs = [
