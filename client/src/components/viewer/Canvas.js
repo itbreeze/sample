@@ -37,6 +37,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
   const [selectedHandles, setSelectedHandles] = useState([]);
   const [entities, setEntities] = useState([]);
   const [showPanel, setShowPanel] = useState(false);
+  const [isInverted, setIsInverted] = useState(false);
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
 
   const computePanelPosition = (width, height) => {
@@ -64,14 +65,31 @@ const Canvas = ({ filePath, docno, isActive }) => {
     return clampPanelPosition(initial, PANEL_DEFAULT);
   });
   const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
+  const clearSelection = useCallback(() => {
+    if (prevRedHandlesRef.current.size > 0) {
+      updateRedSelection(
+        viewerRef.current,
+        libRef.current,
+        entityDataMapRef.current,
+        prevRedHandlesRef,
+        []
+      );
+    }
+    viewerRef.current?.unselect?.();
+    viewerRef.current?.update?.();
+    setSelectedHandles([]);
+    setEntities([]);
+    setShowPanel(false);
+  }, []);
 
   // 선택 이벤트 처리
   const handleSelect = useCallback(
     (payload) => {
       const additive = !!payload?.additive;
+      const viewer = viewerRef.current;
       // 현재 선택 상태에서 메타데이터를 매핑(선택 핸들이 이미 payload로 넘어와도 메타데이터 채움)
       const selectionHandles = collectSelectedEntities(
-        viewerRef.current,
+        viewer,
         libRef.current,
         entityDataMapRef,
         true
@@ -97,24 +115,55 @@ const Canvas = ({ filePath, docno, isActive }) => {
 
       // 선택된 것이 없으면 상태 초기화
       if (!handles || handles.length === 0) {
-        // 이전 빨간 선택 모두 해제
-        if (prevRedHandlesRef.current.size > 0) {
-          updateRedSelection(viewerRef.current, libRef.current, entityDataMapRef.current, prevRedHandlesRef, []);
-        }
-        setSelectedHandles([]);
-        setEntities([]);
-        setShowPanel(false);
+        clearSelection();
         return;
       }
+
+      // 뷰어 선택 상태를 현재 핸들 배열로 재적용(하이라이트 일관성)
+      const applySelectionHandles = (hList) => {
+        if (!viewer) return;
+        try {
+          viewer.unselect?.();
+          if (Array.isArray(hList)) {
+            hList.forEach((h) => {
+              try {
+                viewer.setSelectedEntity?.(h);
+              } catch (_) { }
+              try {
+                viewer.setSelected?.(h);
+              } catch (_) { }
+            });
+          }
+          viewer.update?.();
+        } catch (_) { }
+      };
+      applySelectionHandles(handles);
+
+      handles.forEach((h) => {
+        const entry = entityDataMapRef.current.get(String(h));
+        if (entry?.entityId) {
+          // 레이어 truecolor 로그/추적 기능은 제거
+        }
+      });
 
       // 선택된 엔티티의 메타 데이터 매핑
       const mappedEntities = handles.map((h) => {
         const data = entityDataMapRef.current.get(String(h)) || {};
+        const displayColor = (() => {
+          if (data.colorType === 'kColor' && data.trueColor) return data.trueColor;
+          if (data.colorType === 'kIndexed' && Number.isFinite(data.indexColor)) return data.indexColor;
+          if (data.colorType === 'kDefault' && data.trueColor) return data.trueColor;
+          if (data.colorType === 'kDefault' && Number.isFinite(data.indexColor)) return data.indexColor;
+          return data.objectColor ?? null;
+        })();
         return {
           handle: h,
           ...data,
-          objectColor: data.objectColor ?? data.originalColor ?? null,
+          objectColor: displayColor,
           layerColor: data.layerColor ?? null,
+          lastColorOption: data.lastColorOption ?? null,
+          initialOriginalColor: data.initialOriginalColor ?? null,
+          hasColorChanged: data.hasColorChanged ?? false,
         };
       });
 
@@ -125,7 +174,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
       setEntities(mappedEntities);
       setShowPanel(true);
     },
-    [selectedHandles]
+    [selectedHandles, clearSelection]
   );
 
   useEffect(() => {
@@ -142,10 +191,17 @@ const Canvas = ({ filePath, docno, isActive }) => {
       viewerRef.current,
       canvasRef.current,
       libRef.current,
-      { onSelect: handleSelect }
+      {
+        onSelect: handleSelect,
+        cursorColor: isInverted ? '#ffffff' : '#000000',
+      }
     );
     interactionsCleanupRef.current = cleanup;
-  }, [handleSelect]);
+  }, [handleSelect, isInverted]);
+
+  const toggleInvert = useCallback(() => {
+    setIsInverted((prev) => !prev);
+  }, []);
 
   const runZoomExtents = useCallback(() => {
     const viewer = viewerRef.current;
@@ -228,8 +284,6 @@ const Canvas = ({ filePath, docno, isActive }) => {
         } catch (e) {}
 
         setLoadPercent(95);
-        viewerRef.current.setEnableSceneGraph?.(true);
-        viewerRef.current.setEnableAnimation?.(false);
         viewerRef.current.zoomExtents?.();
         viewerRef.current.update?.();
 
@@ -310,7 +364,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
   useEffect(() => {
     const base = computePanelPosition(panelSize.width, panelSize.height);
     setPanelPosition(clampPanelPosition(base, panelSize));
-  }, [docno, panelSize.width, panelSize.height]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [docno]);
 
   const zoomFactor = 0.2;
 
@@ -321,6 +375,20 @@ const Canvas = ({ filePath, docno, isActive }) => {
       scheduleZoomExtents(120);
     }
   }, [isActive, isLoading, scheduleZoomExtents]);
+
+  useEffect(() => {
+    if (!isActive || isLoading) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        clearSelection();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isActive, isLoading, clearSelection]);
 
   const handleZoomToEntity = useCallback(
     (handle) => {
@@ -356,7 +424,11 @@ const Canvas = ({ filePath, docno, isActive }) => {
             ...ent,
             objectColor: updated?.objectColor ?? ent.objectColor,
             colorType: updated?.colorType ?? ent.colorType,
-            colorIndex: updated?.colorIndex ?? ent.colorIndex,
+            indexColor: updated?.indexColor ?? ent.indexColor,
+            originalColor: updated?.originalColor ?? ent.originalColor,
+            initialOriginalColor: updated?.initialOriginalColor ?? ent.initialOriginalColor,
+            lastColorOption: updated?.lastColorOption ?? ent.lastColorOption,
+            hasColorChanged: updated?.hasColorChanged ?? ent.hasColorChanged,
           };
         })
       );
@@ -364,6 +436,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
   }, []);
 
   const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
+  const invertStyle = isInverted ? { filter: 'invert(1)' } : {};
 
   return (
     <div
@@ -375,7 +448,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
         visible={isLoading}
         percent={loadPercent}
       />
-      <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle }}>
+      <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle, ...invertStyle }}>
         <canvas
           ref={canvasRef}
           id="mainCanvas"
@@ -424,6 +497,36 @@ const Canvas = ({ filePath, docno, isActive }) => {
           }}
           onZoomToEntity={handleZoomToEntity}
           onColorOverride={handleColorOverride}
+          onToggleInvert={toggleInvert}
+          isInverted={isInverted}
+          onRestoreOriginal={() => {
+            const handles = selectedHandles || [];
+            handles.forEach((h) => {
+              applyTempColorOverride(
+                viewerRef.current,
+                libRef.current,
+                entityDataMapRef.current,
+                h,
+                'restore-initial'
+              );
+            });
+            // 상태도 반영
+            setEntities((prev) =>
+              prev.map((ent) => {
+                if (!handles.includes(ent.handle)) return ent;
+                const data = entityDataMapRef.current.get(String(ent.handle));
+                if (!data) return ent;
+                return {
+                  ...ent,
+                  objectColor: data.objectColor ?? data.originalColor ?? ent.objectColor,
+                  colorType: data.colorType ?? ent.colorType,
+                  indexColor: data.indexColor ?? ent.indexColor,
+                  originalColor: data.originalColor ?? ent.originalColor,
+                  lastColorOption: data.lastColorOption ?? null,
+                };
+              })
+            );
+          }}
         />
       )}
     </div>

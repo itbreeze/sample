@@ -12,7 +12,6 @@ const documentRoutes = require('./routes/documentRoutes');
 const searchRoutes = require('./routes/search');
 
 const app = express();
-app.use(morgan('dev'));
 
 const allowedOrigins = ['http://localhost:3001'];
 app.use(

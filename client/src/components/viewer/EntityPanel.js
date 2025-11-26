@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, X } from 'lucide-react';
 
-export const MIN_WIDTH = 800;
+export const MIN_WIDTH = 1000;
 export const MIN_HEIGHT = 400;
 const MAX_WIDTH_MARGIN = 40;
 const MAX_HEIGHT_MARGIN = 80;
@@ -31,6 +31,9 @@ const EntityPanel = ({
   onSizeChange,
   onZoomToEntity,
   onColorOverride,
+  onToggleInvert,
+  isInverted,
+  onRestoreOriginal,
 }) => {
   const panelRef = useRef(null);
 
@@ -38,6 +41,7 @@ const EntityPanel = ({
   const [size, setSize] = useState(initialSize || { width: MIN_WIDTH, height: MIN_HEIGHT });
   const [isMinimized, setIsMinimized] = useState(false);
   const [selectedType, setSelectedType] = useState('ALL');
+  const [selectedColorMap, setSelectedColorMap] = useState({});
 
   const draggingRef = useRef(null);
   const resizingRef = useRef(null); // { startX, startY, origW, origH, direction: 'right' | 'bottom' | 'corner' }
@@ -93,8 +97,15 @@ const EntityPanel = ({
           return t === selectedType;
         });
 
+  const formatLayerName = (layer) => {
+    if (layer === null || layer === undefined) return '';
+    const trimmed = String(layer).trim();
+    if (trimmed === 'ZeroLayerName') return '0';
+    return trimmed;
+  };
+
   const renderColorSwatch = (color, label, meta = {}) => {
-    const { colorType = null, colorIndex = null, layerColor = null } = meta;
+    const { colorType = null, indexColor = null, layerColor = null, trueColor = null } = meta;
     const isRgb =
       color &&
       typeof color === 'object' &&
@@ -102,20 +113,11 @@ const EntityPanel = ({
       typeof color.g === 'number' &&
       typeof color.b === 'number';
     const stringColor = typeof color === 'string' && color.trim().length > 0 ? color.trim() : null;
-    const numericColor = Number.isFinite(colorIndex)
-      ? colorIndex
+    const numericColor = Number.isFinite(indexColor)
+      ? indexColor
       : Number.isFinite(color)
       ? color
       : null;
-
-    const isByLayer =
-      (isRgb &&
-        numericColor === 0 &&
-        color.r === 0 &&
-        color.g === 0 &&
-        color.b === 0) ||
-      numericColor === 256;
-    const isByBlock = numericColor === 0 && !isByLayer;
 
     const resolveIndexedColor = (idx) => {
       const palette = {
@@ -144,53 +146,47 @@ const EntityPanel = ({
       return null;
     };
 
-    const swatchColor = isByLayer
-      ? resolveLayerColor() || '#e2e8f0'
-      : isByBlock
-      ? '#e2e8f0'
-      : isRgb
-      ? `rgb(${color.r},${color.g},${color.b})`
-      : numericColor !== null
-      ? resolveIndexedColor(numericColor)
-      : stringColor || '#e2e8f0';
+    const hasTrueColor =
+      trueColor &&
+      typeof trueColor.r === 'number' &&
+      typeof trueColor.g === 'number' &&
+      typeof trueColor.b === 'number';
+
+    const rgbToUse = isRgb
+      ? color
+      : hasTrueColor
+      ? trueColor
+      : null;
 
     let labelText = '정보 없음';
-    if (isByLayer) {
-      labelText = 'ByLayer';
-    } else if (isByBlock) {
-      labelText = 'ByBlock';
-    } else if (isRgb) {
-      labelText = `rgb (${color.r}, ${color.g}, ${color.b})`;
-    } else if (stringColor) {
-      labelText = stringColor;
+    if (colorType === 'kColor' && rgbToUse) {
+      labelText = `RGB Color (${rgbToUse.r}, ${rgbToUse.g}, ${rgbToUse.b})`;
+    } else if (colorType === 'kIndexed' && numericColor !== null) {
+      labelText = `Index Color (${numericColor})`;
+    } else if (rgbToUse) {
+      labelText = `RGB Color (${rgbToUse.r}, ${rgbToUse.g}, ${rgbToUse.b})`;
     } else if (numericColor !== null) {
-      labelText = `index (${numericColor})`;
+      labelText = `Index Color (${numericColor})`;
     }
 
     const title = label ? `${label} ${labelText}` : labelText;
-    const borderColor = isRgb ? 'rgba(15, 23, 42, 0.3)' : 'rgba(148, 163, 184, 0.5)';
-
-    if (labelText === '정보 없음') {
-      console.log('EntityPanel color missing', { label, color });
-    }
 
     return {
-      swatchColor,
+      swatchColor: null,
       labelText,
       title,
-      borderColor,
+      borderColor: null,
     };
   };
 
   const renderColorCell = (
     color,
     label,
-    { borderRight = null, colorType = null, colorIndex = null, layerColor = null } = {}
+    { borderRight = null, colorType = null, indexColor = null } = {}
   ) => {
     const { swatchColor, labelText, title, borderColor } = renderColorSwatch(color, label, {
       colorType,
-      colorIndex,
-      layerColor,
+      indexColor,
     });
 
     return (
@@ -203,65 +199,71 @@ const EntityPanel = ({
         }}
         title={title}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            gap: 6,
-          }}
-        >
-          <div
-            style={{
-              width: INDICATOR_SIZE,
-              height: INDICATOR_SIZE,
-              minWidth: INDICATOR_SIZE,
-              minHeight: INDICATOR_SIZE,
-              background: swatchColor,
-              border: `1px solid ${borderColor}`,
-              borderRadius: 2,
-              flexShrink: 0,
-              flexGrow: 0,
-              boxSizing: 'border-box',
-            }}
-          />
-          <span style={{ fontSize: 12, color: '#0f172a' }}>{labelText}</span>
-        </div>
+        <span style={{ fontSize: 12, color: '#0f172a' }}>{labelText}</span>
       </td>
     );
   };
 
-  const colorSelectOptions = [
-    { value: 'restore', label: '원본 복구' },
-    { value: 'rgb:0,0,0', label: 'RGB 0,0,0' },
-    ...Array.from({ length: 8 }, (_, i) => ({
-      value: `index:${i}`,
-      label: `Index ${i}`,
-    })),
+  const aciNames = {
+    1: 'Red',
+    2: 'Yellow',
+    3: 'Green',
+    4: 'Cyan',
+    5: 'Blue',
+    6: 'Magenta',
+    7: 'White',
+  };
+
+  const baseColorOptions = [
+    { value: 'rgb:0,0,0', label: 'Black' },
+    ...Array.from({ length: 7 }, (_, i) => {
+      const idx = i + 1; // 1~7
+      const name = aciNames[idx] || `Index ${idx}`;
+      return {
+        value: `index:${idx}`,
+        label: name,
+        swatch:
+          idx === 1 ? '#ff0000' :
+          idx === 2 ? '#ffff00' :
+          idx === 3 ? '#00ff00' :
+          idx === 4 ? '#00ffff' :
+          idx === 5 ? '#0000ff' :
+          idx === 6 ? '#ff00ff' :
+          idx === 7 ? '#ffffff' : '#e2e8f0',
+      };
+    }),
   ];
 
-  const renderLayerIndicator = (color) => {
-    const { swatchColor, title } = renderColorSwatch(color, '도면층 색상');
+  const hasAnyRestorable = React.useMemo(
+    () => Array.isArray(entities) && entities.some((ent) => ent?.hasColorChanged),
+    [entities]
+  );
 
+  const renderLayerIndicator = (layerColor) => {
+    let swatchColor = '#e2e8f0';
+    let labelText = 'RGB Color 정보 없음';
+
+    if (layerColor && typeof layerColor.r === 'number') {
+      swatchColor = `rgb(${layerColor.r},${layerColor.g},${layerColor.b})`;
+      labelText = `RGB Color (${layerColor.r}, ${layerColor.g}, ${layerColor.b})`;
+    }
+
+    const title = labelText;
+    const borderColor = 'rgba(148, 163, 184, 0.5)';
     return (
-      <span
-        style={
-          {
-            width: INDICATOR_SIZE,
-            height: INDICATOR_SIZE,
-            minWidth: INDICATOR_SIZE,
-            minHeight: INDICATOR_SIZE,
-            boxSizing: 'border-box',
-            borderRadius: 2,
-            border: '1px solid rgba(15, 23, 42, 0.2)',
-            background: swatchColor,
-            display: 'inline-flex',
-            flexShrink: 0,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }
-        }
+      <div
         title={title}
+        style={{
+          width: INDICATOR_SIZE,
+          height: INDICATOR_SIZE,
+          minWidth: INDICATOR_SIZE,
+          minHeight: INDICATOR_SIZE,
+          boxSizing: 'border-box',
+          borderRadius: 2,
+          border: `1px solid ${borderColor}`,
+          background: swatchColor,
+          flexShrink: 0,
+        }}
       />
     );
   };
@@ -280,6 +282,27 @@ const EntityPanel = ({
       setSelectedType('ALL');
     }
   }, [hasEntities, selectedType, typeMap]);
+
+  useEffect(() => {
+    if (!entities) return;
+    // 선택된 색상 상태를 현재 엔티티 목록 기준으로 정리 (마지막 선택 옵션 유지)
+    setSelectedColorMap((prev) => {
+      const next = {};
+      for (const ent of entities) {
+        const key = ent?.handle;
+        if (key === undefined || key === null) continue;
+        const lastOpt = ent.lastColorOption;
+        if (key in prev) {
+          // 이전 선택이 복구 옵션이면 기본값으로 리셋
+          if (prev[key] === 'restore-initial') continue;
+          next[key] = prev[key];
+        } else if (lastOpt && lastOpt !== 'restore-initial') {
+          next[key] = lastOpt;
+        }
+      }
+      return next;
+    });
+  }, [entities]);
 
   // 기본 위치: 화면 오른쪽 하단
   useEffect(() => {
@@ -458,6 +481,79 @@ const EntityPanel = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            onToggleInvert?.();
+          }}
+          style={{
+            border: `1px solid ${isInverted ? 'rgba(34, 197, 94, 0.6)' : 'transparent'}`,
+            background: isInverted ? 'rgba(34, 197, 94, 0.45)' : 'rgba(255, 255, 255, 0.15)',
+            color: '#ffffff',
+            padding: '4px 8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 4,
+            fontWeight: 700,
+            fontSize: 11,
+            letterSpacing: -0.2,
+            marginLeft: 6,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isInverted
+              ? 'rgba(34, 197, 94, 0.6)'
+              : 'rgba(255, 255, 255, 0.25)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isInverted
+              ? 'rgba(34, 197, 94, 0.45)'
+              : 'rgba(255, 255, 255, 0.15)';
+          }}
+          title={isInverted ? '흑백 반전 해제' : '흑백 반전 적용'}
+          aria-pressed={isInverted}
+        >
+          반전
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (hasAnyRestorable) {
+              onRestoreOriginal?.();
+            }
+          }}
+          style={{
+            border: `1px solid ${hasAnyRestorable ? 'rgba(148, 163, 184, 0.4)' : 'rgba(148, 163, 184, 0.15)'}`,
+            background: hasAnyRestorable ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+            color: hasAnyRestorable ? '#ffffff' : 'rgba(255,255,255,0.5)',
+            padding: '4px 10px',
+            cursor: hasAnyRestorable ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 4,
+            fontWeight: 700,
+            fontSize: 11,
+            letterSpacing: -0.2,
+            marginLeft: 6,
+          }}
+          onMouseEnter={(e) => {
+            if (!hasAnyRestorable) return;
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+          }}
+          onMouseLeave={(e) => {
+            if (!hasAnyRestorable) return;
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+          }}
+          title={hasAnyRestorable ? '변경된 색상을 원본으로 복구' : '복구할 색상 변경 없음'}
+        >
+          복구
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
             setIsMinimized((v) => !v);
           }}
           style={{
@@ -470,6 +566,7 @@ const EntityPanel = ({
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: 4,
+            marginLeft: 6,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
@@ -755,7 +852,7 @@ const EntityPanel = ({
                                 textOverflow: 'ellipsis',
                                 borderRight: '1px solid rgba(226, 232, 240, 0.5)',
                               }}
-                              title={ent.layer || ''}
+                              title={formatLayerName(ent.layer)}
                             >
                               <div
                                 style={{
@@ -772,15 +869,16 @@ const EntityPanel = ({
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {ent.layer || ''}
+                                  {formatLayerName(ent.layer)}
                                 </span>
                               </div>
                             </td>
                             {renderColorCell(ent.objectColor, '색상', {
                               borderRight: '1px solid rgba(226, 232, 240, 0.5)',
                               colorType: ent.colorType,
-                              colorIndex: ent.colorIndex,
+                              indexColor: ent.indexColor,
                               layerColor: ent.layerColor,
+                              trueColor: ent.trueColor,
                             })}
                             <td
                               style={{
@@ -790,13 +888,14 @@ const EntityPanel = ({
                               }}
                             >
                               <select
-                                defaultValue=""
+                                value={selectedColorMap[ent.handle] ?? ent.lastColorOption ?? ''}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  if (val && onColorOverride) {
-                                    onColorOverride(ent.handle, val);
-                                  }
-                                  e.target.value = '';
+                                  setSelectedColorMap((prev) => ({
+                                    ...prev,
+                                    [ent.handle]: val === 'restore-initial' ? '' : val,
+                                  }));
+                                  if (val && onColorOverride) onColorOverride(ent.handle, val);
                                 }}
                                 style={{
                                   width: '100%',
@@ -813,7 +912,14 @@ const EntityPanel = ({
                                 <option value="" disabled hidden>
                                   색상 선택
                                 </option>
-                                {colorSelectOptions.map((opt) => (
+                                {(() => {
+                                  const opts = [];
+                                  if (ent.hasColorChanged) {
+                                    opts.push({ value: 'restore-initial', label: '원본 복구' });
+                                  }
+                                  opts.push(...baseColorOptions);
+                                  return opts;
+                                })().map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </option>

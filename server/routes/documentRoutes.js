@@ -41,7 +41,7 @@ router.get("/", async (req, res) => {
     //   WHERE D.CURRENT_YN = '001'
     //   ORDER BY "PLANTCODE", "ID"
     // `;
-    const sql=`WITH RECURSIVE_TREE (
+    const sql = `WITH RECURSIVE_TREE (
     ID, PARENTID, NAME, DOCNAME, DOCNUM, DOCVR, TYPE, PLANTCODE, LVL, ORDER_SEQ
 ) AS (
     -- 최상위 폴더 (LVL 0, ORDER_SEQ = '00000')
@@ -124,8 +124,7 @@ router.post("/selectDocument", async (req, res) => {
   const { docId, docVr } = req.body;
   let tmpFile; // 임시 dwg 파일 경로
   try {
-    console.log('[selectDocument] 요청 수신', { docId, docVr });
-    const sql = `SELECT S.PLANTNM,F.HOGI_GUBUN,D.DOCNO ,D.DOCNM,D.DOCNUMBER,TO_CHAR(D.DOCVR) AS DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
+    const sql = `SELECT S.PLANTNM,F.HOGI_GUBUN,D.DOCNO ,D.DOCNM,D.DOCNUMBER,D.DOCVR AS DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
                  FROM IDS_DOC D LEFT JOIN IDS_SITE S
                    ON D.PLANTCODE=S.PLANTCODE
                    LEFT JOIN IDS_FOLDER F
@@ -139,42 +138,34 @@ router.post("/selectDocument", async (req, res) => {
     }
 
     const doc = results[0];
-    console.log('[selectDocument] DB 조회', { docno: doc.DOCNO, docvr: doc.DOCVR });
     // VSFX 파일이 저장될 폴더 확인 및 생성 (비동기)
     await fs.mkdir(VIEWER_FOLDER, { recursive: true });
 
     // 파일명 규칙: docno_docvr (예: 0000...4602_001)
-    const docvrRaw = doc.DOCVR ?? '';
-    const docvrPart = String(docvrRaw).trim().replace(/\s+/g, '').padStart(3, '0');
-    const hostFile = `${doc.DOCNO}_${docvrPart}`;
+    const hostFile = `${doc.DOCNO}_${doc.DOCVR}`;
     tmpFile = path.join(VIEWER_FOLDER, `${hostFile}.dwg`);
     const outputPath = path.join(VIEWER_FOLDER, `${hostFile}.vsfx`);
-    console.log('[selectDocument] 파일 경로', { tmpFile, outputPath });
 
     // 1. DB에서 BLOB 데이터를 가져와 임시 dwg 파일로 저장 (비동기)
     const buffer = await doc.DOCCT.getData();
-    console.log('[selectDocument] BLOB 크기', buffer?.length);
     await fs.writeFile(tmpFile, buffer);
 
     // 2. dwg 파일을 vsfx로 변환 (비동기)
     const cmdLine = `"${CONVERTER_PATH}" "${tmpFile}" "${outputPath}" --multithreading=true`;
-    console.log('[selectDocument] 변환 실행', { cmdLine });
     await new Promise((resolve, reject) => {
-        exec(cmdLine, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Conversion error: ${stderr || error.message}`);
-                return reject(new Error('File conversion failed.'));
-            }
-            if (stdout) console.log('[selectDocument] 변환 stdout', stdout);
-            if (stderr) console.warn('[selectDocument] 변환 stderr', stderr);
-            console.log('[selectDocument] 변환 완료', { outputPath });
-            resolve();
-        });
+      exec(cmdLine, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Conversion error: ${stderr || error.message}`);
+          return reject(new Error('File conversion failed.'));
+        }
+        if (stderr) console.warn('[selectDocument] 변환 stderr', stderr);
+        resolve();
+      });
     });
 
     const docResponse = {
-      PLANTNM:doc.PLANTNM,
-      UNIT:doc.HOGI_GUBUN,
+      PLANTNM: doc.PLANTNM,
+      UNIT: doc.HOGI_GUBUN,
       DOCNO: doc.DOCNO,
       DOCNM: doc.DOCNM,
       DOCNUMBER: doc.DOCNUMBER,
@@ -186,9 +177,9 @@ router.post("/selectDocument", async (req, res) => {
       // 최종적으로 클라이언트가 요청할 변환된 파일의 경로
       tmpFile: `/viewer_doc/${hostFile}.vsfx`,
     };
-    
-    console.log("DOC 변환 성공:", docResponse);
-    
+
+    console.log("Document Response:", docResponse);
+
     res.json(docResponse);
 
   } catch (err) {

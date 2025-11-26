@@ -78,9 +78,10 @@ export const attachWheelZoom = (viewer, canvas, zoomFactor = 1.1) => {
 // [PAN]
 /////////////////////////
 
-export const attachPan = (viewer, canvas) => {
+export const attachPan = (viewer, canvas, options = {}) => {
   if (!viewer || !canvas) return () => { };
 
+  const { cursorColor = '#000000' } = options;
   let isPanning = false;
   let panButton = null;
   let lastMouseX = 0;
@@ -88,10 +89,10 @@ export const attachPan = (viewer, canvas) => {
   let lastMiddleClickTime = 0;
   const doubleClickThreshold = 400;
 
-  let restoreBoxCursor = applyBoxCursor(canvas, {});
+  let restoreBoxCursor = applyBoxCursor(canvas, { color: cursorColor });
   const setBoxCursor = () => {
     restoreBoxCursor?.();
-    restoreBoxCursor = applyBoxCursor(canvas, {});
+    restoreBoxCursor = applyBoxCursor(canvas, { color: cursorColor });
   };
 
   const grabCursor = 'grabbing';
@@ -345,7 +346,6 @@ export const attachLeftClickSelect = (viewer, canvas, lib, options = {}) => {
     } catch (e) {
       console.warn('[CanvasController] click select error:', e);
     } finally {
-      viewer.unselect?.();
       viewer.update?.();
     }
   };
@@ -586,7 +586,6 @@ export const attachDragSelect = (viewer, canvas, lib, options = {}) => {
     } catch (e) {
       console.warn('[CanvasController] drag select error:', e);
     } finally {
-      viewer.unselect?.();
       viewer.update?.();
       lastBox = null;
     }
@@ -629,12 +628,12 @@ export const attachDragSelect = (viewer, canvas, lib, options = {}) => {
 /**
  * wheel + pan + leftClickSelect (+ dragSelect는 나중에) 한 번에 붙이고 cleanup 반환
  */
-export const attachCanvasInteractions = (viewer, canvas, lib, { onSelect } = {}) => {
+export const attachCanvasInteractions = (viewer, canvas, lib, { onSelect, cursorColor } = {}) => {
   if (!viewer || !canvas) return () => { };
 
   const cleanups = [];
   const c1 = attachWheelZoom(viewer, canvas);
-  const c2 = attachPan(viewer, canvas);
+  const c2 = attachPan(viewer, canvas, { cursorColor });
   const c3 = attachLeftClickSelect(viewer, canvas, lib, { onSelect });
   const c4 = attachDragSelect(viewer, canvas, lib, { onSelect });
 
