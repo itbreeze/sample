@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, X } from 'lucide-react';
 
-export const MIN_WIDTH = 600;
+export const MIN_WIDTH = 800;
 export const MIN_HEIGHT = 400;
 const MAX_WIDTH_MARGIN = 40;
 const MAX_HEIGHT_MARGIN = 80;
@@ -30,6 +30,7 @@ const EntityPanel = ({
   initialSize,
   onSizeChange,
   onZoomToEntity,
+  onColorOverride,
 }) => {
   const panelRef = useRef(null);
 
@@ -92,7 +93,8 @@ const EntityPanel = ({
           return t === selectedType;
         });
 
-  const renderColorSwatch = (color, label) => {
+  const renderColorSwatch = (color, label, meta = {}) => {
+    const { colorType = null, colorIndex = null, layerColor = null } = meta;
     const isRgb =
       color &&
       typeof color === 'object' &&
@@ -100,12 +102,71 @@ const EntityPanel = ({
       typeof color.g === 'number' &&
       typeof color.b === 'number';
     const stringColor = typeof color === 'string' && color.trim().length > 0 ? color.trim() : null;
-    const swatchColor = isRgb ? `rgb(${color.r},${color.g},${color.b})` : stringColor || '#e2e8f0';
-    const labelText = isRgb
-      ? `${color.r}, ${color.g}, ${color.b}`
-      : stringColor
-      ? stringColor
-      : '정보 없음';
+    const numericColor = Number.isFinite(colorIndex)
+      ? colorIndex
+      : Number.isFinite(color)
+      ? color
+      : null;
+
+    const isByLayer =
+      (isRgb &&
+        numericColor === 0 &&
+        color.r === 0 &&
+        color.g === 0 &&
+        color.b === 0) ||
+      numericColor === 256;
+    const isByBlock = numericColor === 0 && !isByLayer;
+
+    const resolveIndexedColor = (idx) => {
+      const palette = {
+        0: '#000000',
+        1: '#ff0000',
+        2: '#ffff00',
+        3: '#00ff00',
+        4: '#00ffff',
+        5: '#0000ff',
+        6: '#ff00ff',
+        7: '#ffffff',
+      };
+      if (idx in palette) return palette[idx];
+      return '#e2e8f0';
+    };
+
+    const resolveLayerColor = () => {
+      if (!layerColor) return null;
+      if (
+        typeof layerColor.r === 'number' &&
+        typeof layerColor.g === 'number' &&
+        typeof layerColor.b === 'number'
+      ) {
+        return `rgb(${layerColor.r},${layerColor.g},${layerColor.b})`;
+      }
+      return null;
+    };
+
+    const swatchColor = isByLayer
+      ? resolveLayerColor() || '#e2e8f0'
+      : isByBlock
+      ? '#e2e8f0'
+      : isRgb
+      ? `rgb(${color.r},${color.g},${color.b})`
+      : numericColor !== null
+      ? resolveIndexedColor(numericColor)
+      : stringColor || '#e2e8f0';
+
+    let labelText = '정보 없음';
+    if (isByLayer) {
+      labelText = 'ByLayer';
+    } else if (isByBlock) {
+      labelText = 'ByBlock';
+    } else if (isRgb) {
+      labelText = `rgb (${color.r}, ${color.g}, ${color.b})`;
+    } else if (stringColor) {
+      labelText = stringColor;
+    } else if (numericColor !== null) {
+      labelText = `index (${numericColor})`;
+    }
+
     const title = label ? `${label} ${labelText}` : labelText;
     const borderColor = isRgb ? 'rgba(15, 23, 42, 0.3)' : 'rgba(148, 163, 184, 0.5)';
 
@@ -121,8 +182,16 @@ const EntityPanel = ({
     };
   };
 
-  const renderColorCell = (color, label, { borderRight = null } = {}) => {
-    const { swatchColor, labelText, title, borderColor } = renderColorSwatch(color, label);
+  const renderColorCell = (
+    color,
+    label,
+    { borderRight = null, colorType = null, colorIndex = null, layerColor = null } = {}
+  ) => {
+    const { swatchColor, labelText, title, borderColor } = renderColorSwatch(color, label, {
+      colorType,
+      colorIndex,
+      layerColor,
+    });
 
     return (
       <td
@@ -161,6 +230,15 @@ const EntityPanel = ({
       </td>
     );
   };
+
+  const colorSelectOptions = [
+    { value: 'restore', label: '원본 복구' },
+    { value: 'rgb:0,0,0', label: 'RGB 0,0,0' },
+    ...Array.from({ length: 8 }, (_, i) => ({
+      value: `index:${i}`,
+      label: `Index ${i}`,
+    })),
+  ];
 
   const renderLayerIndicator = (color) => {
     const { swatchColor, title } = renderColorSwatch(color, '도면층 색상');
@@ -591,6 +669,19 @@ const EntityPanel = ({
                             padding: '6px 8px',
                             textAlign: 'left',
                             verticalAlign: 'middle',
+                            width: 110,
+                            fontWeight: 600,
+                            color: '#475569',
+                            borderRight: '1px solid rgba(203, 213, 225, 0.6)',
+                          }}
+                        >
+                          복구/설정
+                        </th>
+                        <th
+                          style={{
+                            padding: '6px 8px',
+                            textAlign: 'left',
+                            verticalAlign: 'middle',
                             width: 50,
                             fontWeight: 600,
                             color: '#475569',
@@ -687,7 +778,48 @@ const EntityPanel = ({
                             </td>
                             {renderColorCell(ent.objectColor, '색상', {
                               borderRight: '1px solid rgba(226, 232, 240, 0.5)',
+                              colorType: ent.colorType,
+                              colorIndex: ent.colorIndex,
+                              layerColor: ent.layerColor,
                             })}
+                            <td
+                              style={{
+                                padding: '5px 8px',
+                                verticalAlign: 'middle',
+                                borderRight: '1px solid rgba(226, 232, 240, 0.5)',
+                              }}
+                            >
+                              <select
+                                defaultValue=""
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val && onColorOverride) {
+                                    onColorOverride(ent.handle, val);
+                                  }
+                                  e.target.value = '';
+                                }}
+                                style={{
+                                  width: '100%',
+                                  background: 'rgba(255, 255, 255, 0.85)',
+                                  color: '#0f172a',
+                                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                                  borderRadius: 4,
+                                  padding: '4px 6px',
+                                  fontSize: 12,
+                                  outline: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <option value="" disabled hidden>
+                                  색상 선택
+                                </option>
+                                {colorSelectOptions.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
                             <td
                               style={{
                                 padding: '5px 8px',

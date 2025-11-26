@@ -4,6 +4,7 @@ require('dotenv').config({ path: envPath });
 const express = require('express');
 const cors = require('cors'); 
 const cookieParser = require('cookie-parser');
+const morgan = require('morgan');
 const { attachAuth, requireAuth } = require('./utils/auth');
 
 const authRoutes = require('./routes/authRoutes');
@@ -11,6 +12,7 @@ const documentRoutes = require('./routes/documentRoutes');
 const searchRoutes = require('./routes/search');
 
 const app = express();
+app.use(morgan('dev'));
 
 const allowedOrigins = ['http://localhost:3001'];
 app.use(

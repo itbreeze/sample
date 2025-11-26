@@ -15,6 +15,22 @@ const DEPT_TO_PLANT = {
 
 const DEFAULT_PLANT_CODE = '0001';
 
+const logResponse = (tag, userId, body) => {
+  try {
+    console.log(`[checkUser] ${tag}`, {
+      userId,
+      allowed: body?.allowed,
+      stage: body?.stage,
+      message: body?.message,
+      plantScopeFilter: body?.usePlantScopeFilter,
+      authId: body?.user?.sAuthId,
+      isPsn: body?.user?.isPsn,
+    });
+  } catch (_) {
+    // 로그 실패는 무시
+  }
+};
+
 const buildUserPayload = (userRow, plantCode, isPsn) => ({
   userId: userRow.pernr,
   name: userRow.name,
@@ -118,9 +134,11 @@ async function checkUser(req, res) {
     const rawUserId = typeof userId === 'string' ? userId : '';
     const trimmedUserId = rawUserId.trim();
 
+    console.log('[checkUser] 요청', { userId: trimmedUserId, ip: req.ip });
+
     if (!trimmedUserId) {
       clearAuthCookie(res);
-      return res.status(400).json({
+      const body = {
         ok: false,
         allowed: false,
         found: false,
@@ -129,14 +147,16 @@ async function checkUser(req, res) {
         stage: 'INVALID_INPUT',
         message: 'EMPTY_USER_ID',
         usePlantScopeFilter,
-      });
+      };
+      logResponse('응답', trimmedUserId, body);
+      return res.status(400).json(body);
     }
 
     const userRow = await findUserInTable(trimmedUserId);
 
     if (!userRow) {
       clearAuthCookie(res);
-      return res.json({
+      const body = {
         ok: true,
         allowed: false,
         found: false,
@@ -145,7 +165,10 @@ async function checkUser(req, res) {
         stage: 'NO_PERMISSION',
         message: 'NO_PERMISSION',
         usePlantScopeFilter,
-      });
+      };
+      console.warn('[checkUser] 미존재', { userId: trimmedUserId });
+      logResponse('응답', trimmedUserId, body);
+      return res.json(body);
     }
 
     const isPsn = trimmedUserId.toLowerCase().startsWith('psn');
@@ -164,10 +187,18 @@ async function checkUser(req, res) {
     }
 
     const userPayload = buildUserPayload(userRow, plantCode, isPsn);
+    console.log('[checkUser] 기본정보', {
+      userId: trimmedUserId,
+      isPsn,
+      deptCode: userRow.deptCode,
+      plantCode,
+      authId: userRow.sAuthId,
+      endDate: userRow.endDate,
+    });
 
     if (!isPsn) {
       setAuthCookie(res, { ...userPayload, plantScopeFilter: usePlantScopeFilter });
-      return res.json({
+      const body = {
         ok: true,
         allowed: true,
         found: true,
@@ -177,7 +208,10 @@ async function checkUser(req, res) {
         message: 'INTERNAL_EMPLOYEE_PASS',
         user: userPayload,
         usePlantScopeFilter,
-      });
+      };
+      console.log('[checkUser] 내부 직원 PASS', { userId: trimmedUserId, plantScopeFilter: usePlantScopeFilter });
+      logResponse('응답', trimmedUserId, body);
+      return res.json(body);
     }
 
     const authId = userRow.sAuthId;
@@ -187,7 +221,7 @@ async function checkUser(req, res) {
 
     if (!needsDateCheck) {
       setAuthCookie(res, { ...userPayload, plantScopeFilter: usePlantScopeFilter });
-      return res.json({
+      const body = {
         ok: true,
         allowed: true,
         found: true,
@@ -197,12 +231,15 @@ async function checkUser(req, res) {
         message: 'EXTERNAL_EMPLOYEE_PASS',
         user: userPayload,
         usePlantScopeFilter,
-      });
+      };
+      console.log('[checkUser] 외부 권한 PASS (날짜 검사 불필요)', { userId: trimmedUserId });
+      logResponse('응답', trimmedUserId, body);
+      return res.json(body);
     }
 
     if (!endDateStr) {
       clearAuthCookie(res);
-      return res.json({
+      const body = {
         ok: true,
         allowed: false,
         found: true,
@@ -212,7 +249,10 @@ async function checkUser(req, res) {
         message: 'EXTERNAL_EMPLOYEE_NO_VALID_ENDDATE',
         user: userPayload,
         usePlantScopeFilter,
-      });
+      };
+      console.warn('[checkUser] 외부 권한 필요 - 종료일 없음', { userId: trimmedUserId, authId });
+      logResponse('응답', trimmedUserId, body);
+      return res.json(body);
     }
 
     let isExpired = false;
@@ -224,7 +264,7 @@ async function checkUser(req, res) {
 
     if (isExpired) {
       clearAuthCookie(res);
-      return res.json({
+      const body = {
         ok: true,
         allowed: false,
         found: true,
@@ -234,12 +274,16 @@ async function checkUser(req, res) {
         message: 'EXTERNAL_AUTH_EXPIRED',
         user: userPayload,
         usePlantScopeFilter,
-      });
+      };
+      console.warn('[checkUser] 외부 권한 만료', { userId: trimmedUserId, endDate: endDateStr });
+      logResponse('응답', trimmedUserId, body);
+      return res.json(body);
     }
 
     setAuthCookie(res, { ...userPayload, plantScopeFilter: usePlantScopeFilter });
+    console.log('[checkUser] 외부 권한 PASS', { userId: trimmedUserId, endDate: endDateStr });
 
-    return res.json({
+    const body = {
       ok: true,
       allowed: true,
       found: true,
@@ -249,11 +293,13 @@ async function checkUser(req, res) {
       message: 'EXTERNAL_EMPLOYEE_PASS',
       user: userPayload,
       usePlantScopeFilter,
-    });
+    };
+    logResponse('응답', trimmedUserId, body);
+    return res.json(body);
   } catch (error) {
     console.error('checkUser error:', error);
     clearAuthCookie(res);
-    return res.status(500).json({
+    const body = {
       ok: false,
       allowed: false,
       found: false,
@@ -262,7 +308,9 @@ async function checkUser(req, res) {
       stage: 'ERROR',
       message: 'INTERNAL_SERVER_ERROR',
       usePlantScopeFilter,
-    });
+    };
+    logResponse('응답', 'UNKNOWN', body);
+    return res.status(500).json(body);
   }
 }
 

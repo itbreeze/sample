@@ -316,7 +316,7 @@ function EpnidSystemPage() {
       try {
         const parsed = JSON.parse(window.name);
         if (parsed && parsed.userId) {
-          console.log('ECM 인증 payload 확인:', parsed);
+          console.log('ECM 인증 :', parsed);
           return parsed;
         }
       } catch (err) {

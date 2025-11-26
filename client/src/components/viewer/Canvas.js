@@ -9,6 +9,7 @@ import {
   loadFonts,
   collectSelectedEntities,
   updateRedSelection,
+  applyTempColorOverride,
 } from './CanvasUtils';
 import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
@@ -336,6 +337,32 @@ const Canvas = ({ filePath, docno, isActive }) => {
     [zoomFactor]
   );
 
+  const handleColorOverride = useCallback((handle, option) => {
+    if (!handle || !option) return;
+    const ok = applyTempColorOverride(
+      viewerRef.current,
+      libRef.current,
+      entityDataMapRef.current,
+      handle,
+      option
+    );
+    if (ok) {
+      const dataMap = entityDataMapRef.current;
+      setEntities((prev) =>
+        prev.map((ent) => {
+          if (String(ent.handle) !== String(handle)) return ent;
+          const updated = dataMap?.get(String(handle));
+          return {
+            ...ent,
+            objectColor: updated?.objectColor ?? ent.objectColor,
+            colorType: updated?.colorType ?? ent.colorType,
+            colorIndex: updated?.colorIndex ?? ent.colorIndex,
+          };
+        })
+      );
+    }
+  }, []);
+
   const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
 
   return (
@@ -396,6 +423,7 @@ const Canvas = ({ filePath, docno, isActive }) => {
             };
           }}
           onZoomToEntity={handleZoomToEntity}
+          onColorOverride={handleColorOverride}
         />
       )}
     </div>

@@ -236,6 +236,102 @@ export async function loadFonts(viewer, fontNameSetRef, basePath = '/fonts') {
 // [SELECTION / COLOR UTILS]
 /////////////////////////
 
+/** ENTITY / INSERT 공통 ColorDef 추출 (읽기 전용) */
+const getColorDefFromEntity = (lib, entityId) => {
+  if (!lib || !entityId || typeof entityId.getType !== 'function') return null;
+
+  const t = entityId.getType();
+  try {
+    if (t === 1) {
+      const obj = entityId.openObject?.();
+      return obj?.getColor?.(lib.GeometryTypes.kAll) || null;
+    }
+    if (t === 2) {
+      const insert = entityId.openObjectAsInsert?.();
+      return insert?.getColor?.() || null;
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+};
+
+/**
+ * 엔터티의 인덱스 컬러(ACI)를 읽어옵니다.
+ * 색상 상속 여부와 무관하게 ColorDef에 지정된 값을 그대로 반환합니다.
+ */
+export const getIndexedColor = (lib, entityId) => {
+  const colorDef = getColorDefFromEntity(lib, entityId);
+  if (!colorDef || typeof colorDef.getIndexedColor !== 'function') return null;
+
+  try {
+    const idx = colorDef.getIndexedColor();
+    return Number.isFinite(idx) ? idx : null;
+  } catch (_) {
+    return null;
+  }
+};
+
+/**
+ * 엔터티의 트루컬러(RGB)를 읽어옵니다.
+ * 레이어/상속 처리를 하지 않고 ColorDef에 담긴 값만 반환합니다.
+ */
+export const getTrueColor = (lib, entityId) => {
+  const colorDef = getColorDefFromEntity(lib, entityId);
+  if (!colorDef || typeof colorDef.getColor !== 'function') return null;
+
+  try {
+    const colorArr = colorDef.getColor();
+    if (Array.isArray(colorArr) && colorArr.length >= 3) {
+      return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+};
+
+/**
+ * ENTITY / INSERT 색상 정보를 인덱스/트루컬러로 분리해서 반환
+ * - colorType: 'indexed' | 'truecolor' | 'unknown'
+ * - colorIndex: 인덱스 번호 (없으면 null)
+ * - trueColor: { r, g, b } | null
+ * - displayColor: 색상칩용 RGB (없으면 null)
+ * - resetColor: setColorBasic에 바로 전달할 원본 값
+ */
+const getEntityColorInfo = (lib, entityId) => {
+  const indexedColor = getIndexedColor(lib, entityId);
+  const trueColor = getTrueColor(lib, entityId);
+
+  const hasIndex = typeof indexedColor === 'number' && Number.isFinite(indexedColor);
+  const hasTrueColor = !!trueColor;
+
+  let colorType = 'unknown';
+  let resetColor = 7;
+  let displayColor = hasTrueColor ? trueColor : null;
+
+  if (hasTrueColor && !hasIndex) {
+    colorType = 'truecolor';
+    resetColor = trueColor;
+  } else if (hasIndex) {
+    colorType = 'indexed';
+    resetColor = indexedColor;
+    if (!displayColor && hasTrueColor) {
+      displayColor = trueColor;
+    }
+  }
+
+  return {
+    colorType,
+    colorIndex: hasIndex ? indexedColor : null,
+    trueColor: hasTrueColor ? trueColor : null,
+    displayColor,
+    resetColor,
+  };
+};
+
 /** 선택 엔티티에서 type / layer 추출 (간단 버전) */
 export const extractTypeAndLayer = (entityId) => {
   try {
@@ -270,50 +366,8 @@ export const extractTypeAndLayer = (entityId) => {
   }
 };
 
-/**
- * ENTITY / INSERT 에서 원본 색상을 추출
- * - { r, g, b } 또는 인덱스 번호(7 등)를 반환
- */
-const getOriginalColorFromEntity = (lib, entityId) => {
-  if (!lib || !entityId || typeof entityId.getType !== 'function') return 7;
-
-  const t = entityId.getType();
-  try {
-    if (t === 1) {
-      // ENTITY
-      const obj = entityId.openObject?.();
-      if (!obj) return 7;
-      const colorDef = obj.getColor(lib.GeometryTypes.kAll);
-      if (!colorDef) return 7;
-
-      const colorArr = colorDef.getColor();
-
-      if (Array.isArray(colorArr) && colorArr.length >= 3) {
-        return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
-      }
-      return 7;
-    }
-
-    if (t === 2) {
-      // INSERT
-      const insert = entityId.openObjectAsInsert?.();
-      if (!insert) return 7;
-      const colorDef = insert.getColor();
-      if (!colorDef) return 7;
-
-      const colorArr = colorDef.getColor();
-
-      if (Array.isArray(colorArr) && colorArr.length >= 3) {
-        return { r: colorArr[0], g: colorArr[1], b: colorArr[2] };
-      }
-      return 7;
-    }
-  } catch (e) {
-    return 7;
-  }
-
-  return 7;
-};
+/** ENTITY / INSERT 색상을 읽어 인덱스/트루컬러 정보를 함께 반환 */
+const getOriginalColorFromEntity = (lib, entityId) => getEntityColorInfo(lib, entityId);
 
 /**
  * viewer.getSelected()에서
@@ -377,7 +431,7 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
         layer = '';
       }
 
-      const originalColor = getOriginalColorFromEntity(lib, entityId);
+      const colorInfo = getOriginalColorFromEntity(lib, entityId);
       let layerColor = null;
       try {
         const colorArr = target
@@ -392,11 +446,24 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
         layerColor = null;
       }
 
+      // 디버그: 엔티티 색상 타입/값 로그
+      console.log('[EntityColor]', {
+        handle: key,
+        type,
+        colorType: colorInfo.colorType,
+        colorIndex: colorInfo.colorIndex,
+        trueColor: colorInfo.trueColor,
+        layerColor,
+      });
+
       if (!dataMap.has(key)) {
         dataMap.set(key, {
           entityId,
-          originalColor,
-          objectColor: originalColor,
+          originalColor: colorInfo.resetColor,
+          objectColor: colorInfo.displayColor ?? colorInfo.resetColor,
+          colorType: colorInfo.colorType,
+          colorIndex: colorInfo.colorIndex,
+          trueColor: colorInfo.trueColor,
           layerColor,
           type,
           layer,
@@ -405,8 +472,11 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
         const prev = dataMap.get(key);
         dataMap.set(key, {
           entityId: prev.entityId || entityId,
-          originalColor: prev.originalColor ?? originalColor,
-          objectColor: prev.objectColor ?? originalColor,
+          originalColor: prev.originalColor ?? colorInfo.resetColor,
+          objectColor: prev.objectColor ?? colorInfo.displayColor ?? colorInfo.resetColor,
+          colorType: prev.colorType ?? colorInfo.colorType,
+          colorIndex: prev.colorIndex ?? colorInfo.colorIndex,
+          trueColor: prev.trueColor ?? colorInfo.trueColor,
           layerColor: prev.layerColor ?? layerColor,
           type: prev.type || type,
           layer: prev.layer || layer,
@@ -479,6 +549,7 @@ export const setColorRed = (viewer, lib, entityDataMap, handles) => {
         return;
       }
       setColorBasic(lib, data.entityId, RED);
+      console.log('[SelectionRed] applied', { handle: String(handle) });
       successCount++;
     } catch (e) {
       failCount++;
@@ -499,8 +570,14 @@ export const resetColorByHandle = (viewer, lib, entityDataMap, handle) => {
       return false;
     }
 
-    const originalColor = data.originalColor ?? 7;
+    const originalColor =
+      data.originalColor ??
+      (data.colorType === 'truecolor' ? data.trueColor : null) ??
+      (Number.isFinite(data.colorIndex) ? data.colorIndex : null) ??
+      7;
+
     setColorBasic(lib, data.entityId, originalColor);
+    console.log('[SelectionRed] reset', { handle: String(handle), originalColor });
     return true;
   } catch (e) {
     return false;
@@ -587,6 +664,7 @@ export const updateRedSelection = (
     const data = entityDataMap.get(String(handle));
     if (!data || !data.entityId) return;
     setColorBasic(lib, data.entityId, RED);
+    console.log('[SelectionRed] applied', { handle: String(handle) });
     added++;
   });
 
@@ -597,6 +675,68 @@ export const updateRedSelection = (
   prevRedHandlesRef.current = nextSet;
 
   return { added, removed };
+};
+
+/**
+ * [TEMP] 패널에서 색상 콤보로 임시 색상 지정/복구
+ * option 형식:
+ *  - 'restore' : resetColorByHandle로 원래 색 복구
+ *  - 'rgb:r,g,b' : 트루컬러 적용
+ *  - 'index:N' : 인덱스 컬러 적용
+ */
+export const applyTempColorOverride = (viewer, lib, entityDataMap, handle, option) => {
+  if (!viewer || !lib || !entityDataMap || !handle || !option) return false;
+
+  const data = entityDataMap.get(String(handle));
+  if (!data || !data.entityId) return false;
+
+  const setAndUpdate = (color) => {
+    setColorBasic(lib, data.entityId, color);
+    viewer.update?.();
+  };
+
+  if (option === 'restore') {
+    const ok = resetColorByHandle(viewer, lib, entityDataMap, handle);
+    if (ok) {
+      const restored = entityDataMap.get(String(handle));
+      if (restored) {
+        const oc = restored.originalColor;
+        restored.objectColor = oc;
+        restored.colorType = typeof oc === 'number' ? 'indexed' : 'truecolor';
+        restored.colorIndex = typeof oc === 'number' ? oc : null;
+      }
+      viewer.update?.();
+    }
+    return ok;
+  }
+
+  if (option.startsWith('rgb:')) {
+    const parts = option.slice(4).split(',').map((v) => parseInt(v, 10));
+    if (parts.length === 3 && parts.every((n) => Number.isFinite(n))) {
+      const color = { r: parts[0], g: parts[1], b: parts[2] };
+      data.objectColor = color;
+      data.colorType = 'truecolor';
+      data.colorIndex = null;
+      data.trueColor = color;
+      setAndUpdate(color);
+      console.log('[TempColorOverride] rgb', { handle: String(handle), color });
+      return true;
+    }
+  }
+
+  if (option.startsWith('index:')) {
+    const idx = parseInt(option.slice(6), 10);
+    if (Number.isFinite(idx)) {
+      data.objectColor = idx;
+      data.colorType = 'indexed';
+      data.colorIndex = idx;
+      setAndUpdate(idx);
+      console.log('[TempColorOverride] index', { handle: String(handle), index: idx });
+      return true;
+    }
+  }
+
+  return false;
 };
 
 // DWG 클래스 이름 → 화면 표시용 타입명 변환

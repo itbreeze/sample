@@ -50,16 +50,31 @@ function MockUpECM() {
       return;
     }
 
+    console.log('[MockupECM] 검증 요청', { userId: trimmed });
     setIsRunning(true);
     setResultMessage(<p className="mockup-ecm-output-text">사용자 정보를 확인 중...</p>);
 
     const data = await checkUser(trimmed);
+    console.log('[MockupECM] 검증 응답', {
+      userId: trimmed,
+      ok: data?.ok,
+      allowed: data?.allowed,
+      stage: data?.stage,
+      plantScopeFilter: data?.usePlantScopeFilter,
+      user: data?.user,
+    });
 
     setPlantScopeFilter(
       typeof data.usePlantScopeFilter === 'boolean' ? data.usePlantScopeFilter : false
     );
 
     if (!data.ok || !data.allowed) {
+      console.warn('[MockupECM] 검증 실패', {
+        userId: trimmed,
+        stage: data.stage,
+        ok: data.ok,
+        allowed: data.allowed,
+      });
       if (data.stage === 'EXPIRED') {
         setResultMessage(<p className="mockup-ecm-output-text">권한이 만료되었습니다.</p>);
       } else {
@@ -85,6 +100,7 @@ function MockUpECM() {
       plantScopeFilter:
         typeof data.usePlantScopeFilter === 'boolean' ? data.usePlantScopeFilter : undefined,
     };
+    console.log('[MockupECM] 검증 성공', payload);
 
     const newWin = window.open('/ePnidSystem', '_blank');
     if (newWin) {
