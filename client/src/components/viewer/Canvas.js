@@ -11,11 +11,24 @@ import {
   updateRedSelection,
   applyTempColorOverride,
 } from './CanvasUtils';
+import FloatingToolbar from './FloatingToolbar';
+import ViewerSplitMenu from '../ViewerSplitMenu';
 import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
 import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
-const Canvas = ({ filePath, docno, isActive }) => {
+const Canvas = ({
+  filePath,
+  docno,
+  isActive,
+  onReadyChange,
+  showSplitMenu,
+  isSplitActive,
+  onToggleSplit,
+  viewerCount = 1,
+  slot = 'single',
+  canvasId,
+}) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -240,6 +253,11 @@ const Canvas = ({ filePath, docno, isActive }) => {
 
   /** 초기 로딩 */
   useEffect(() => {
+    // HMR(react-refresh) 이후 ref가 날아가고 isInitializedRef만 남으면 로딩이 멈출 수 있으므로 보정
+    if (isInitializedRef.current && !viewerRef.current) {
+      isInitializedRef.current = false;
+    }
+
     if (!filePath || isInitializedRef.current) return;
 
     let isMounted = true;
@@ -366,6 +384,13 @@ const Canvas = ({ filePath, docno, isActive }) => {
     setPanelPosition(clampPanelPosition(base, panelSize));
   }, [docno]);
 
+  // 부모 컨테이너에 로딩 완료 여부 전달
+  useEffect(() => {
+    if (typeof onReadyChange === 'function') {
+      onReadyChange(docno, !isLoading);
+    }
+  }, [docno, isLoading, onReadyChange]);
+
   const zoomFactor = 0.2;
 
   // 초기 로딩이 끝난 후 화면 맞추기(뷰어 영역 자동 조정)
@@ -451,8 +476,27 @@ const Canvas = ({ filePath, docno, isActive }) => {
       <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle, ...invertStyle }}>
         <canvas
           ref={canvasRef}
-          id="mainCanvas"
+          id={canvasId || `canvas-${docno}-${slot}`}
           style={{ width: '100%', height: '100%', display: 'block' }}
+        />
+
+        {isActive && (
+          <FloatingToolbar
+            onToggleInvert={toggleInvert}
+            isInverted={isInverted}
+            onOpenPanel={() => setShowPanel((prev) => !prev)}
+            isInfoActive={showPanel}
+            onToggleSplit={onToggleSplit}
+            isSplitActive={isSplitActive}
+            viewerCount={viewerCount}
+          />
+        )}
+
+        <ViewerSplitMenu
+          visible={!!showSplitMenu && isActive}
+          active={!!isSplitActive}
+          onClick={onToggleSplit}
+          viewerCount={viewerCount}
         />
 
         {errorMessage && (

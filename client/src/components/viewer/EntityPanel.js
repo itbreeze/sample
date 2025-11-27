@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, X } from 'lucide-react';
 
-export const MIN_WIDTH = 1000;
+export const MIN_WIDTH = 700;
 export const MIN_HEIGHT = 400;
 const MAX_WIDTH_MARGIN = 40;
 const MAX_HEIGHT_MARGIN = 80;
@@ -31,8 +31,6 @@ const EntityPanel = ({
   onSizeChange,
   onZoomToEntity,
   onColorOverride,
-  onToggleInvert,
-  isInverted,
   onRestoreOriginal,
 }) => {
   const panelRef = useRef(null);
@@ -477,43 +475,7 @@ const EntityPanel = ({
 
         <div style={{ flex: 1 }} />
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleInvert?.();
-          }}
-          style={{
-            border: `1px solid ${isInverted ? 'rgba(34, 197, 94, 0.6)' : 'transparent'}`,
-            background: isInverted ? 'rgba(34, 197, 94, 0.45)' : 'rgba(255, 255, 255, 0.15)',
-            color: '#ffffff',
-            padding: '4px 8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 4,
-            fontWeight: 700,
-            fontSize: 11,
-            letterSpacing: -0.2,
-            marginLeft: 6,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = isInverted
-              ? 'rgba(34, 197, 94, 0.6)'
-              : 'rgba(255, 255, 255, 0.25)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = isInverted
-              ? 'rgba(34, 197, 94, 0.45)'
-              : 'rgba(255, 255, 255, 0.15)';
-          }}
-          title={isInverted ? '흑백 반전 해제' : '흑백 반전 적용'}
-          aria-pressed={isInverted}
-        >
-          반전
-        </button>
-
+        {/* 반전 버튼 제거 (툴바에서 제어) */}
         <button
           type="button"
           onClick={(e) => {
@@ -714,7 +676,7 @@ const EntityPanel = ({
                             padding: '6px 8px',
                             textAlign: 'left',
                             verticalAlign: 'middle',
-                            width: 80,
+                            width: 60,
                             fontWeight: 600,
                             color: '#475569',
                             borderRight: '1px solid rgba(203, 213, 225, 0.6)',
@@ -740,7 +702,7 @@ const EntityPanel = ({
                             padding: '6px 8px',
                             textAlign: 'left',
                             verticalAlign: 'middle',
-                            width: 120,
+                            width: 80,
                             fontWeight: 600,
                             color: '#475569',
                             borderRight: '1px solid rgba(203, 213, 225, 0.6)',

@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .view-tabs-container {
@@ -275,6 +276,221 @@
 .tab-context-menu button:hover {
   background: var(--hover-background-color);
 }
+
+.split-toggle {
+  margin-left: auto;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.split-toggle button {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color-dark);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.split-toggle button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.split-view-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+}
+
+.split-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+  min-width: 240px;
+}
+
+.split-panel.is-active {
+  box-shadow: inset 0 0 0 2px var(--primary-color-border, #4c6ef5);
+  z-index: 1;
+}
+
+.split-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #E9ECEF;
+  border: 1px solid var(--border-color-dark);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: move;
+}
+
+.split-tab.active {
+  background: #fff;
+  border-color: var(--primary-color-border);
+}
+
+.split-tab.dragging {
+  opacity: 0.6;
+}
+
+.split-tab.empty {
+  color: #999;
+  cursor: default;
+  border-style: dashed;
+}
+
+.split-viewer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.viewer-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.viewer-grid.is-split {
+  display: grid;
+  gap: 8px;
+  height: 100%;
+  align-items: stretch;
+  grid-template-columns: 1fr 1fr;
+}
+
+.viewer-split-menu {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border-color-dark);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  backdrop-filter: blur(6px);
+  z-index: 25;
+}
+
+.viewer-split-menu:hover {
+  opacity: 1;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px);
+}
+
+.viewer-split-menu:active {
+  transform: translateY(0);
+}
+
+.viewer-split-menu.is-active {
+  background: rgba(248, 249, 250, 0.9);
+  border-color: var(--primary-color-border);
+}
+
+.viewer-split-menu-icon {
+  width: 34px;
+  height: 34px;
+  transform: rotate(90deg);
+  color: var(--text-color-primary);
+  opacity: 0.9;
+}
+
+.viewer-split-menu-icon.is-active {
+  transform: none;
+}
+
+.split-tab-row {
+  display: grid;
+  grid-template-columns: 1fr 12px 1fr;
+  gap: 0;
+  align-items: stretch;
+  background: var(--background-color-light);
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  min-width: 0;
+}
+
+.split-tab-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 6px 8px;
+  min-height: 44px;
+  overflow: hidden;
+}
+
+.split-resizer {
+  flex: 0 0 8px;
+  width: 8px;
+  cursor: col-resize;
+  background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0) 100%);
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  box-sizing: border-box;
+}
+
+.split-tabs-divider {
+  background: var(--background-color);
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  width: 8px;
+  min-width: 8px;
+  box-sizing: border-box;
+}
+
+.split-panel-tabs {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color-light);
+  width: 100%;
+  min-width: 0;
+}
+
+.split-panel-tabs .view-tabs-container,
+.split-panel-tabs .visible-tabs-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+.split-panel-tabs .visible-tabs-wrapper {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.split-panel-tabs .view-tab {
+  max-width: none;
+  min-width: fit-content;
+  flex: 0 0 auto;
+}
+
+.split-toggle-only {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  background: var(--background-color-light);
+  border-bottom: 1px solid var(--border-color);
+}
+
 
 /* 반응형 스타일 */
 @media (max-width: 1200px) {

@@ -411,7 +411,7 @@ useEffect(() => {
     const viewer = window.currentViewerInstance;
     if (!viewer) return;
     const viewerDocno = window.currentViewerDocno;
-    if (!viewerDocno || viewerDocno !== activeFileId) return; // 활성 탭 뷰어가 아닐 경우 건너뜀
+    if (!viewerDocno) return; // 활성 뷰어가 없으면 건너뜀
     if (doFit) viewer.zoomExtents?.();
     viewer.update?.();
   };
