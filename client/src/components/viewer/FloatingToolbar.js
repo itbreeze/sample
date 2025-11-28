@@ -1,20 +1,16 @@
+// client/src/components/viewer/FloatingToolbar.js
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Rows2, Square, Sun, Moon, Info } from 'lucide-react';
+import { ChevronUp, ChevronDown, Sun, Moon, Info } from 'lucide-react';
 
 const FloatingToolbar = ({
   onToggleInvert,
   isInverted,
   onOpenPanel,
   isInfoActive = false,
-  onToggleSplit,
-  isSplitActive,
-  viewerCount = 1,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const ToggleIcon = collapsed ? ChevronUp : ChevronDown;
   const iconColor = '#0e121b';
-  // 분할 버튼은 탭 2개 이상일 때만 활성(1), 하나일 때는 흐리게(0.3)
-  const splitOpacity = viewerCount > 1 ? 1 : 0.3;
 
   return (
     <div
@@ -67,7 +63,7 @@ const FloatingToolbar = ({
         {!collapsed && (
           <div
             style={{
-              minWidth: 240,
+              minWidth: 200,
               maxWidth: '90vw',
               height: 50,
               background: '#ffffff',
@@ -83,50 +79,7 @@ const FloatingToolbar = ({
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
             }}
           >
-            {typeof onToggleSplit === 'function' && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isSplitActive && viewerCount > 1) {
-                    onToggleSplit();
-                  } else if (isSplitActive) {
-                    onToggleSplit();
-                  }
-                }}
-                style={{
-                  padding: 8,
-                  borderRadius: 8,
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#0e121b',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: splitOpacity,
-                }}
-                disabled={!isSplitActive && viewerCount <= 1}
-                title={isSplitActive ? '분할 해제' : '분할 보기'}
-              >
-                {isSplitActive ? (
-                  <Square
-                    size={30}
-                    color={iconColor}
-                    strokeWidth={2.2}
-                    style={{ opacity: splitOpacity }}
-                  />
-                ) : (
-                  <Rows2
-                    size={30}
-                    color={iconColor}
-                    strokeWidth={2.2}
-                    style={{ transform: 'rotate(90deg)', opacity: splitOpacity }}
-                  />
-                )}
-              </button>
-            )}
-
+            {/* 반전 */}
             <button
               type="button"
               onClick={(e) => {
@@ -150,6 +103,7 @@ const FloatingToolbar = ({
               )}
             </button>
 
+            {/* 객체정보 패널 */}
             <button
               type="button"
               onClick={(e) => {

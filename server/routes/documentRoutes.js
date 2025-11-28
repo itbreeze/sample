@@ -14,33 +14,6 @@ const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);
 router.get("/", async (req, res) => {
   try {
     const { shouldFilter, binds: plantBinds } = buildPlantFilter(req, '');
-
-    // const sql = `
-    //   SELECT 
-    //     FD.FOLID     AS "ID",
-    //     FD.FOLPT     AS "PARENTID",
-    //     FD.FOLNM     AS "NAME",
-    //     NULL         AS "DOCNAME",
-    //     NULL         AS "DOCNUM",
-    //     NULL         AS "DOCVR",
-    //     'FOLDER'     AS "TYPE",
-    //     FD.PLANTCODE AS "PLANTCODE"
-    //   FROM IDS_FOLDER FD
-    //   WHERE FD.APP_GUBUN = '001'  
-    //   UNION ALL
-    //   SELECT 
-    //     D.DOCNO      AS "ID",
-    //     D.FOLID      AS "PARENTID",
-    //     NULL         AS "NAME",       
-    //     D.DOCNM      AS "DOCNAME",
-    //     D.DOCNUMBER  AS "DOCNUM",
-    //     D.DOCVR      AS "DOCVR",
-    //     'DOC'        AS "TYPE",
-    //     D.PLANTCODE  AS "PLANTCODE"
-    //   FROM IDS_DOC D
-    //   WHERE D.CURRENT_YN = '001'
-    //   ORDER BY "PLANTCODE", "ID"
-    // `;
     const sql = `WITH RECURSIVE_TREE (
     ID, PARENTID, NAME, DOCNAME, DOCNUM, DOCVR, TYPE, PLANTCODE, LVL, ORDER_SEQ
 ) AS (

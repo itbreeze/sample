@@ -1,4 +1,5 @@
 ﻿// client/src/components/viewer/Canvas.js
+/* eslint-env browser */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   fileCache,
@@ -12,7 +13,6 @@ import {
   applyTempColorOverride,
 } from './CanvasUtils';
 import FloatingToolbar from './FloatingToolbar';
-import ViewerSplitMenu from '../ViewerSplitMenu';
 import { attachCanvasInteractions } from './CanvasController';
 import EntityPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityPanel';
 import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
@@ -21,14 +21,12 @@ const Canvas = ({
   filePath,
   docno,
   isActive,
+  visible,          // 그대로 두고 싶으면 유지 (없애도 무관)
   onReadyChange,
-  showSplitMenu,
-  isSplitActive,
-  onToggleSplit,
-  viewerCount = 1,
-  slot = 'single',
   canvasId,
 }) => {
+  console.log('🟢 Canvas 렌더링:', { docno, isActive, visible });
+
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -52,6 +50,13 @@ const Canvas = ({
   const [showPanel, setShowPanel] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
+
+  useEffect(() => {
+    console.log('🟡 Canvas 마운트:', { docno });
+    return () => {
+      console.log('🔴 Canvas 언마운트:', { docno });
+    };
+  }, [docno]);
 
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
@@ -78,6 +83,7 @@ const Canvas = ({
     return clampPanelPosition(initial, PANEL_DEFAULT);
   });
   const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
+
   const clearSelection = useCallback(() => {
     if (prevRedHandlesRef.current.size > 0) {
       updateRedSelection(
@@ -100,7 +106,6 @@ const Canvas = ({
     (payload) => {
       const additive = !!payload?.additive;
       const viewer = viewerRef.current;
-      // 현재 선택 상태에서 메타데이터를 매핑(선택 핸들이 이미 payload로 넘어와도 메타데이터 채움)
       const selectionHandles = collectSelectedEntities(
         viewer,
         libRef.current,
@@ -118,7 +123,7 @@ const Canvas = ({
         incoming.forEach((h) => {
           const key = String(h);
           if (current.has(key)) {
-            current.delete(key); // 이미 있으면 토글해서 제거
+            current.delete(key); // 토글
           } else {
             current.add(key);
           }
@@ -126,13 +131,11 @@ const Canvas = ({
         handles = Array.from(current);
       }
 
-      // 선택된 것이 없으면 상태 초기화
       if (!handles || handles.length === 0) {
         clearSelection();
         return;
       }
 
-      // 뷰어 선택 상태를 현재 핸들 배열로 재적용(하이라이트 일관성)
       const applySelectionHandles = (hList) => {
         if (!viewer) return;
         try {
@@ -141,25 +144,17 @@ const Canvas = ({
             hList.forEach((h) => {
               try {
                 viewer.setSelectedEntity?.(h);
-              } catch (_) { }
+              } catch (_) {}
               try {
                 viewer.setSelected?.(h);
-              } catch (_) { }
+              } catch (_) {}
             });
           }
           viewer.update?.();
-        } catch (_) { }
+        } catch (_) {}
       };
       applySelectionHandles(handles);
 
-      handles.forEach((h) => {
-        const entry = entityDataMapRef.current.get(String(h));
-        if (entry?.entityId) {
-          // 레이어 truecolor 로그/추적 기능은 제거
-        }
-      });
-
-      // 선택된 엔티티의 메타 데이터 매핑
       const mappedEntities = handles.map((h) => {
         const data = entityDataMapRef.current.get(String(h)) || {};
         const displayColor = (() => {
@@ -180,8 +175,13 @@ const Canvas = ({
         };
       });
 
-      // 선택된 엔티티들을 빨간색으로 표시하고, 이전 선택은 해제
-      updateRedSelection(viewerRef.current, libRef.current, entityDataMapRef.current, prevRedHandlesRef, handles);
+      updateRedSelection(
+        viewerRef.current,
+        libRef.current,
+        entityDataMapRef.current,
+        prevRedHandlesRef,
+        handles
+      );
 
       setSelectedHandles(handles);
       setEntities(mappedEntities);
@@ -192,7 +192,6 @@ const Canvas = ({
 
   useEffect(() => {
     if (isActive && !isLoading && viewerRef.current) {
-      // 활성 탭 전환 시 현재 뷰어를 전역 포인터로 등록해 상위에서 올바른 뷰어를 대상으로 갱신/fit하도록 한다.
       window.currentViewerInstance = viewerRef.current;
       window.currentViewerDocno = docno || null;
       viewerRef.current.update?.();
@@ -231,7 +230,6 @@ const Canvas = ({
     [runZoomExtents]
   );
 
-  /** 캔버스 리사이즈 처리 */
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
     const viewer = viewerRef.current;
@@ -253,12 +251,24 @@ const Canvas = ({
 
   /** 초기 로딩 */
   useEffect(() => {
-    // HMR(react-refresh) 이후 ref가 날아가고 isInitializedRef만 남으면 로딩이 멈출 수 있으므로 보정
+    console.log('🔴 Canvas useEffect 실행:', {
+      docno,
+      filePath,
+      visible,
+      isInitializedRef: isInitializedRef.current,
+    });
+
     if (isInitializedRef.current && !viewerRef.current) {
+      console.log('⚠️ isInitializedRef 리셋 (viewerRef가 없음)');
       isInitializedRef.current = false;
     }
 
-    if (!filePath || isInitializedRef.current) return;
+    if (!filePath || isInitializedRef.current) {
+      console.log('⏭️ 초기화 스킵:', { filePath: !!filePath, isInitializedRef: isInitializedRef.current });
+      return;
+    }
+
+    console.log('🚀 초기화 시작:', { docno, filePath });
 
     let isMounted = true;
 
@@ -282,9 +292,11 @@ const Canvas = ({
 
         let arrayBuffer;
         if (fileCache.has(filePath)) {
+          console.log('📦 캐시에서 파일 로드:', filePath);
           arrayBuffer = fileCache.get(filePath);
           setLoadPercent(30);
         } else {
+          console.log('🌐 서버에서 파일 다운로드:', filePath);
           arrayBuffer = await fetchArrayBufferWithProgress(filePath, (p) => {
             if (isMounted) setLoadPercent(p);
           });
@@ -308,10 +320,10 @@ const Canvas = ({
         isInitializedRef.current = true;
         setLoadPercent(100);
         setIsLoading(false);
-
-        if (isActive) attachInteractions();
+        console.log('✅ 초기화 완료:', { docno });
       } catch (err) {
         if (isMounted) {
+          console.error('❌ 초기화 실패:', err);
           setErrorMessage(err.message);
           setIsLoading(false);
         }
@@ -323,20 +335,21 @@ const Canvas = ({
     return () => {
       isMounted = false;
     };
-  }, [filePath, handleResize, isActive, attachInteractions]);
+  }, [filePath, handleResize]);
 
+  // visible 대신 isActive만 써도 되는 구조로 바꿀 수 있음
   useEffect(() => {
-    // 로딩이 끝난 뒤에도 탭 토글 없이 인터랙션이 붙도록 보정
-    if (isInitializedRef.current && isActive && !isLoading) {
-      if (interactionsCleanupRef.current) interactionsCleanupRef.current();
-      attachInteractions();
-    } else if (!isActive && interactionsCleanupRef.current) {
-      interactionsCleanupRef.current();
-      interactionsCleanupRef.current = null;
+    if (isInitializedRef.current && !isLoading) {
+      if (isActive) {
+        if (interactionsCleanupRef.current) interactionsCleanupRef.current();
+        attachInteractions();
+      } else if (interactionsCleanupRef.current) {
+        interactionsCleanupRef.current();
+        interactionsCleanupRef.current = null;
+      }
     }
   }, [isActive, isLoading, attachInteractions]);
 
-  /** ResizeObserver 등록 */
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver(() => {
@@ -378,13 +391,11 @@ const Canvas = ({
     setPanelPosition((prev) => clampPanelPosition(prev, panelSize));
   }, [panelSize]);
 
-  // 도면이 바뀌면(신규 탭 등) 패널 위치를 기본 우하단으로 리셋
   useEffect(() => {
     const base = computePanelPosition(panelSize.width, panelSize.height);
     setPanelPosition(clampPanelPosition(base, panelSize));
   }, [docno]);
 
-  // 부모 컨테이너에 로딩 완료 여부 전달
   useEffect(() => {
     if (typeof onReadyChange === 'function') {
       onReadyChange(docno, !isLoading);
@@ -393,7 +404,6 @@ const Canvas = ({
 
   const zoomFactor = 0.2;
 
-  // 초기 로딩이 끝난 후 화면 맞추기(뷰어 영역 자동 조정)
   useEffect(() => {
     if (!isLoading && isActive && !hasFitRef.current) {
       hasFitRef.current = true;
@@ -469,14 +479,11 @@ const Canvas = ({
       className="viewer-app-container"
       style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}
     >
-      <GlobalLoadingOverlay
-        visible={isLoading}
-        percent={loadPercent}
-      />
+      <GlobalLoadingOverlay visible={isLoading} percent={loadPercent} />
       <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle, ...invertStyle }}>
         <canvas
           ref={canvasRef}
-          id={canvasId || `canvas-${docno}-${slot}`}
+          id={canvasId || `canvas-${docno}`}
           style={{ width: '100%', height: '100%', display: 'block' }}
         />
 
@@ -486,18 +493,8 @@ const Canvas = ({
             isInverted={isInverted}
             onOpenPanel={() => setShowPanel((prev) => !prev)}
             isInfoActive={showPanel}
-            onToggleSplit={onToggleSplit}
-            isSplitActive={isSplitActive}
-            viewerCount={viewerCount}
           />
         )}
-
-        <ViewerSplitMenu
-          visible={!!showSplitMenu && isActive}
-          active={!!isSplitActive}
-          onClick={onToggleSplit}
-          viewerCount={viewerCount}
-        />
 
         {errorMessage && (
           <div
@@ -530,7 +527,6 @@ const Canvas = ({
             setPanelPosition((prev) => clampPanelPosition(prev, size));
           }}
           resolveEntityColorDetails={(entityId) => {
-            // entityDataMapRef에 기록된 원본 색상 / 레이어 / 타입 정보 반환
             const entry = entityDataMapRef.current?.get(String(entityId)) || null;
             if (!entry) return null;
             return {
@@ -554,7 +550,6 @@ const Canvas = ({
                 'restore-initial'
               );
             });
-            // 상태도 반영
             setEntities((prev) =>
               prev.map((ent) => {
                 if (!handles.includes(ent.handle)) return ent;

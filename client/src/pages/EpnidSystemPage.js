@@ -55,7 +55,7 @@ const sidebarMenus = {
   drawing: [
     { id: 'search', icon: <Search size={20} />, label: '도면검색' },
     { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },
-    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 도면' },
+    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내문서함' },
     { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
     { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
     { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관목록' },
@@ -67,8 +67,8 @@ const sidebarMenus = {
 };
 
 const NotImplemented = () => (
-    <div style={{ padding: '20px', textAlign: 'center' }}>🚧 해당 기능은 아직 준비되지 않았습니다.</div>
-  );
+  <div style={{ padding: '20px', textAlign: 'center' }}>🚧 해당 기능은 아직 준비되지 않았습니다.</div>
+);
 
 const equipmentTabs = [
   { id: 'equipmentList', label: '설비목록', content: () => <NotImplemented /> },
@@ -95,7 +95,7 @@ function EpnidSystemPage() {
   const [activeSearchTab, setActiveSearchTab] = useState('documentList');
   const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
   const [searchTrigger, setSearchTrigger] = useState(0);
-  
+
   const [advancedSearchConditions, setAdvancedSearchConditions] = useState({
     leafNodeIds: 'ALL',
     drawingNumber: '',
@@ -106,7 +106,7 @@ function EpnidSystemPage() {
   });
   const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
   const [advancedSearchHighlight, setAdvancedSearchHighlight] = useState('');
-  
+
   const [previewResultCount, setPreviewResultCount] = useState(0);
   const [redirectedForAuth, setRedirectedForAuth] = useState(false);
   const isPanelOpen = activeMenuItem !== null;
@@ -375,53 +375,78 @@ function EpnidSystemPage() {
     hydrateUser();
   }, [reloadTree]);
 
-useEffect(() => {
-  setActiveMenuItem(null);
-}, [activeTab]);
+  useEffect(() => {
+    setActiveMenuItem(null);
+  }, [activeTab]);
 
-useEffect(() => {
-  if (documentTree.length && activeFileId) {
-    const path = findPathToNode(documentTree, activeFileId);
-    if (path.length) setExpandedNodes(new Set(path.slice(0, -1)));
-  }
-}, [activeFileId, documentTree]);
+  useEffect(() => {
+    if (documentTree.length && activeFileId) {
+      const path = findPathToNode(documentTree, activeFileId);
+      if (path.length) setExpandedNodes(new Set(path.slice(0, -1)));
+    }
+  }, [activeFileId, documentTree]);
 
   useEffect(() => {
     if (documentTree.length && !isDefaultExpandApplied) {
       const defaults = collectIdsToLevel(documentTree, DEFAULT_EXPAND_LEVEL);
       setExpandedNodes(new Set(defaults));
-      setIsDefaultExpandApplied(true);      
+      setIsDefaultExpandApplied(true);
     }
   }, [documentTree, isDefaultExpandApplied]);
 
-// 패널(사이드 메뉴) 열림/닫힘 로그
-useEffect(() => {
-}, [isPanelOpen, activeMenuItem]);
+  // 패널(사이드 메뉴) 열림/닫힘 로그
+  useEffect(() => {
+  }, [isPanelOpen, activeMenuItem]);
 
-useEffect(() => {
-  if (!isFileLoaded) return;
+  useEffect(() => {
+    if (!isFileLoaded) return;
 
-  const shouldFitForNewFile = activeFileId && !fittedDocsRef.current.has(activeFileId);
-  if (shouldFitForNewFile) {
-    fittedDocsRef.current.add(activeFileId);
-  }
+    const shouldFitForNewFile = activeFileId && !fittedDocsRef.current.has(activeFileId);
+    if (shouldFitForNewFile) {
+      fittedDocsRef.current.add(activeFileId);
+    }
 
-  const runUpdate = (doFit) => {
-    triggerResize();
-    const viewer = window.currentViewerInstance;
-    if (!viewer) return;
-    const viewerDocno = window.currentViewerDocno;
-    if (!viewerDocno) return; // 활성 뷰어가 없으면 건너뜀
-    if (doFit) viewer.zoomExtents?.();
-    viewer.update?.();
-  };
+    const runUpdate = (doFit) => {
+      triggerResize();
+      const viewer = window.currentViewerInstance;
+      if (!viewer) return;
+      const viewerDocno = window.currentViewerDocno;
+      if (!viewerDocno) return; // 활성 뷰어가 없으면 건너뜀
+      if (doFit) viewer.zoomExtents?.();
+      viewer.update?.();
+    };
 
-  runUpdate(shouldFitForNewFile);
-}, [isFileLoaded, activeFileId]);
+    runUpdate(shouldFitForNewFile);
+  }, [isFileLoaded, activeFileId]);
+  // ===============================
+  //  새 창에서 docno + docvr 자동 로딩
+  // ===============================
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlDocno = params.get('docno');
+    const urlDocvr = params.get('docvr');
+    if (!urlDocno || !urlDocvr) return;
 
-useEffect(() => {
-  return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);
-}, []);
+    // 1) 우선 도면 자동 로딩
+    (async () => {
+      try {
+        await handleFileSelect({ docId: urlDocno, docVr: urlDocvr });
+      } catch (err) {
+        console.error("URL 기반 도면 자동 로딩 실패:", err);
+      }
+    })();
+
+    // 2) 주소창에서 ?docno=...&docvr=... 제거 (SPA 상태 유지)
+    const cleanPath = window.location.pathname.replace(/\/$/, ""); 
+    const cleanUrl = `${window.location.origin}${cleanPath}`;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }, [handleFileSelect]);
+
+
+
+  useEffect(() => {
+    return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);
+  }, []);
 
   if (loading) {
     return (
@@ -493,6 +518,8 @@ useEffect(() => {
   };
 
   const activePanelConfig = PANEL_CONFIG[activeMenuItem];
+
+
 
   return (
     <div className="tool-page-layout">

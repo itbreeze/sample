@@ -1,3 +1,4 @@
+// client/src/components/ViewerTabs.js
 import React from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { X as CloseIcon } from 'lucide-react';
@@ -38,7 +39,6 @@ export const SingleTabs = ({
   onContextMenu,
   selectionStates = {},
   maxVisible = MAX_VISIBLE,
-  renderControls,
 }) => {
   const visible = files.length > maxVisible ? files.slice(0, maxVisible) : files;
   const hiddenCount = files.length > maxVisible ? files.length - maxVisible : 0;
@@ -96,43 +96,7 @@ export const SingleTabs = ({
             더보기 + {hiddenCount}
           </div>
         )}
-        {renderControls && (
-          <div className="split-toggle">
-            {renderControls()}
-          </div>
-        )}
       </div>
     </DragDropContext>
-  );
-};
-
-export const PanelTabs = ({
-  files = [],
-  activeId,
-  onSelect,
-  onClose,
-  onContextMenu,
-  selectionStates = {},
-}) => {
-  return (
-    <div className="view-tabs-container split-panel-tabs">
-      <div className="visible-tabs-wrapper">
-        {files.map((file) => {
-          const selectionCount = selectionStates[file.DOCNO]?.count || 0;
-          return (
-            <TabItem
-              key={file.DOCNO}
-              file={file}
-              isActive={file.DOCNO === activeId}
-              selectionCount={selectionCount}
-              onClick={() => onSelect?.(file.DOCNO)}
-              onClose={() => onClose?.(file.DOCNO)}
-              onContextMenu={(e) => onContextMenu?.(e, file.DOCNO)}
-            />
-          );
-        })}
-        {files.length === 0 && <div className="split-tab empty">탭을 배치하세요</div>}
-      </div>
-    </div>
   );
 };

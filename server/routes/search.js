@@ -230,31 +230,48 @@ router.post('/advanced', async (req, res) => {
     });
   }
 
-  // 4. AND/OR/제외 조건 처리
+  // 4. AND/OR/제외 조건 처리 (포함과 제외 분리)
   if (additionalConditions && additionalConditions.length > 0) {
-    const filteredConditions = additionalConditions.filter(c => c.term && c.term.trim() !== '');
+    const filteredConditions = additionalConditions.filter(
+      (c) => c.term && c.term.trim() !== ''
+    );
+
     if (filteredConditions.length > 0) {
-      let fullClause = '';
+      let includeClause = '';        // INCLUDE(AND/OR) 조건들
+      const excludeClauses = [];     // EXCLUDE 조건들 (전부 AND NOT)
+
       filteredConditions.forEach((condition, idx) => {
         const bindKey = 'add_term_' + idx;
         binds[bindKey] = condition.term;
-        const baseClause = "UPPER(base.FULL_INFO) LIKE '%' || UPPER(:" + bindKey + ") || '%'";
-        const isExclude = condition.operator === 'EXCLUDE';
-        const clauseSegment = isExclude
-          ? 'NOT (' + baseClause + ')'
-          : '(' + baseClause + ')';
+        const baseClause =
+          "UPPER(base.FULL_INFO) LIKE '%' || UPPER(:" + bindKey + ") || '%'";
 
-        if (idx === 0) {
-          fullClause = clauseSegment;
-          return;
+        const op = (condition.operator || 'AND').toUpperCase();
+
+        if (op === 'EXCLUDE') {
+          // EXCLUDE는 항상 AND NOT 으로 분리
+          excludeClauses.push('NOT (' + baseClause + ')');
+        } else {
+          // INCLUDE 계열: AND / OR 조합
+          const segment = '(' + baseClause + ')';
+
+          if (!includeClause) {
+            includeClause = segment;
+          } else {
+            const connector = op === 'OR' ? 'OR' : 'AND';
+            includeClause = includeClause + ' ' + connector + ' ' + segment;
+          }
         }
-
-        const connector = condition.operator && condition.operator.toUpperCase() === 'OR' ? 'OR' : 'AND';
-        fullClause = fullClause + ' ' + connector + ' ' + clauseSegment;
       });
 
-      if (fullClause) {
-        sql += ' AND (' + fullClause + ')';
+      // 포함 조건 블록
+      if (includeClause) {
+        sql += ' AND (' + includeClause + ')';
+      }
+
+      // 제외 조건 블록 (모두 AND로 연결)
+      if (excludeClauses.length > 0) {
+        sql += ' AND ' + excludeClauses.join(' AND ');
       }
     }
   }
@@ -275,5 +292,6 @@ router.post('/advanced', async (req, res) => {
     res.status(500).json({ message: '상세 검색 중 서버 오류가 발생했습니다.' });
   }
 });
+
 
 module.exports = router;
