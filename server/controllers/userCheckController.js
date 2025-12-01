@@ -381,11 +381,6 @@ async function findUserContext(userId) {
   if (!rows || rows.length === 0) return null;
 
   const raw = rows[0].context;
-  console.log('[findUserContext] raw CONTEXT 조회', {
-    userId,
-    rawType: typeof raw,
-  });
-
   if (raw == null) return null;
 
   let jsonText;
@@ -433,12 +428,9 @@ async function getUserFavorites(req, res) {
     const context = await findUserContext(userId);
 
     const favorite = context?.favorite || {};
-    console.log('[getUserFavorites] 원본 favorite 데이터:', favorite);
 
     const documents = Array.isArray(favorite.documents) ? favorite.documents : [];
     const equipments = Array.isArray(favorite.equipments) ? favorite.equipments : [];
-    console.log(equipments)
-    console.log('[getUserFavorites] 조회', { userId, docCount: documents.length, equipCount: equipments.length });
     
 
     return res.json({
