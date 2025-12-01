@@ -17,7 +17,7 @@ const ViewerPanel = ({
     >
       <div className="viewer-header">
         <h2 className="viewer-title">
-          {`${file.PLANTNM} / ${file.UNIT}호기 / [${file.DOCNUMBER}] ${file.DOCNM}`}
+          {`${file.PLANTNM} / ${file.SYSTEMNM} / ${file.UNIT} / [${file.DOCNUMBER}] ${file.DOCNM}`}
         </h2>
         {selectionInfo && selectionInfo.count > 0 && (
           <div className="selection-info">

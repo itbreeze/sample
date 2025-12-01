@@ -24,8 +24,9 @@ const Canvas = ({
   visible,          // 그대로 두고 싶으면 유지 (없애도 무관)
   onReadyChange,
   canvasId,
-}) => {
-  console.log('🟢 Canvas 렌더링:', { docno, isActive, visible });
+  isFavorite,
+  onToggleFavorite,
+}) => { 
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -51,12 +52,6 @@ const Canvas = ({
   const [isInverted, setIsInverted] = useState(false);
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
 
-  useEffect(() => {
-    console.log('🟡 Canvas 마운트:', { docno });
-    return () => {
-      console.log('🔴 Canvas 언마운트:', { docno });
-    };
-  }, [docno]);
 
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
@@ -144,14 +139,14 @@ const Canvas = ({
             hList.forEach((h) => {
               try {
                 viewer.setSelectedEntity?.(h);
-              } catch (_) {}
+              } catch (_) { }
               try {
                 viewer.setSelected?.(h);
-              } catch (_) {}
+              } catch (_) { }
             });
           }
           viewer.update?.();
-        } catch (_) {}
+        } catch (_) { }
       };
       applySelectionHandles(handles);
 
@@ -247,28 +242,10 @@ const Canvas = ({
       viewer.resize?.(0, newWidth, newHeight, 0);
       viewer.update?.();
     }
-  }, [isLoading]);
+  }, []);
 
   /** 초기 로딩 */
   useEffect(() => {
-    console.log('🔴 Canvas useEffect 실행:', {
-      docno,
-      filePath,
-      visible,
-      isInitializedRef: isInitializedRef.current,
-    });
-
-    if (isInitializedRef.current && !viewerRef.current) {
-      console.log('⚠️ isInitializedRef 리셋 (viewerRef가 없음)');
-      isInitializedRef.current = false;
-    }
-
-    if (!filePath || isInitializedRef.current) {
-      console.log('⏭️ 초기화 스킵:', { filePath: !!filePath, isInitializedRef: isInitializedRef.current });
-      return;
-    }
-
-    console.log('🚀 초기화 시작:', { docno, filePath });
 
     let isMounted = true;
 
@@ -291,12 +268,10 @@ const Canvas = ({
         window.currentViewerInstance = viewerInstance;
 
         let arrayBuffer;
-        if (fileCache.has(filePath)) {
-          console.log('📦 캐시에서 파일 로드:', filePath);
+        if (fileCache.has(filePath)) {          
           arrayBuffer = fileCache.get(filePath);
           setLoadPercent(30);
-        } else {
-          console.log('🌐 서버에서 파일 다운로드:', filePath);
+        } else {          
           arrayBuffer = await fetchArrayBufferWithProgress(filePath, (p) => {
             if (isMounted) setLoadPercent(p);
           });
@@ -311,7 +286,7 @@ const Canvas = ({
         try {
           await fixFonts(viewerRef.current, 'gulim.ttc', '/fonts');
           await loadFonts(viewerRef.current, fontNameSetRef, '/fonts');
-        } catch (e) {}
+        } catch (e) { }
 
         setLoadPercent(95);
         viewerRef.current.zoomExtents?.();
@@ -319,15 +294,13 @@ const Canvas = ({
 
         isInitializedRef.current = true;
         setLoadPercent(100);
-        setIsLoading(false);
-        console.log('✅ 초기화 완료:', { docno });
+        setIsLoading(false);        
       } catch (err) {
         if (isMounted) {
-          console.error('❌ 초기화 실패:', err);
           setErrorMessage(err.message);
           setIsLoading(false);
         }
-      }
+      } 
     };
 
     init();
@@ -335,7 +308,7 @@ const Canvas = ({
     return () => {
       isMounted = false;
     };
-  }, [filePath, handleResize]);
+  }, [filePath]);
 
   // visible 대신 isActive만 써도 되는 구조로 바꿀 수 있음
   useEffect(() => {
@@ -493,6 +466,8 @@ const Canvas = ({
             isInverted={isInverted}
             onOpenPanel={() => setShowPanel((prev) => !prev)}
             isInfoActive={showPanel}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
           />
         )}
 

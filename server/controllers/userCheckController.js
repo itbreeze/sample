@@ -1,6 +1,9 @@
+// server/controllers/userCheckController.js
+
 const { executeQuery } = require('../utils/dataBase/oracleClient');
 const { usePlantScopeFilter } = require('../utils/plantFilter');
 const { setAuthCookie, clearAuthCookie } = require('../utils/auth');
+const { json } = require('body-parser');
 
 const DEPT_TO_PLANT = {
   '3200': '5800',
@@ -354,8 +357,205 @@ function getSessionUser(req, res) {
   });
 }
 
+
+
+/**
+ * USERCONTEXTS 테이블에서 사용자 컨텍스트 JSON 한 건 조회
+ * @param {string} userId - 사용자 ID
+ * @returns {Promise<object|null>}
+ */
+// CONTEXTS (실제는 USERCONTEXTS)에서 사용자 컨텍스트 JSON 읽기
+// controllers/userCheckController.js
+
+// CONTEXTS (USERCONTEXTS)에서 사용자 컨텍스트 JSON 읽기
+
+async function findUserContext(userId) {
+  const sql = `
+    SELECT
+      CONTEXT AS "context"
+    FROM USERCONTEXTS
+    WHERE TRIM(USERID) = :userId
+  `;
+
+  const rows = await executeQuery(sql, { userId });
+  if (!rows || rows.length === 0) return null;
+
+  const raw = rows[0].context;
+  console.log('[findUserContext] raw CONTEXT 조회', {
+    userId,
+    rawType: typeof raw,
+  });
+
+  if (raw == null) return null;
+
+  let jsonText;
+
+  // 1) 문자열인 경우: 그대로 사용
+  if (typeof raw === 'string') {
+    jsonText = raw;
+  }
+  // 2) CLOB(Lob) 객체인 경우: getData()로 문자열 추출
+  else if (raw && typeof raw.getData === 'function') {
+    // node-oracledb thin driver CLOB
+    jsonText = await raw.getData();
+  }
+  // 3) 혹시 다른 방식의 Lob (stream)인 경우: 필요시 여기서 스트림 처리
+  else {
+    console.warn('[findUserContext] CONTEXT 예상 밖 타입:', typeof raw, raw);
+    return null;
+  }
+
+  if (!jsonText) return null;
+
+  try {
+    const obj = JSON.parse(jsonText);
+    return obj;
+  } catch (err) {
+    console.error('[findUserContext] JSON 파싱 오류:', err);
+    console.error('[findUserContext] JSON 원본 일부:', jsonText.slice(0, 200));
+    return null;
+  }
+}
+
+
+/**
+ * GET /api/auth/favorites
+ * - 현재 로그인 사용자 기준으로 CONTEXTS.favorite 만 반환
+ */
+async function getUserFavorites(req, res) {
+  try {
+    const authUser = req.authUser;
+    if (!authUser || !authUser.userId) {
+      return res.status(401).json({ ok: false, message: 'NO_AUTH' });
+    }
+
+    const userId = authUser.userId;
+    const context = await findUserContext(userId);
+
+    const favorite = context?.favorite || {};
+    console.log('[getUserFavorites] 원본 favorite 데이터:', favorite);
+
+    const documents = Array.isArray(favorite.documents) ? favorite.documents : [];
+    const equipments = Array.isArray(favorite.equipments) ? favorite.equipments : [];
+    console.log(equipments)
+    console.log('[getUserFavorites] 조회', { userId, docCount: documents.length, equipCount: equipments.length });
+    
+
+    return res.json({
+      ok: true,
+      userId,
+      favorite: {
+        documents,
+        equipments,
+      },
+    });
+  } catch (err) {
+    console.error('[getUserFavorites] 오류:', err);
+    return res.status(500).json({ ok: false, message: 'FAVORITE_LOAD_ERROR' });
+  }
+}
+
+async function saveUserContext(userId, context) {
+  const sql = `
+    MERGE INTO USERCONTEXTS T
+    USING (SELECT :userId AS USERID FROM DUAL) S
+      ON (TRIM(T.USERID) = TRIM(S.USERID))
+    WHEN MATCHED THEN
+      UPDATE SET CONTEXT = :contextJson
+    WHEN NOT MATCHED THEN
+      INSERT (USERID, CONTEXT)
+      VALUES (:userId, :contextJson)
+  `;
+
+  await executeQuery(
+    sql,
+    {
+      userId,
+      contextJson: JSON.stringify(context),
+    },
+    { autoCommit: true }
+  );
+}
+
+// 즐겨찾기 도면 토글
+async function toggleFavoriteDoc(req, res) {
+  try {
+    const authUser = req.authUser;
+    if (!authUser || !authUser.userId) {
+      return res.status(401).json({ ok: false, message: 'NO_AUTH' });
+    }
+
+    const userId = authUser.userId;
+    const { docId, docVer, docName, docNumber, plantCode } = req.body;
+
+    if (!docId || !docVer) {
+      return res
+        .status(400)
+        .json({ ok: false, message: 'DOC_ID_OR_VER_MISSING' });
+    }
+
+    // 기존 CONTEXT 조회
+    const context = (await findUserContext(userId)) || { userId, favorite: {} };
+    const favorite = context.favorite || {};
+    const documents = Array.isArray(favorite.documents)
+      ? favorite.documents
+      : [];
+
+    const idx = documents.findIndex(
+      (d) => d.docId === docId && d.docVer === docVer
+    );
+
+    let updatedDocs;
+
+    if (idx >= 0) {
+      // 이미 즐겨찾기 → 제거
+      updatedDocs = [
+        ...documents.slice(0, idx),
+        ...documents.slice(idx + 1),
+      ];
+    } else {
+      // 즐겨찾기 추가
+      const newDoc = {
+        docId,
+        docVer,
+        docName: docName || '',
+        docNumber: docNumber || '',
+        plantCode: plantCode || '',
+      };
+      updatedDocs = [newDoc, ...documents]; // 앞에 붙이기
+    }
+
+    const updatedContext = {
+      ...context,
+      favorite: {
+        ...favorite,
+        documents: updatedDocs,
+      },
+    };
+
+    await saveUserContext(userId, updatedContext);
+
+    return res.json({
+      ok: true,
+      userId,
+      favorite: updatedContext.favorite,
+      isFavorite: idx === -1, // true면 방금 추가된 상태
+    });
+  } catch (err) {
+    console.error('[toggleFavoriteDoc] 오류:', err);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'FAVORITE_TOGGLE_ERROR' });
+  }
+}
+
+
+
+
 module.exports = {
   checkUser,
   getConfig,
   getSessionUser,
+  getUserFavorites,
+  toggleFavoriteDoc,
 };

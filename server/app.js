@@ -10,6 +10,7 @@ const { attachAuth, requireAuth } = require('./utils/auth');
 const authRoutes = require('./routes/authRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const searchRoutes = require('./routes/search');
+const favoriteRoutes = require('./routes/favoriteRoutes');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', requireAuth, documentRoutes); 
 app.use('/api/search', requireAuth, searchRoutes);
+app.use('/api/favorites', requireAuth, favoriteRoutes);
 
 
 module.exports = app;

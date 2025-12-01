@@ -13,8 +13,17 @@ import { useDocumentLoader } from '../components/hooks/useDocumentLoader';
 import SearchResultList from '../components/Search/SearchResultList';
 import { persistPlantContext } from '../services/api';
 import { getCurrentUser } from '../auth/AuthModule';
+import FavoriteDocsPanel from '../components/FavoriteDocsPanel';
+import { fetchFavorites } from '../services/favorites';
+import { toggleFavoriteDoc } from '../services/favorites';
+
+
+
+
+
 
 const DEFAULT_EXPAND_LEVEL = 0;
+
 
 const findPathToNode = (nodes, nodeId, path = []) => {
   for (const node of nodes) {
@@ -54,12 +63,12 @@ const tabItems = [
 const sidebarMenus = {
   drawing: [
     { id: 'search', icon: <Search size={20} />, label: '도면검색' },
-    { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기' },
-    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내문서함' },
+    { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기 목록' },
+    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서함' },
     { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
-    { id: 'equipments', icon: <Settings size={20} />, label: '설비목록' },
-    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관목록' },
-    { id: 'layers', icon: <Layers size={20} />, label: '레이어' },
+    { id: 'equipments', icon: <Settings size={20} />, label: '설비 목록' },
+    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관 목록' },
+    { id: 'layers', icon: <Layers size={20} />, label: '레이어 목록' },
   ],
   pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD 메뉴' }],
   intelligent: [{ id: 'intelligent', icon: <FileText size={20} />, label: '샘플 메뉴' }],
@@ -95,6 +104,10 @@ function EpnidSystemPage() {
   const [activeSearchTab, setActiveSearchTab] = useState('documentList');
   const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
   const [searchTrigger, setSearchTrigger] = useState(0);
+  const [favoriteDocs, setFavoriteDocs] = useState([]);
+  const [favoriteEquipments, setFavoriteEquipments] = useState([]);
+
+  
 
   const [advancedSearchConditions, setAdvancedSearchConditions] = useState({
     leafNodeIds: 'ALL',
@@ -121,6 +134,38 @@ function EpnidSystemPage() {
   const filteredTabItems = limitedAuth
     ? tabItems.filter(t => !t.requiresAuth)
     : tabItems;
+
+  const activeFile = openFiles.find(f => f.DOCNO === activeFileId);   
+  const isActiveDocFavorite = !!(
+    activeFile &&
+    favoriteDocs.some(
+      (d) =>
+        d.docId === activeFile.DOCNO && // 또는 d.docId === activeFile.DOCID 등 실제 매핑에 맞게
+        d.docVer === activeFile.DOCVR
+    )
+  );
+  const handleToggleFavorite = async () => {
+  if (!activeFile) return;
+
+  try {
+    const res = await toggleFavoriteDoc({
+      docId: activeFile.DOCNO,
+      docVer: activeFile.DOCVR,
+      docName: activeFile.DOCNM,
+      docNumber: activeFile.DOCNUMBER,
+      plantCode: activeFile.PLANTCODE,
+    });
+
+    if (res.ok && res.favorite) {
+      setFavoriteDocs(res.favorite.documents || []);
+      setFavoriteEquipments(res.favorite.equipments || []);
+    }
+  } catch (err) {
+    console.error('즐겨찾기 토글 실패:', err);
+    alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+  }
+};
+
 
   // 상세검색 탭에서 벗어날 때 자동 재검색 트리거를 초기화하여 재입장 시 불필요한 재검색을 막음
   useEffect(() => {
@@ -158,10 +203,22 @@ function EpnidSystemPage() {
     }
   }, [loading, user, authError, redirectedForAuth]);
 
-  const handleMenuClick = (menuId) => {
+  const handleMenuClick = async (menuId) => {
     setActiveMenuItem(menuId);
     const config = PANEL_CONFIG[menuId];
     if (config) setIsPanelMaximized(config.startsMaximized);
+    if (menuId === 'bookmark') {
+      try {
+        const favorites = await fetchFavorites();
+        const docs = Array.isArray(favorites.documents) ? favorites.documents : [];
+        const equips = Array.isArray(favorites.equipments) ? favorites.equipments : [];
+        setFavoriteDocs(docs);
+        setFavoriteEquipments(equips);
+      } catch (e) {
+        console.error('즐겨찾기 불러오기 실패:', e);
+      }
+
+    }
   };
 
   const isFullscreen = () =>
@@ -418,6 +475,7 @@ function EpnidSystemPage() {
 
     runUpdate(shouldFitForNewFile);
   }, [isFileLoaded, activeFileId]);
+
   // ===============================
   //  새 창에서 docno + docvr 자동 로딩
   // ===============================
@@ -437,7 +495,7 @@ function EpnidSystemPage() {
     })();
 
     // 2) 주소창에서 ?docno=...&docvr=... 제거 (SPA 상태 유지)
-    const cleanPath = window.location.pathname.replace(/\/$/, ""); 
+    const cleanPath = window.location.pathname.replace(/\/$/, "");
     const cleanUrl = `${window.location.origin}${cleanPath}`;
     window.history.replaceState({}, document.title, cleanUrl);
   }, [handleFileSelect]);
@@ -510,7 +568,31 @@ function EpnidSystemPage() {
       isResizable: true,
     },
     equipments: { component: <Panel tabs={equipmentTabs} defaultTab="equipmentList" />, startsMaximized: true, isResizable: true },
-    bookmark: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
+    bookmark: {
+      component: (
+        <Panel
+          tabs={[
+            {
+              id: 'favoriteDocs',
+              label: '즐겨찾기 목록',
+              content: () => (
+                <FavoriteDocsPanel
+                  documentItems={favoriteDocs}
+                  equipmentItems={favoriteEquipments}
+                  onFileSelect={(doc) =>
+                    handleFileSelect({ docId: doc.docId || doc.docNO, docVr: doc.docVer })
+                  }
+                />
+              ),
+            },
+          ]}
+          defaultTab="favoriteDocs"
+        />
+      ),
+      startsMaximized: true,
+      isResizable: true,
+    },
+
     mydocs: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
     recentdocs: { component: <NotImplemented />, startsMaximized: true, isResizable: true },
     pipeLayers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },

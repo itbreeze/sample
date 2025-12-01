@@ -1,12 +1,16 @@
 // client/src/components/viewer/FloatingToolbar.js
+
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Sun, Moon, Info } from 'lucide-react';
+import { ChevronUp, ChevronDown, Sun, Moon, Info, Star } from 'lucide-react';
 
 const FloatingToolbar = ({
   onToggleInvert,
   isInverted,
   onOpenPanel,
   isInfoActive = false,
+  // ⭐ 즐겨찾기 관련 추가 props
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const ToggleIcon = collapsed ? ChevronUp : ChevronDown;
@@ -63,7 +67,7 @@ const FloatingToolbar = ({
         {!collapsed && (
           <div
             style={{
-              minWidth: 200,
+              minWidth: 260, // ⭐ 버튼 하나 늘어서 약간 넓게
               maxWidth: '90vw',
               height: 50,
               background: '#ffffff',
@@ -103,6 +107,36 @@ const FloatingToolbar = ({
               )}
             </button>
 
+            {/* ⭐ 즐겨찾기 토글 버튼 */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite?.();
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
+              title={isFavorite ? '즐겨찾기 해제' : '즐겨찾기에 추가'}
+            >
+              <Star
+                size={30}
+                strokeWidth={2.2}
+                // 꽉 찬 별 vs 빈 별
+                color={isFavorite ? '#facc15' : '#9ca3af'}   // 노란색 vs 회색
+                fill={isFavorite ? '#facc15' : 'none'}       // 채우기
+                style={{
+                  filter: isFavorite
+                    ? 'drop-shadow(0 0 3px rgba(250, 204, 21, 0.7))'
+                    : 'none',
+                }}
+              />
+            </button>
+
             {/* 객체정보 패널 */}
             <button
               type="button"
@@ -127,7 +161,9 @@ const FloatingToolbar = ({
                 style={{
                   transform: 'translateY(1px)',
                   opacity: isInfoActive ? 1 : 0.3,
-                  filter: isInfoActive ? 'drop-shadow(0 0 2px rgba(0,0,0,0.2))' : 'none',
+                  filter: isInfoActive
+                    ? 'drop-shadow(0 0 2px rgba(0,0,0,0.2))'
+                    : 'none',
                 }}
               />
             </button>

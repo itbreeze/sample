@@ -6,16 +6,18 @@ import './MainView.css';
 import background from '../assets/images/intro-logo.png';
 import intrologo from '../assets/images/bg.webp';
 
-const MainView = ({ 
-  onMainViewClick, 
+const MainView = ({
+  onMainViewClick,
   openFiles,
   activeFileId,
   onTabClick,
   onTabClose,
   onTabReorder,
-  onCloseAllTabs
+  onCloseAllTabs,
+  isActiveDocFavorite,
+  handleToggleFavorite,
 }) => {
-  
+
   if (!openFiles || openFiles.length === 0) {
     return (
       <main className="app-main-view" onClick={onMainViewClick}>
@@ -29,13 +31,15 @@ const MainView = ({
 
   return (
     <main className="app-main-view" onClick={onMainViewClick}>
-      <ViewerContainer 
+      <ViewerContainer
         openFiles={openFiles}
         activeFileId={activeFileId}
         onTabClick={onTabClick}
         onTabClose={onTabClose}
         onTabReorder={onTabReorder}
         onCloseAllTabs={onCloseAllTabs}
+        isFavorite={isActiveDocFavorite}
+        onToggleFavorite={handleToggleFavorite}
       />
     </main>
   );

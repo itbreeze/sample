@@ -6,6 +6,7 @@ const fs = require("fs").promises; // fs.promises 사용
 const { exec } = require('child_process'); // exec 사용
 
 const { buildPlantFilter } = require('../utils/plantFilter');
+const { SYSASM } = require("oracledb");
 
 const VIEWER_FOLDER = path.resolve(process.env.VIEWER_DOC_FOLDER);
 const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);
@@ -97,16 +98,22 @@ router.post("/selectDocument", async (req, res) => {
   const { docId, docVr } = req.body;
   let tmpFile; // 임시 dwg 파일 경로
   try {
-    const sql = `SELECT S.PLANTNM,F.HOGI_GUBUN,D.DOCNO ,D.DOCNM,D.DOCNUMBER,D.DOCVR AS DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
-                 FROM IDS_DOC D LEFT JOIN IDS_SITE S
-                   ON D.PLANTCODE=S.PLANTCODE
-                   LEFT JOIN IDS_FOLDER F
-                   ON D.FOLID=F.FOLID
-                 WHERE S.FOLDER_TYPE='003' AND D.CURRENT_YN='001' AND D.DOCNO = :docId AND D.DOCVR = :docVr`;
-    const results = await oracleClient.executeQuery(sql, [docId, docVr]);
+    const sql = `SELECT S.PLANTNM, (SELECT FOLNM FROM IDS_FOLDER WHERE FOLID=F.FOLPT) AS SYSTEMNM,
+                  CASE 
+                    WHEN NVL(F.HOGI_GUBUN, '') = '0' THEN '공용' 
+                    WHEN REGEXP_LIKE(NVL(F.HOGI_GUBUN, ''), '^[0-9]+$') THEN NVL(F.HOGI_GUBUN, '') || '호기'
+                    ELSE NVL(F.HOGI_GUBUN, '')
+                  END AS HOGI_LABEL,D.DOCNO ,D.DOCNM,D.DOCNUMBER,D.DOCVR AS DOCVR,D.REGDT,D.REGID,D.USERID,D.PLANTCODE,D.ISPSM,D.DOCCT
+                  FROM IDS_DOC D 
+                  LEFT JOIN IDS_SITE S
+                    ON D.PLANTCODE=S.PLANTCODE
+                  LEFT JOIN IDS_FOLDER F
+                    ON D.FOLID=F.FOLID
+                    WHERE S.FOLDER_TYPE='003' AND D.CURRENT_YN='001' AND D.DOCNO = :docId `;
+    const results = await oracleClient.executeQuery(sql, [docId]);
 
     if (!results.length) {
-      console.warn('[selectDocument] DOC 미존재', { docId, docVr });
+      console.warn('[selectDocument] DOC 미존재', { docId });
       return res.status(404).json({ error: "DOC 파일이 없습니다." });
     }
 
@@ -138,7 +145,8 @@ router.post("/selectDocument", async (req, res) => {
 
     const docResponse = {
       PLANTNM: doc.PLANTNM,
-      UNIT: doc.HOGI_GUBUN,
+      SYSTEMNM: doc.SYSTEMNM,
+      UNIT: doc.HOGI_LABEL,
       DOCNO: doc.DOCNO,
       DOCNM: doc.DOCNM,
       DOCNUMBER: doc.DOCNUMBER,
