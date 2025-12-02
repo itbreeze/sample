@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './EpnidSystemPage.css';
 import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText, History } from 'lucide-react';
 
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
-import MainView from '../components/MainView';
 import { Panel } from '../components/utils/Panel';
 import DrawingList from '../components/DrawingList';
 import ResizablePanel from '../components/ResizablePanel';
 import { useDocumentTree } from '../components/hooks/useDocumentTree';
-import { useDocumentLoader } from '../components/hooks/useDocumentLoader';
 import SearchResultList from '../components/Search/SearchResultList';
 import { persistPlantContext } from '../services/api';
 import FavoriteDocsPanel from '../components/FavoriteDocsPanel';
 import { useAuthState } from '../hooks/useAuthState';
-import { useFavorites } from '../hooks/useFavorites';
 import { usePanelState } from '../hooks/usePanelState';
+import { ViewerProvider, useViewer, ViewerShell } from '../viewer';
 
 
 
@@ -49,10 +47,6 @@ const collectIdsToLevel = (nodes, maxLevel, currentLevel = 0) => {
   return ids;
 };
 
-const triggerResize = () => {
-  window.dispatchEvent(new Event('resize'));
-};
-
 const tabItems = [
   { id: 'drawing', label: 'P&ID' },
   { id: 'pld', label: 'PLD' },
@@ -84,15 +78,9 @@ const equipmentTabs = [
   { id: 'searchEquipment', label: '설비 상세검색', content: () => <NotImplemented /> },
 ];
 
-function EpnidSystemPage() {
+function EpnidSystemPageContent() {
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
-  const [openFiles, setOpenFiles] = useState([]);
-  const [activeFileId, setActiveFileId] = useState(null);
-  const [viewStates, setViewStates] = useState({});
-  const [isFileLoaded, setIsFileLoaded] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
-  const tabSwitchTimeoutRef = useRef(null);
-  const currentViewerInstanceRef = useRef(null);
   const [activeSearchTab, setActiveSearchTab] = useState('documentList');
   const [isDefaultExpandApplied, setIsDefaultExpandApplied] = useState(false);
   const [searchTrigger, setSearchTrigger] = useState(0);
@@ -109,7 +97,6 @@ function EpnidSystemPage() {
   const [advancedSearchHighlight, setAdvancedSearchHighlight] = useState('');
 
   const [previewResultCount, setPreviewResultCount] = useState(0);
-  const fittedDocsRef = useRef(new Set());
 
   const {
     user,
@@ -122,14 +109,13 @@ function EpnidSystemPage() {
   const isAuthorized = !!user && !authError;
   const { documentTree, loading: documentsLoading, error: documentError } =
     useDocumentTree(isAuthorized);
-  const { loadDocument } = useDocumentLoader();
   const {
+    handleFileSelect,
+    activeFileId,
+    isFileLoaded,
     favoriteDocs,
     favoriteEquipments,
-    refreshFavorites,
-    toggleDocFavorite,
-    isDocFavorite,
-  } = useFavorites();
+  } = useViewer();
   const {
     isSidebarOpen,
     setIsSidebarOpen,
@@ -140,31 +126,22 @@ function EpnidSystemPage() {
     isPanelOpen,
     openPanel,
     closePanel,
-  } = usePanelState({ onBookmarkOpen: refreshFavorites });
+  } = usePanelState();
+
+  const handleDocumentSelect = useCallback(
+    async (fileIdentifier, options = {}) => {
+      const loaded = await handleFileSelect(fileIdentifier);
+      if (loaded && options.collapsePanel) {
+        setIsPanelMaximized(false);
+      }
+      return loaded;
+    },
+    [handleFileSelect, setIsPanelMaximized]
+  );
 
   const filteredTabItems = authLimited
     ? tabItems.filter(t => !t.requiresAuth)
     : tabItems;
-
-  const activeFile = openFiles.find(f => f.DOCNO === activeFileId);   
-  const isActiveDocFavorite = isDocFavorite(activeFile);
-  const handleToggleFavorite = async () => {
-    if (!activeFile) return;
-
-    try {
-      await toggleDocFavorite({
-        docId: activeFile.DOCNO,
-        docVer: activeFile.DOCVR,
-        docName: activeFile.DOCNM,
-        docNumber: activeFile.DOCNUMBER,
-        plantCode: activeFile.PLANTCODE,
-      });
-    } catch (err) {
-      console.error('즐겨찾기 토글 실패:', err);
-      alert('즐겨찾기 처리 중 오류가 발생했습니다.');
-    }
-  };
-
 
   // 상세검색 탭에서 벗어날 때 자동 재검색 트리거를 초기화하여 재입장 시 불필요한 재검색을 막음
   useEffect(() => {
@@ -221,61 +198,6 @@ function EpnidSystemPage() {
     closePanel();
   };
 
-  const handleViewStateChange = useCallback((docno, viewState) => {
-    setViewStates(prev => ({ ...prev, [docno]: { ...viewState, timestamp: Date.now() } }));
-  }, []);
-
-  const handleFileSelect = useCallback(
-    async (fileIdentifier, fromSearchBar = false) => {
-      const loadedFile = await loadDocument(fileIdentifier);
-      if (!loadedFile) return;
-
-      setOpenFiles(prev => {
-        const exists = prev.some(f => f.DOCNO === loadedFile.DOCNO);
-        return exists ? [loadedFile, ...prev.filter(f => f.DOCNO !== loadedFile.DOCNO)] : [loadedFile, ...prev];
-      });
-      setActiveFileId(loadedFile.DOCNO);
-      setIsFileLoaded(true);
-
-      if (fromSearchBar) {
-        closePanel();
-        setIsPanelMaximized(false);
-      }
-    },
-    [loadDocument]
-  );
-
-  const handleTabClick = useCallback((docno) => {
-    if (docno !== activeFileId) setActiveFileId(docno);
-  }, [activeFileId]);
-
-  const handleTabClose = (docnoToClose) => {
-    const next = openFiles.filter(f => f.DOCNO !== docnoToClose);
-    fittedDocsRef.current.delete(docnoToClose);
-    setOpenFiles(next);
-    if (activeFileId === docnoToClose) {
-      setActiveFileId(next.length ? next[0].DOCNO : null);
-      if (!next.length) setIsFileLoaded(false);
-    }
-  };
-
-  const handleCloseAllTabs = useCallback(() => {
-    setOpenFiles([]);
-    setActiveFileId(null);
-    setIsFileLoaded(false);
-    fittedDocsRef.current = new Set();
-  }, []);
-
-  const handleTabReorder = (newFiles, draggedFileId) => {
-    setOpenFiles(newFiles);
-    setActiveFileId(draggedFileId);
-  };
-
-  const handleViewerReady = useCallback((viewerInstance) => {
-    currentViewerInstanceRef.current = viewerInstance;
-    window.currentViewerInstance = viewerInstance;
-  }, []);
-
   const handleNodeToggle = useCallback((nodeId) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
@@ -316,27 +238,6 @@ function EpnidSystemPage() {
   useEffect(() => {
   }, [isPanelOpen, activeMenuItem]);
 
-  useEffect(() => {
-    if (!isFileLoaded) return;
-
-    const shouldFitForNewFile = activeFileId && !fittedDocsRef.current.has(activeFileId);
-    if (shouldFitForNewFile) {
-      fittedDocsRef.current.add(activeFileId);
-    }
-
-    const runUpdate = (doFit) => {
-      triggerResize();
-      const viewer = window.currentViewerInstance;
-      if (!viewer) return;
-      const viewerDocno = window.currentViewerDocno;
-      if (!viewerDocno) return; // 활성 뷰어가 없으면 건너뜀
-      if (doFit) viewer.zoomExtents?.();
-      viewer.update?.();
-    };
-
-    runUpdate(shouldFitForNewFile);
-  }, [isFileLoaded, activeFileId]);
-
   // ===============================
   //  새 창에서 docno + docvr 자동 로딩
   // ===============================
@@ -349,7 +250,7 @@ function EpnidSystemPage() {
     // 1) 우선 도면 자동 로딩
     (async () => {
       try {
-        await handleFileSelect({ docId: urlDocno, docVr: urlDocvr });
+        await handleDocumentSelect({ docId: urlDocno, docVr: urlDocvr });
       } catch (err) {
         console.error("URL 기반 도면 자동 로딩 실패:", err);
       }
@@ -359,13 +260,9 @@ function EpnidSystemPage() {
     const cleanPath = window.location.pathname.replace(/\/$/, "");
     const cleanUrl = `${window.location.origin}${cleanPath}`;
     window.history.replaceState({}, document.title, cleanUrl);
-  }, [handleFileSelect]);
+  }, [handleDocumentSelect]);
 
 
-
-  useEffect(() => {
-    return () => tabSwitchTimeoutRef.current && clearTimeout(tabSwitchTimeoutRef.current);
-  }, []);
 
   const searchTabs = useMemo(
     () => [
@@ -376,7 +273,7 @@ function EpnidSystemPage() {
           <DrawingList
             filter={filter}
             onFileSelect={(node) =>
-              handleFileSelect({ docId: node.ID, docVr: node.DOCVR })
+              handleDocumentSelect({ docId: node.ID, docVr: node.DOCVR })
             }
             tree={documentTree}
             loading={documentsLoading}
@@ -397,7 +294,7 @@ function EpnidSystemPage() {
             onConditionsChange={setAdvancedSearchConditions}
             onResultsChange={setAdvancedSearchResults}
             onHighlightChange={setAdvancedSearchHighlight}
-            onFileSelect={handleFileSelect}
+            onFileSelect={(file) => handleDocumentSelect(file)}
             searchTrigger={searchTrigger}
           />
         ),
@@ -410,7 +307,7 @@ function EpnidSystemPage() {
       activeFileId,
       expandedNodes,
       handleNodeToggle,
-      handleFileSelect,
+      handleDocumentSelect,
       advancedSearchConditions,
       advancedSearchResults,
       advancedSearchHighlight,
@@ -451,7 +348,10 @@ function EpnidSystemPage() {
                     documentItems={favoriteDocs}
                     equipmentItems={favoriteEquipments}
                     onFileSelect={(doc) =>
-                      handleFileSelect({ docId: doc.docId || doc.docNO, docVr: doc.docVer })
+                      handleDocumentSelect({
+                        docId: doc.docId || doc.docNO,
+                        docVr: doc.docVer,
+                      })
                     }
                   />
                 ),
@@ -474,7 +374,7 @@ function EpnidSystemPage() {
       handleCollapseAll,
       favoriteDocs,
       favoriteEquipments,
-      handleFileSelect,
+      handleDocumentSelect,
       setActiveSearchTab,
     ]
   );
@@ -541,7 +441,9 @@ function EpnidSystemPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogoClick={handleLogoClick}
-        onFileSelect={(node) => handleFileSelect({ docId: node.DOCNO, docVr: node.DOCVR }, true)}
+        onFileSelect={(node) =>
+          handleDocumentSelect({ docId: node.DOCNO, docVr: node.DOCVR })
+        }
         onViewAllSearch={handleViewAllSearch}
         previewResultCount={previewResultCount}
         onPreviewCountChange={setPreviewResultCount}
@@ -570,19 +472,17 @@ function EpnidSystemPage() {
           </ResizablePanel>
         )}
 
-        <MainView
-          openFiles={openFiles}
-          activeFileId={activeFileId}
-          onTabClick={handleTabClick}
-          onTabClose={handleTabClose}
-          onTabReorder={handleTabReorder}
-          onCloseAllTabs={handleCloseAllTabs}
-          onMainViewClick={handleMainViewClick}
-          onViewerReady={handleViewerReady}
-          onViewStateChange={handleViewStateChange}
-        />
+        <ViewerShell onMainViewClick={handleMainViewClick} />
       </div>
     </div>
+  );
+}
+
+function EpnidSystemPage() {
+  return (
+    <ViewerProvider>
+      <EpnidSystemPageContent />
+    </ViewerProvider>
   );
 }
 

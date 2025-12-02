@@ -1,14 +1,14 @@
-// client/src/components/ViewerContainer.js
-import React, { useState, useCallback, useEffect } from 'react';
-import './ViewerContainer.css';
-import TabListModal from './TabListModal';
-import SearchResultPanel from './Search/SearchResultPanel';
-import { SingleTabs } from './ViewerTabs';
-import ViewerPanel from './ViewerPanel';
+// client/src/components/ViewerWorkspace.js
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import './ViewerWorkspace.css';
+import ViewerTabModal from './ViewerTabModal';
+import SearchResultPanel from '../../components/Search/SearchResultPanel';
+import { SingleTabs } from './ViewerTabList';
+import ViewerCanvasPanel from './ViewerCanvasPanel';
 
 const MAX_VISIBLE_TABS = 5;
 
-const ViewerContainer = ({
+const ViewerWorkspace = ({
   openFiles = [],
   activeFileId,
   onTabClick,
@@ -128,15 +128,11 @@ const ViewerContainer = ({
   };
 
   const handleSelectFromModal = useCallback((docno) => {
-    const newFiles = [...openFiles];
-    const selectedFileIndex = newFiles.findIndex(f => f.DOCNO === docno);
-    if (selectedFileIndex > -1) {
-      const [selectedFile] = newFiles.splice(selectedFileIndex, 1);
-      newFiles.unshift(selectedFile);
-      onTabReorder(newFiles, docno);
+    if (docno) {
+      onTabClick?.(docno);
     }
     setIsModalOpen(false);
-  }, [openFiles, onTabReorder]);
+  }, [onTabClick]);
 
   const handleTabSelect = (docno) => {
     onTabClick?.(docno);
@@ -144,11 +140,37 @@ const ViewerContainer = ({
 
   const activeDocno = activeFileId || openFiles[0]?.DOCNO || null;
 
+  const { visibleTabs, hiddenTabs } = useMemo(() => {
+    const list = openFiles || [];
+    if (list.length === 0) {
+      return { visibleTabs: [], hiddenTabs: [] };
+    }
+
+    const limit = Math.min(MAX_VISIBLE_TABS, list.length);
+    let visible = list.slice(0, limit);
+    if (list.length > limit && activeDocno) {
+      const hasActive = visible.some((file) => file.DOCNO === activeDocno);
+      if (!hasActive) {
+        const activeFile = list.find((file) => file.DOCNO === activeDocno);
+        if (activeFile) {
+          visible = [...visible];
+          visible[visible.length - 1] = activeFile;
+        }
+      }
+    }
+
+    const hidden = list.filter(
+      (file) => !visible.some((visibleFile) => visibleFile.DOCNO === file.DOCNO)
+    );
+
+    return { visibleTabs: visible, hiddenTabs: hidden };
+  }, [openFiles, activeDocno]);
+
   const renderViewer = () => {
     return (
       <>
         <SingleTabs
-          files={openFiles}
+          files={visibleTabs}
           activeId={activeDocno}
           onSelect={handleTabSelect}
           onClose={onTabClose}
@@ -156,14 +178,14 @@ const ViewerContainer = ({
           onMoreClick={() => setIsModalOpen(true)}
           onContextMenu={(e, docno) => handleTabContextMenu(e, docno)}
           selectionStates={selectionStates}
-          maxVisible={MAX_VISIBLE_TABS}
+          hiddenCount={hiddenTabs.length}
         />
 
         <div className="viewer-content-area">
           {openFiles.map((file) => {
             const isActiveDoc = file.DOCNO === activeDocno;
             return (
-              <ViewerPanel
+      <ViewerCanvasPanel
                 key={file.DOCNO}
                 file={file}
                 selectionInfo={selectionStates[file.DOCNO]}
@@ -198,9 +220,9 @@ const ViewerContainer = ({
       )}
 
       {!isSearchMode && (
-        <TabListModal
+        <ViewerTabModal
           isOpen={isModalOpen}
-          files={openFiles.length > MAX_VISIBLE_TABS ? openFiles.slice(MAX_VISIBLE_TABS) : []}
+          files={hiddenTabs}
           onClose={() => setIsModalOpen(false)}
           onSelectTab={handleSelectFromModal}
           onCloseTab={onTabClose}
@@ -210,4 +232,4 @@ const ViewerContainer = ({
   );
 };
 
-export default ViewerContainer;
+export default ViewerWorkspace;

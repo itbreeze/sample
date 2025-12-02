@@ -1,9 +1,9 @@
-// client/src/components/viewer/FloatingToolbar.js
+// client/src/components/viewer/ViewerCanvasToolbar.js
 
 import React, { useState } from 'react';
 import { ChevronUp, ChevronDown, Sun, Moon, Info, Star } from 'lucide-react';
 
-const FloatingToolbar = ({
+const ViewerCanvasToolbar = ({
   onToggleInvert,
   isInverted,
   onOpenPanel,
@@ -174,4 +174,4 @@ const FloatingToolbar = ({
   );
 };
 
-export default FloatingToolbar;
+export default ViewerCanvasToolbar;

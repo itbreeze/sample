@@ -1,5 +1,5 @@
 /* eslint-env browser */
-// client/src/components/viewer/CanvasUtils.js
+// client/src/components/viewer/ViewerCanvasUtils.js
 
 /////////////////////////
 // [FILE CACHE + FETCH]

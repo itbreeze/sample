@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { X as CloseIcon } from 'lucide-react';
-import './TabListModal.css';
+import './ViewerTabModal.css';
 
-const TabListModal = ({ isOpen, files, onClose, onSelectTab, onCloseTab }) => {
+const ViewerTabModal = ({ isOpen, files, onClose, onSelectTab, onCloseTab }) => {
   // files 배열의 변경을 감지하여 목록이 비면 모달을 닫습니다.
   useEffect(() => {
     if (isOpen && files.length === 0) {
@@ -55,4 +55,4 @@ const TabListModal = ({ isOpen, files, onClose, onSelectTab, onCloseTab }) => {
   );
 };
 
-export default TabListModal;
+export default ViewerTabModal;

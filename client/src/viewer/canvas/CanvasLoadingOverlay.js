@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import './GlobalLoadingOverlay.css';
+import './CanvasLoadingOverlay.css';
 
 /**
  * 전체 화면 로딩 오버레이 (전역)
@@ -8,7 +8,7 @@ import './GlobalLoadingOverlay.css';
  * @param {number} percent - 진행률 (0~100)
  * @param {string} text - 기본 문구
  */
-const GlobalLoadingOverlay = ({ visible, percent = 0, text = '도면을 불러오는 중입니다...' }) => {
+const CanvasLoadingOverlay = ({ visible, percent = 0, text = '도면을 불러오는 중입니다...' }) => {
   const [displayPercent, setDisplayPercent] = useState(percent);
 
   // Hook은 항상 호출해야 하므로 조건문 밖에서 선언
@@ -67,4 +67,4 @@ const GlobalLoadingOverlay = ({ visible, percent = 0, text = '도면을 불러�
   );
 };
 
-export default GlobalLoadingOverlay;
+export default CanvasLoadingOverlay;

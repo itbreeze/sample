@@ -1,5 +1,5 @@
 /* eslint-env browser */
-// client/src/components/viewer/CanvasController.js
+// client/src/components/viewer/ViewerCanvasController.js
 
 /////////////////////////
 // [BOX CURSOR]

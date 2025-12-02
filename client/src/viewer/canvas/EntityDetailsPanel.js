@@ -1,5 +1,5 @@
 /* eslint-env browser */
-// client/src/components/viewer/EntityPanel.js
+// client/src/components/viewer/EntityDetailsPanel.js
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, X } from 'lucide-react';
@@ -22,7 +22,7 @@ const computeBottomRightPos = (width, height) => {
   };
 };
 
-const EntityPanel = ({
+const EntityDetailsPanel = ({
   entities,
   onClose,
   initialPosition,
@@ -981,4 +981,4 @@ const EntityPanel = ({
   );
 };
 
-export default EntityPanel;
+export default EntityDetailsPanel;

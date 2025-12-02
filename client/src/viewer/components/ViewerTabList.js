@@ -1,10 +1,8 @@
-// client/src/components/ViewerTabs.js
+// client/src/components/ViewerTabList.js
 import React from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { X as CloseIcon } from 'lucide-react';
-import './ViewerContainer.css';
-
-const MAX_VISIBLE = 5;
+import './ViewerWorkspace.css';
 
 const TabItem = ({ file, isActive, selectionCount = 0, onClick, onClose, onContextMenu, draggableProps }) => (
   <div
@@ -38,10 +36,9 @@ export const SingleTabs = ({
   onMoreClick,
   onContextMenu,
   selectionStates = {},
-  maxVisible = MAX_VISIBLE,
+  hiddenCount = 0,
 }) => {
-  const visible = files.length > maxVisible ? files.slice(0, maxVisible) : files;
-  const hiddenCount = files.length > maxVisible ? files.length - maxVisible : 0;
+  const visible = files;
 
   return (
     <DragDropContext onDragEnd={(result) => {

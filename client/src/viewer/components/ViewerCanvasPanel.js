@@ -1,8 +1,8 @@
-// client/src/components/ViewerPanel.js
+// client/src/components/ViewerCanvasPanel.js
 import React from 'react';
-import Canvas from './viewer/Canvas';
+import ViewerCanvas from '../canvas/ViewerCanvas';
 
-const ViewerPanel = ({
+const ViewerCanvasPanel = ({
   file,
   selectionInfo,
   isActive,
@@ -26,7 +26,7 @@ const ViewerPanel = ({
           </div>
         )}
       </div>
-      <Canvas
+      <ViewerCanvas
         filePath={file.tmpFile}
         docno={file.DOCNO}
         isActive={isActive}
@@ -37,4 +37,4 @@ const ViewerPanel = ({
   );
 };
 
-export default ViewerPanel;
+export default ViewerCanvasPanel;

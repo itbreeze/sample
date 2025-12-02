@@ -22,6 +22,7 @@
   align-items: center;
   padding: 8px 12px;
   z-index: 10000;
+  position: relative;
 }
 
 .search-icon {
@@ -36,6 +37,8 @@
   outline: none;
   background-color: transparent;
   font-size: var(--font-size-base);
+  padding-right: 34px;
+  min-width: 0;
 }
 
 
@@ -48,22 +51,22 @@
 
 /* clear (X) button inside search input */
 .search-clear-btn {
-  margin-left: 8px;
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-color);
-  background: var(--background-color);
-  border-radius: 12px;
   color: var(--text-color-secondary);
-  cursor: pointer;
+  padding: 0;
 }
 
 .search-clear-btn:hover {
-  color: var(--primary-color);
-  border-color: var(--primary-color-border, var(--primary-color));
+  color: var(--text-color-primary);
 }
 
 @keyframes spin {
