@@ -5,6 +5,9 @@ const { usePlantScopeFilter } = require('../utils/plantFilter');
 const { setAuthCookie, clearAuthCookie } = require('../utils/auth');
 const { json } = require('body-parser');
 
+const normalizeUserId = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeDocId = (value) => (typeof value === 'string' ? value.trim() : '');
+
 const DEPT_TO_PLANT = {
   '3200': '5800',
   '7000': '6100',
@@ -34,17 +37,21 @@ const logResponse = (tag, userId, body) => {
   }
 };
 
-const buildUserPayload = (userRow, plantCode, isPsn) => ({
-  userId: userRow.pernr,
-  name: userRow.name,
-  deptName: userRow.deptName,
-  deptCode: userRow.deptCode,
-  plantCode,
-  authName: userRow.sAuthName || null,
-  sAuthId: userRow.sAuthId || null,
-  endDate: userRow.endDate || null,
-  isPsn: !!isPsn,
-});
+const buildUserPayload = (userRow, plantCode, isPsn) => {
+  const normalizedUserId = normalizeUserId(userRow?.pernr);
+
+  return {
+    userId: normalizedUserId || null,
+    name: userRow.name,
+    deptName: userRow.deptName,
+    deptCode: userRow.deptCode,
+    plantCode,
+    authName: userRow.sAuthName || null,
+    sAuthId: userRow.sAuthId || null,
+    endDate: userRow.endDate || null,
+    isPsn: !!isPsn,
+  };
+};
 
 async function getUpperDept(deptCode) {
   if (!deptCode) return null;
@@ -108,6 +115,9 @@ function getPlantCodeFromDept(deptCodeForPlant) {
 }
 
 async function findUserInTable(userId) {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) return null;
+
   const sql = `
     SELECT
       I.EMGRD_NM                         AS "gradeName",
@@ -126,7 +136,7 @@ async function findUserInTable(userId) {
     WHERE TRIM(I.PERNR) = :userId
   `;
 
-  const rows = await executeQuery(sql, { userId });
+  const rows = await executeQuery(sql, { userId: normalizedUserId });
   if (!rows || rows.length === 0) return null;
   return rows[0];
 }
@@ -134,8 +144,7 @@ async function findUserInTable(userId) {
 async function checkUser(req, res) {
   try {
     const { userId } = req.body || {};
-    const rawUserId = typeof userId === 'string' ? userId : '';
-    const trimmedUserId = rawUserId.trim();
+    const trimmedUserId = normalizeUserId(userId);
 
     console.log('[checkUser] 요청', { userId: trimmedUserId, ip: req.ip });
 
@@ -370,6 +379,9 @@ function getSessionUser(req, res) {
 // CONTEXTS (USERCONTEXTS)에서 사용자 컨텍스트 JSON 읽기
 
 async function findUserContext(userId) {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) return null;
+
   const sql = `
     SELECT
       CONTEXT AS "context"
@@ -377,7 +389,7 @@ async function findUserContext(userId) {
     WHERE TRIM(USERID) = :userId
   `;
 
-  const rows = await executeQuery(sql, { userId });
+  const rows = await executeQuery(sql, { userId: normalizedUserId });
   if (!rows || rows.length === 0) return null;
 
   const raw = rows[0].context;
@@ -412,6 +424,39 @@ async function findUserContext(userId) {
   }
 }
 
+async function fetchCurrentDocInfos(docIds = []) {
+  const uniqueIds = Array.from(new Set(docIds.map((id) => normalizeDocId(id)).filter(Boolean)));
+  if (!uniqueIds.length) return new Map();
+
+  const placeholders = uniqueIds.map((_, idx) => `:docId${idx}`).join(', ');
+  const sql = `
+    SELECT
+      DOCNO,
+      DOCVR,
+      DOCNUMBER,
+      DOCNM,
+      PLANTCODE
+    FROM IDS_DOC
+    WHERE DOCNO IN (${placeholders})
+      AND CURRENT_YN = '001'
+  `;
+
+  const binds = {};
+  uniqueIds.forEach((id, idx) => {
+    binds[`docId${idx}`] = id;
+  });
+
+  const rows = await executeQuery(sql, binds);
+  const map = new Map();
+  for (const row of rows) {
+    const key = normalizeDocId(row?.DOCNO);
+    if (!key) continue;
+    map.set(key, row);
+  }
+
+  return map;
+}
+
 
 /**
  * GET /api/auth/favorites
@@ -420,24 +465,42 @@ async function findUserContext(userId) {
 async function getUserFavorites(req, res) {
   try {
     const authUser = req.authUser;
-    if (!authUser || !authUser.userId) {
+    const userId = normalizeUserId(authUser?.userId);
+    if (!authUser || !userId) {
       return res.status(401).json({ ok: false, message: 'NO_AUTH' });
     }
 
-    const userId = authUser.userId;
     const context = await findUserContext(userId);
 
     const favorite = context?.favorite || {};
 
     const documents = Array.isArray(favorite.documents) ? favorite.documents : [];
     const equipments = Array.isArray(favorite.equipments) ? favorite.equipments : [];
-    
+
+    const docIds = documents
+      .map((doc) => normalizeDocId(doc?.docId))
+      .filter(Boolean);
+    const docInfoMap = await fetchCurrentDocInfos(docIds);
+
+    const enrichedDocuments = documents.map((doc) => {
+      const docIdKey = normalizeDocId(doc?.docId);
+      const info = docIdKey ? docInfoMap.get(docIdKey) : null;
+      if (!info) return doc;
+
+      return {
+        ...doc,
+        docVer: info.DOCVR || doc.docVer || '',
+        docNumber: info.DOCNUMBER || doc.docNumber || '',
+        docName: info.DOCNM || doc.docName || '',
+        plantCode: info.PLANTCODE || doc.plantCode || '',
+      };
+    });
 
     return res.json({
       ok: true,
       userId,
       favorite: {
-        documents,
+        documents: enrichedDocuments,
         equipments,
       },
     });
@@ -448,21 +511,25 @@ async function getUserFavorites(req, res) {
 }
 
 async function saveUserContext(userId, context) {
-  const sql = `
-    MERGE INTO USERCONTEXTS T
-    USING (SELECT :userId AS USERID FROM DUAL) S
-      ON (TRIM(T.USERID) = TRIM(S.USERID))
-    WHEN MATCHED THEN
-      UPDATE SET CONTEXT = :contextJson
-    WHEN NOT MATCHED THEN
-      INSERT (USERID, CONTEXT)
-      VALUES (:userId, :contextJson)
-  `;
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) {
+    throw new Error('Invalid userId');
+  }
 
+  const deleteSql = `
+    DELETE FROM USERCONTEXTS
+    WHERE TRIM(USERID) = :userId
+  `;
+  await executeQuery(deleteSql, { userId: normalizedUserId }, { autoCommit: true });
+
+  const insertSql = `
+    INSERT INTO USERCONTEXTS (USERID, CONTEXT)
+    VALUES (:userId, :contextJson)
+  `;
   await executeQuery(
-    sql,
+    insertSql,
     {
-      userId,
+      userId: normalizedUserId,
       contextJson: JSON.stringify(context),
     },
     { autoCommit: true }
@@ -473,14 +540,18 @@ async function saveUserContext(userId, context) {
 async function toggleFavoriteDoc(req, res) {
   try {
     const authUser = req.authUser;
-    if (!authUser || !authUser.userId) {
+    const userId = normalizeUserId(authUser?.userId);
+    if (!authUser || !userId) {
       return res.status(401).json({ ok: false, message: 'NO_AUTH' });
     }
 
-    const userId = authUser.userId;
     const { docId, docVer, docName, docNumber, plantCode } = req.body;
+    const normalizedDocId = normalizeDocId(docId);
 
-    if (!docId || !docVer) {
+    const resolvedPlantCode =
+      typeof plantCode === 'string' ? plantCode.trim() : '';
+
+    if (!normalizedDocId || !docVer) {
       return res
         .status(400)
         .json({ ok: false, message: 'DOC_ID_OR_VER_MISSING' });
@@ -494,7 +565,7 @@ async function toggleFavoriteDoc(req, res) {
       : [];
 
     const idx = documents.findIndex(
-      (d) => d.docId === docId && d.docVer === docVer
+      (d) => normalizeDocId(d.docId) === normalizedDocId
     );
 
     let updatedDocs;
@@ -508,11 +579,11 @@ async function toggleFavoriteDoc(req, res) {
     } else {
       // 즐겨찾기 추가
       const newDoc = {
-        docId,
+        docId: normalizedDocId || docId,
         docVer,
         docName: docName || '',
         docNumber: docNumber || '',
-        plantCode: plantCode || '',
+        plantCode: resolvedPlantCode,
       };
       updatedDocs = [newDoc, ...documents]; // 앞에 붙이기
     }

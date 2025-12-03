@@ -183,7 +183,7 @@ export const ViewerProvider = ({ children }) => {
       docVer: activeFile.DOCVR,
       docName: activeFile.DOCNM,
       docNumber: activeFile.DOCNUMBER,
-      plantCode: activeFile.PLANTCODE,
+      plantCode: activeFile.PLANTCD || activeFile.PLANTCODE,
     });
   }, [activeFile, toggleDocFavorite]);
 

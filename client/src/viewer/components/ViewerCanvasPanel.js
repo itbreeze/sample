@@ -8,6 +8,8 @@ const ViewerCanvasPanel = ({
   isActive,
   onReadyChange,
   highlightHandles = [],
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   if (!file) return null;
 
@@ -34,6 +36,8 @@ const ViewerCanvasPanel = ({
         onReadyChange={onReadyChange}
         canvasId={`canvas-${file.DOCNO}`}
         highlightHandles={highlightHandles}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
       />
     </div>
   );

@@ -4,7 +4,6 @@ import { getDocumentMetadata } from '../services/documentsApi';
 
 const normalizeFavoriteDoc = (doc = {}) => ({
   docId: doc.docId || doc.DOCNO || doc.docNo || '',
-  docVer: doc.docVer || doc.DOCVR || '',
 });
 
 export const useFavorites = () => {
@@ -83,10 +82,11 @@ export const useFavorites = () => {
       const res = await toggleFavoriteDoc(docMeta);
       if (res?.favorite) {
         updateFavorites(res.favorite);
+        hydrateFavoritesMeta(res.favorite);
       }
       return res;
     },
-    [updateFavorites]
+    [hydrateFavoritesMeta, updateFavorites]
   );
 
   const isDocFavorite = useCallback(
@@ -95,10 +95,7 @@ export const useFavorites = () => {
       const target = normalizeFavoriteDoc(doc);
       return favoriteDocs.some((fav) => {
         const candidate = normalizeFavoriteDoc(fav);
-        return (
-          candidate.docId === target.docId &&
-          candidate.docVer === target.docVer
-        );
+        return candidate.docId === target.docId;
       });
     },
     [favoriteDocs]

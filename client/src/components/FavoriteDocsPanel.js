@@ -171,40 +171,16 @@ export default function FavoriteDocsPanel({
                       style={{ fontSize: '15px', minWidth: 0 }} // 일반 목록은 적당히 유지
                     >
                       <FileText style={{ width: 18, height: 18 }} />
-                      <div
-                        style={{
-                          marginLeft: 6,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          lineHeight: 1.3,
-                          maxWidth: '100%',
-                          minWidth: 0,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
+                      <div className="favorite-tree-node__text">
+                        <span className="favorite-tree-node__title">
                           {docDisplay.title}
                         </span>
                         {docDisplay.infoLine && (
-                          <span
-                            style={{
-                              fontSize: '13px',
-                              color: '#555',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <span className="favorite-tree-node__info">
                             {docDisplay.infoLine}
                           </span>
                         )}
-                    </div>
+                      </div>
                     </div>
                   </li>
                 );
@@ -280,37 +256,12 @@ export default function FavoriteDocsPanel({
                           height: 18,
                         }}
                       />
-                      <div
-                        style={{
-                          marginLeft: 6,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          lineHeight: 1.3,
-                          maxWidth: '100%',
-                          color: '#555',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: 'bold',
-                            fontSize: '15px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
+                      <div className="favorite-tree-node__text">
+                        <span className="favorite-tree-node__title">
                           설비명: {eq.function}
                         </span>
                         {eqDisplay.infoLine && (
-                          <span
-                            style={{
-                              fontSize: '13px',
-                              color: '#555',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <span className="favorite-tree-node__info">
                             {eqDisplay.infoLine}
                           </span>
                         )}

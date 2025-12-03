@@ -509,6 +509,7 @@ const ViewerCanvas = ({
     viewer.update?.();
   }, []);
 
+
   const ensureEntityForHandle = useCallback(
     (handle) => {
       if (!handle) return null;

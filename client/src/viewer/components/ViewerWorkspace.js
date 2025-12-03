@@ -20,7 +20,9 @@ const ViewerWorkspace = ({
   isSearchMode = false,
   onSearchResultClick,
   highlightMap = {},
-}) => {
+  isFavorite = false,
+  onToggleFavorite,
+ }) => {
   const [selectionStates, setSelectionStates] = useState({}); // 추후 선택정보 연동용
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -153,13 +155,15 @@ const ViewerWorkspace = ({
             const handlesForDoc = highlightMap[file.DOCNO]?.handles || [];
             const highlightHandles = isActiveDoc ? handlesForDoc : [];
             return (
-      <ViewerCanvasPanel
+              <ViewerCanvasPanel
                 key={file.DOCNO}
                 file={file}
                 selectionInfo={selectionStates[file.DOCNO]}
                 isActive={isActiveDoc}
                 highlightHandles={highlightHandles}
                 onReadyChange={undefined}
+                isFavorite={isActiveDoc ? isFavorite : false}
+                onToggleFavorite={isActiveDoc ? onToggleFavorite : undefined}
               />
             );
           })}
