@@ -1,6 +1,6 @@
 ﻿// client/src/components/viewer/ViewerCanvas.js
 /* eslint-env browser */
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   fileCache,
   fetchArrayBufferWithProgress,
@@ -16,6 +16,7 @@ import ViewerCanvasToolbar from './ViewerCanvasToolbar';
 import { attachCanvasInteractions } from './ViewerCanvasController';
 import EntityDetailsPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityDetailsPanel';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
+import { useViewer } from '../context/ViewerContext';
 
 const ViewerCanvas = ({
   filePath,
@@ -26,6 +27,7 @@ const ViewerCanvas = ({
   canvasId,
   isFavorite,
   onToggleFavorite,
+  highlightHandles = [],
 }) => { 
 
   const canvasRef = useRef(null);
@@ -51,6 +53,11 @@ const ViewerCanvas = ({
   const [showPanel, setShowPanel] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
+  const selectedHandlesRef = useRef([]);
+  const updateSelectedHandles = useCallback((handles = []) => {
+    selectedHandlesRef.current = handles;
+    setSelectedHandles(handles);
+  }, []);
 
 
   const computePanelPosition = (width, height) => {
@@ -78,6 +85,52 @@ const ViewerCanvas = ({
     return clampPanelPosition(initial, PANEL_DEFAULT);
   });
   const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
+  const { registerHighlightActions, openFiles, activeFileId } = useViewer();
+
+  const activeFile = useMemo(
+    () => openFiles.find((file) => file.DOCNO === activeFileId),
+    [openFiles, activeFileId]
+  );
+
+  const equipmentTagMap = useMemo(() => {
+    const map = new Map();
+    const tags = Array.isArray(activeFile?.tags) ? activeFile.tags : [];
+    tags.forEach((tag) => {
+      const handle = tag.TAGHANDLE;
+      if (!handle) return;
+      const key = String(handle);
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)?.push(tag);
+    });
+    return map;
+  }, [activeFile?.tags]);
+
+  const showEquipmentPopup = useCallback(
+    (handles = []) => {
+      const seen = new Set();
+      const lines = [];
+      handles.forEach((handle) => {
+        const key = String(handle);
+        const tagsForHandle = equipmentTagMap.get(key);
+        if (!tagsForHandle) return;
+        tagsForHandle.forEach((tag) => {
+          const tagKey = `${tag.TAGNO || ''}-${tag.FUNCTION || ''}-${tag.TAGHANDLE || ''}`;
+          if (seen.has(tagKey)) return;
+          seen.add(tagKey);
+          const tagNo = tag.TAGNO || '기타';
+          const func = tag.FUNCTION || '기능 미정';
+          const handleLabel = tag.TAGHANDLE ? String(tag.TAGHANDLE) : '핸들 없음';
+          lines.push(`TAGNO: ${tagNo}\nFUNCTION: ${func}\nHANDLE: ${handleLabel}`);
+        });
+      });
+      if (lines.length) {
+        window.alert(`선택된 설비 정보:\n\n${lines.join('\n\n')}`);
+      }
+    },
+    [equipmentTagMap]
+  );
 
   const clearSelection = useCallback(() => {
     if (prevRedHandlesRef.current.size > 0) {
@@ -91,7 +144,7 @@ const ViewerCanvas = ({
     }
     viewerRef.current?.unselect?.();
     viewerRef.current?.update?.();
-    setSelectedHandles([]);
+    updateSelectedHandles([]);
     setEntities([]);
     setShowPanel(false);
   }, []);
@@ -114,7 +167,7 @@ const ViewerCanvas = ({
 
       let handles = incoming;
       if (additive) {
-        const current = new Set(selectedHandles || []);
+      const current = new Set(selectedHandlesRef.current || []);
         incoming.forEach((h) => {
           const key = String(h);
           if (current.has(key)) {
@@ -149,6 +202,7 @@ const ViewerCanvas = ({
         } catch (_) { }
       };
       applySelectionHandles(handles);
+      collectSelectedEntities(viewer, libRef.current, entityDataMapRef, true);
 
       const mappedEntities = handles.map((h) => {
         const data = entityDataMapRef.current.get(String(h)) || {};
@@ -170,19 +224,24 @@ const ViewerCanvas = ({
         };
       });
 
-      updateRedSelection(
-        viewerRef.current,
-        libRef.current,
-        entityDataMapRef.current,
-        prevRedHandlesRef,
-        handles
-      );
+        updateRedSelection(
+          viewerRef.current,
+          libRef.current,
+          entityDataMapRef.current,
+          prevRedHandlesRef,
+          handles
+        );
 
-      setSelectedHandles(handles);
+        updateSelectedHandles(handles);
       setEntities(mappedEntities);
-      setShowPanel(true);
+      const shouldOpenPanel = payload?.openPanel !== false;
+      setShowPanel(shouldOpenPanel);
+      const shouldShowPopup = payload?.openPanel !== false;
+      if (shouldShowPopup) {
+        showEquipmentPopup(handles);
+      }
     },
-    [selectedHandles, clearSelection]
+    [clearSelection, showEquipmentPopup, updateSelectedHandles]
   );
 
   useEffect(() => {
@@ -205,6 +264,11 @@ const ViewerCanvas = ({
     );
     interactionsCleanupRef.current = cleanup;
   }, [handleSelect, isInverted]);
+
+  const handleSelectRef = useRef(handleSelect);
+  useEffect(() => {
+    handleSelectRef.current = handleSelect;
+  }, [handleSelect]);
 
   const toggleInvert = useCallback(() => {
     setIsInverted((prev) => !prev);
@@ -398,19 +462,97 @@ const ViewerCanvas = ({
     };
   }, [isActive, isLoading, clearSelection]);
 
+  useEffect(() => {
+    if (!isActive || isLoading) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const handles = Array.isArray(highlightHandles)
+      ? highlightHandles.map((h) => String(h)).filter(Boolean)
+      : [];
+
+    if (!handles.length) {
+      clearSelection();
+      viewer.unselect?.();
+      viewer.update?.();
+      return;
+    }
+
+    try {
+      viewer.unselect?.();
+      handles.forEach((handle) => {
+        try {
+          viewer.setSelectedEntity?.(handle);
+        } catch (_) { }
+        try {
+          viewer.setSelected?.(handle);
+        } catch (_) { }
+      });
+      viewer.update?.();
+      handleSelectRef.current?.({ handles, additive: false, openPanel: false });
+    } catch (err) {
+      console.warn('[ViewerCanvas] highlight fail', err);
+    }
+  }, [highlightHandles, isActive, isLoading, clearSelection]);
+
+  const setSelectionHandles = useCallback((handles = []) => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.unselect?.();
+    handles.forEach((handle) => {
+      try {
+        viewer.setSelectedEntity?.(handle);
+      } catch (_) { }
+      try {
+        viewer.setSelected?.(handle);
+      } catch (_) { }
+    });
+    viewer.update?.();
+  }, []);
+
+  const ensureEntityForHandle = useCallback(
+    (handle) => {
+      if (!handle) return null;
+      const key = String(handle);
+      let entry = entityDataMapRef.current.get(key);
+      if (entry?.entityId) return entry.entityId;
+
+      const viewer = viewerRef.current;
+      const libInstance = libRef.current;
+      if (!viewer || !libInstance) return null;
+
+      const prevHandles = Array.isArray(selectedHandlesRef.current) ? [...selectedHandlesRef.current] : [];
+
+      setSelectionHandles([key]);
+      collectSelectedEntities(viewer, libInstance, entityDataMapRef, true);
+
+      if (prevHandles.length) {
+        setSelectionHandles(prevHandles);
+      } else {
+        viewer.unselect?.();
+        viewer.update?.();
+      }
+
+      entry = entityDataMapRef.current.get(key);
+      return entry?.entityId || null;
+    },
+    [selectedHandles, setSelectionHandles]
+  );
+
   const handleZoomToEntity = useCallback(
     (handle) => {
       const viewer = viewerRef.current;
       const canvas = canvasRef.current;
       if (!viewer || !handle || !canvas) return;
-      viewer.zoomToEntity?.(handle);
+      const entity = ensureEntityForHandle(handle);
+      if (!entity) return;
+      viewer.zoomToEntity?.(entity);
       const rect = canvas.getBoundingClientRect();
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
       viewer.zoomAt?.(zoomFactor, centerX, centerY);
       viewer.update?.();
     },
-    [zoomFactor]
+    [zoomFactor, ensureEntityForHandle]
   );
 
   const handleColorOverride = useCallback((handle, option) => {
@@ -442,6 +584,15 @@ const ViewerCanvas = ({
       );
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof registerHighlightActions !== 'function') return undefined;
+    registerHighlightActions({
+      zoomToHandle: handleZoomToEntity,
+      colorOverride: handleColorOverride,
+    });
+    return () => registerHighlightActions({});
+  }, [handleZoomToEntity, handleColorOverride, registerHighlightActions]);
 
   const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
   const invertStyle = isInverted ? { filter: 'invert(1)' } : {};

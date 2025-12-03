@@ -33,10 +33,8 @@ export const SingleTabs = ({
   onSelect,
   onClose,
   onReorder,
-  onMoreClick,
   onContextMenu,
   selectionStates = {},
-  hiddenCount = 0,
 }) => {
   const visible = files;
 
@@ -84,15 +82,6 @@ export const SingleTabs = ({
             </div>
           )}
         </Droppable>
-        {hiddenCount > 0 && (
-          <div
-            className="view-tab more-tabs-btn"
-            onClick={onMoreClick}
-            title={`더보기 (${hiddenCount})`}
-          >
-            더보기 + {hiddenCount}
-          </div>
-        )}
       </div>
     </DragDropContext>
   );

@@ -7,6 +7,7 @@ const ViewerCanvasPanel = ({
   selectionInfo,
   isActive,
   onReadyChange,
+  highlightHandles = [],
 }) => {
   if (!file) return null;
 
@@ -32,6 +33,7 @@ const ViewerCanvasPanel = ({
         isActive={isActive}
         onReadyChange={onReadyChange}
         canvasId={`canvas-${file.DOCNO}`}
+        highlightHandles={highlightHandles}
       />
     </div>
   );

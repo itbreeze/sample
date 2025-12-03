@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { selectDocument } from '../../services/documentsApi';
+import { selectDocument, getDocumentTags } from '../../services/documentsApi';
 
 /**
  * 도면 파일을 비동기적으로 로드하는 커스텀 훅
@@ -23,8 +23,17 @@ export const useDocumentLoader = () => {
 
     try {
       const documentData = await selectDocument(docId, docVr);
+      let tags = [];
+      try {
+        const fetchedTags = await getDocumentTags({ docId, docVr });
+        if (Array.isArray(fetchedTags)) {
+          tags = fetchedTags;
+        }
+      } catch (err) {
+        console.warn('[useDocumentLoader] 태그 정보 조회 실패', err);
+      }
       setIsLoading(false);
-      return documentData;
+      return { ...documentData, tags };
     } catch (err) {
       setError(err);
       setIsLoading(false);

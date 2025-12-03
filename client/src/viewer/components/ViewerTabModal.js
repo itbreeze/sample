@@ -38,7 +38,7 @@ const ViewerTabModal = ({ isOpen, files, onClose, onSelectTab, onCloseTab }) => 
                 onClick={() => onSelectTab(file.DOCNO)} 
                 title={file.DOCNM || file.DOCNUMBER}
               >
-                {file.PLANTNM}/{file.UNIT}호기 [{file.DOCNUMBER}]{file.DOCNM}
+                {file.PLANTNM}/{file.SYSTEMNM}/{file.UNIT}[{file.DOCNUMBER}]{file.DOCNM}
               </span>
               <button
                 className="modal-item-close-btn"

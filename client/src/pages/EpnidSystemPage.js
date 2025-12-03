@@ -14,6 +14,7 @@ import FavoriteDocsPanel from '../components/FavoriteDocsPanel';
 import { useAuthState } from '../hooks/useAuthState';
 import { usePanelState } from '../hooks/usePanelState';
 import { ViewerProvider, useViewer, ViewerShell } from '../viewer';
+import EquipmentMenu from '../components/EquipmentMenu';
 
 
 
@@ -74,7 +75,11 @@ const NotImplemented = () => (
 );
 
 const equipmentTabs = [
-  { id: 'equipmentList', label: '설비목록', content: () => <NotImplemented /> },
+    {
+      id: 'equipmentHighlight',
+      label: '설비 목록',
+      content: () => <EquipmentMenu />,
+    },
   { id: 'searchEquipment', label: '설비 상세검색', content: () => <NotImplemented /> },
 ];
 
@@ -115,6 +120,7 @@ function EpnidSystemPageContent() {
     isFileLoaded,
     favoriteDocs,
     favoriteEquipments,
+    favoriteDocMeta,
   } = useViewer();
   const {
     isSidebarOpen,
@@ -332,8 +338,8 @@ function EpnidSystemPageContent() {
         isResizable: true,
       },
       equipments: {
-        component: <Panel tabs={equipmentTabs} defaultTab="equipmentList" />,
-        startsMaximized: true,
+        component: <Panel tabs={equipmentTabs} defaultTab="equipmentHighlight" />,
+        startsMaximized: false,
         isResizable: true,
       },
       bookmark: {
@@ -353,6 +359,7 @@ function EpnidSystemPageContent() {
                         docVr: doc.docVer,
                       })
                     }
+                    favoriteDocMeta={favoriteDocMeta}
                   />
                 ),
               },

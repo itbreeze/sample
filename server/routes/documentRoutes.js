@@ -11,6 +11,36 @@ const { SYSASM } = require("oracledb");
 const VIEWER_FOLDER = path.resolve(process.env.VIEWER_DOC_FOLDER);
 const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);
 
+const buildGroupedEquipmentSql = () => `
+                SELECT T1.LIBNO AS "libId", T1.LIBNM AS "libName", T1.LIBDS AS "libDesc", T1.LIBPT AS "parent", T1.LIBLV, T1.DOCNO, T1.DOCVR AS "docVer"
+                        , T1.INTELLIGENT AS "intelligent", T1.FUNCTION AS "function", T1.CONNECTION AS "connection"
+                        , T2.TAGHANDLE AS "handle", T2.TAG_TYPE AS "tagType", T2.TAGNO AS "tagId"
+                FROM (
+                    SELECT B.LIBNO, B.LIBNM, B.LIBDS, B.LIBPT, B.LIBLV, A.DOCNO, A.TAGNO, A.TAG_TYPE, A.DOCVR, A.INTELLIGENT, A.FUNCTION, A.CONNECTION
+                    FROM IDS_TAG A, IDS_LIB B 
+                    WHERE A.DOCNO = :docId AND A.DOCVR = :docVer AND B.LIBLV != '9' AND B.PLANTCODE = :plantCode AND A.GUBUN = 'Y' AND A.LIBNO = B.LIBNO 
+                    GROUP BY B.LIBNO, B.LIBNM, B.LIBDS, B.LIBPT, B.LIBLV, A.DOCNO, A.TAGNO, A.TAG_TYPE, A.DOCVR, A.INTELLIGENT, A.FUNCTION, A.CONNECTION
+                    UNION ALL 
+                    SELECT LIBNO, LIBNM, LIBDS, LIBPT, LIBLV, '' AS DOCNO, '' AS TAGNO, '' AS TAG_TYPE, '' AS DOCVR, '' AS INTELLIGENT, '' AS FUNCTION, '' AS CONNECTION
+                    FROM IDS_LIB 
+                    WHERE PLANTCODE = :plantCode AND LIBLV != '9' AND LIBDS = 'VALVE' AND LIBNO IN (
+                        SELECT LIBPT FROM IDS_TAG A, IDS_LIB B 
+                        WHERE A.DOCNO = :docId AND A.DOCVR = '001' AND B.LIBLV != '9' AND B.PLANTCODE = :plantCode AND A.GUBUN = 'Y' AND A.LIBNO = B.LIBNO
+                        GROUP BY B.LIBPT
+                    )
+                    ORDER BY LIBDS
+                ) T1 LEFT JOIN (
+                                    SELECT LISTAGG(SUB.TAGHANDLE, '/') WITHIN GROUP (ORDER BY SUB.TAGNO) AS TAGHANDLE, SUB.TAG_TYPE, SUB.TAGNO
+                                    FROM (
+                                        SELECT A.TAGHANDLE, B.TAG_TYPE, A.TAGNO, A.DOCNO, A.DOCVR FROM IDS_TAG_DETAIL A, IDS_TAG B
+                                            WHERE A.DOCNO = B.DOCNO AND A.DOCVR = B.DOCVR AND A.TAGNO = B.TAGNO AND A.DOCVR = :docVer AND A.DOCNO = :docId
+                                        GROUP BY B.TAG_TYPE, A.TAGNO, A.DOCNO, A.DOCVR, A.TAGHANDLE
+                                    ) SUB
+                                    GROUP BY SUB.TAGNO, SUB.TAG_TYPE
+                                ) T2 ON T2.TAGNO IN (T1.TAGNO)
+                ORDER BY FUNCTION
+                `;
+
 // GET "/" 라우트는 변경 없이 그대로 둡니다.
 router.get("/", async (req, res) => {
   try {
@@ -87,6 +117,110 @@ ORDER BY ORDER_SEQ,PLANTCODE
   } catch (err) {
     console.error("API Error:", err);
     res.status(500).json({ error: "DB 조회 실패" });
+  }
+});
+
+router.get("/info", async (req, res) => {
+  try {
+    const { docId, docVr } = req.query;
+    if (!docId) {
+      return res.status(400).json({ error: "docId가 필요합니다." });
+    }
+
+    const sql = `
+      SELECT 
+        D.DOCNO,
+        D.DOCVR,
+        D.DOCNUMBER,
+        D.DOCNM,
+        S.PLANTNM,
+        (SELECT FOLNM FROM IDS_FOLDER WHERE FOLID = F.FOLPT) AS SYSTEMNM,
+        CASE 
+          WHEN NVL(F.HOGI_GUBUN, '') = '0' THEN '공용' 
+          WHEN REGEXP_LIKE(NVL(F.HOGI_GUBUN, ''), '^[0-9]+$') THEN NVL(F.HOGI_GUBUN, '') || '호기'
+          ELSE NVL(F.HOGI_GUBUN, '')
+        END AS HOGI_LABEL
+      FROM IDS_DOC D
+      LEFT JOIN IDS_SITE S ON D.PLANTCODE = S.PLANTCODE
+      LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
+      WHERE D.DOCNO = :docId
+        AND D.CURRENT_YN = '001'
+        AND S.FOLDER_TYPE = '003'
+        ${docVr ? 'AND D.DOCVR = :docVr' : ''}
+    `;
+
+    const binds = { docId };
+    if (docVr) binds.docVr = docVr;
+
+    const results = await oracleClient.executeQuery(sql, binds);
+    if (!results.length) {
+      return res.status(404).json({ error: "해당 도면 정보를 찾을 수 없습니다." });
+    }
+
+    const doc = results[0];
+    res.json({
+      docId: doc.DOCNO,
+      docVer: doc.DOCVR,
+      docNumber: doc.DOCNUMBER,
+      docName: doc.DOCNM,
+      plantName: doc.PLANTNM,
+      systemName: doc.SYSTEMNM,
+      unit: doc.HOGI_LABEL,
+    });
+  } catch (err) {
+    console.error("[/info] 도면 메타 조회 실패:", err);
+    res.status(500).json({ error: "도면 메타 정보 조회 실패" });
+  }
+});
+
+router.get("/tags", async (req, res) => {
+  try {
+    const { docId, docVr } = req.query;
+    if (!docId) {
+      return res.status(400).json({ error: "docId가 필요합니다." });
+    }
+
+    const binds = { docId };
+    let vrClause = "";
+    if (docVr) {
+      binds.docVr = docVr;
+      vrClause = "AND T.DOCVR = :docVr";
+    }
+
+    const sql = `
+        SELECT * FROM IDS_TAG T
+        LEFT JOIN IDS_TAG_DETAIL D
+        ON T.DOCNO=D.DOCNO
+        AND T.DOCVR=D.DOCVR
+        AND T.TAGNO=D.TAGNO
+        WHERE 1=1
+        AND T.GUBUN='Y'
+        AND T.DOCNO = :docId
+        ${vrClause}
+    `;
+
+    const results = await oracleClient.executeQuery(sql, binds);
+    res.json(results);
+  } catch (err) {
+    console.error("[/tags] 태그 리스트 조회 실패:", err);
+    res.status(500).json({ error: "태그 정보 조회 실패" });
+  }
+});
+
+router.get("/equipment", async (req, res) => {
+  try {
+    const { docId, docVr, plantCode } = req.query;
+    if (!docId || !plantCode) {
+      return res.status(400).json({ error: "docId와 plantCode는 필수입니다." });
+    }
+    const docVer = docVr || '001';
+    const sql = buildGroupedEquipmentSql();
+    const binds = { docId, docVer, plantCode };
+    const results = await oracleClient.executeQuery(sql, binds);
+    res.json(results);
+  } catch (err) {
+    console.error("[/equipment] 설비 목록 조회 실패:", err);
+    res.status(500).json({ error: "설비 목록 조회 실패" });
   }
 });
 

@@ -17,6 +17,7 @@ const ViewerShell = ({ onMainViewClick = () => {} }) => {
     handleViewStateChange,
     isActiveDocFavorite,
     handleToggleFavorite,
+    docHighlights,
   } = useViewer();
 
   if (!openFiles || openFiles.length === 0) {
@@ -32,18 +33,19 @@ const ViewerShell = ({ onMainViewClick = () => {} }) => {
 
   return (
     <main className="app-main-view" onClick={onMainViewClick}>
-      <ViewerWorkspace
-        openFiles={openFiles}
-        activeFileId={activeFileId}
-        onTabClick={handleTabClick}
-        onTabClose={handleTabClose}
-        onTabReorder={handleTabReorder}
-        onCloseAllTabs={handleCloseAllTabs}
-        onViewerReady={handleViewerReady}
-        onViewStateChange={handleViewStateChange}
-        isFavorite={isActiveDocFavorite}
-        onToggleFavorite={handleToggleFavorite}
-      />
+    <ViewerWorkspace
+      openFiles={openFiles}
+      activeFileId={activeFileId}
+      onTabClick={handleTabClick}
+      onTabClose={handleTabClose}
+      onTabReorder={handleTabReorder}
+      onCloseAllTabs={handleCloseAllTabs}
+      onViewerReady={handleViewerReady}
+      onViewStateChange={handleViewStateChange}
+      isFavorite={isActiveDocFavorite}
+      onToggleFavorite={handleToggleFavorite}
+      highlightMap={docHighlights}
+    />
     </main>
   );
 };

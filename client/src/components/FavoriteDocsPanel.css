@@ -1,0 +1,17 @@
+.favorite-tree-node .tree-node-header {
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.favorite-tree-node.hovered .tree-node-header {
+  background-color: #f5f7ff;
+}
+
+.favorite-tree-node .tree-node-header svg {
+  color: #111;
+  transition: color 0.2s ease;
+}
+
+.favorite-tree-node.hovered .tree-node-header svg {
+  color: #274cff;
+}

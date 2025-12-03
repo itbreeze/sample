@@ -13,11 +13,20 @@ import { triggerResize } from '../utils/triggerResize';
 
 const ViewerContext = createContext(null);
 
+const areArraysEqual = (a = [], b = []) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
+
 export const ViewerProvider = ({ children }) => {
   const { loadDocument } = useDocumentLoader();
   const {
     favoriteDocs,
     favoriteEquipments,
+    favoriteDocMeta,
     refreshFavorites,
     toggleDocFavorite,
     isDocFavorite,
@@ -29,6 +38,8 @@ export const ViewerProvider = ({ children }) => {
   const [isFileLoaded, setIsFileLoaded] = useState(false);
   const fittedDocsRef = useRef(new Set());
   const viewerInstanceRef = useRef(null);
+  const [docHighlights, setDocHighlights] = useState({});
+  const [highlightActions, setHighlightActions] = useState({});
 
   useEffect(() => {
     refreshFavorites();
@@ -36,22 +47,33 @@ export const ViewerProvider = ({ children }) => {
 
   const handleFileSelect = useCallback(
     async ({ docId, docVr }) => {
+      const existing = openFiles.find(
+        (f) =>
+          f.DOCNO === docId &&
+          (docVr ? f.DOCVR === docVr : true)
+      );
+      if (existing) {
+        setActiveFileId(existing.DOCNO);
+        return existing;
+      }
+
+      if (openFiles.length >= 5) {
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert('동시 열 수 있는 도면은 최대 5개입니다. 먼저 열려 있는 도면을 닫아주세요.');
+        }
+        return null;
+      }
+
       const loaded = await loadDocument({ docId, docVr });
       if (!loaded) return null;
 
-      setOpenFiles((prev) => {
-        const exists = prev.some((f) => f.DOCNO === loaded.DOCNO);
-        const next = exists
-          ? [loaded, ...prev.filter((f) => f.DOCNO !== loaded.DOCNO)]
-          : [loaded, ...prev];
-        return next;
-      });
+      setOpenFiles((prev) => [loaded, ...prev]);
 
       setActiveFileId(loaded.DOCNO);
       setIsFileLoaded(true);
       return loaded;
     },
-    [loadDocument]
+    [loadDocument, openFiles]
   );
 
   const handleTabClick = useCallback((docno) => {
@@ -62,6 +84,12 @@ export const ViewerProvider = ({ children }) => {
     setOpenFiles((prev) => {
       const filtered = prev.filter((file) => file.DOCNO !== docno);
       fittedDocsRef.current.delete(docno);
+      setDocHighlights((prevHighlights) => {
+        if (!prevHighlights[docno]) return prevHighlights;
+        const next = { ...prevHighlights };
+        delete next[docno];
+        return next;
+      });
       if (activeFileId === docno) {
         setActiveFileId(filtered[0]?.DOCNO || null);
       }
@@ -77,6 +105,7 @@ export const ViewerProvider = ({ children }) => {
     setActiveFileId(null);
     setIsFileLoaded(false);
     fittedDocsRef.current = new Set();
+    setDocHighlights({});
   }, []);
 
   const handleTabReorder = useCallback((newFiles, draggedFileId) => {
@@ -87,6 +116,33 @@ export const ViewerProvider = ({ children }) => {
       setActiveFileId(draggedFileId);
     }
   }, []);
+
+  const setDocHighlight = useCallback((docno, handles = []) => {
+    if (!docno) return;
+    setDocHighlights((prev) => {
+      const normalized = Array.isArray(handles)
+        ? handles.filter(Boolean).map((h) => String(h))
+        : [];
+      if (!normalized.length) {
+        if (!prev[docno]) return prev;
+        const next = { ...prev };
+        delete next[docno];
+        return next;
+      }
+      if (prev[docno] && areArraysEqual(prev[docno].handles, normalized)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [docno]: { handles: normalized },
+      };
+    });
+  }, []);
+
+  const clearDocHighlight = useCallback(
+    (docno) => setDocHighlight(docno, []),
+    [setDocHighlight]
+  );
 
   const handleViewerReady = useCallback((viewerInstance) => {
     viewerInstanceRef.current = viewerInstance;
@@ -136,6 +192,10 @@ export const ViewerProvider = ({ children }) => {
     isDocFavorite,
   ]);
 
+  const registerHighlightActions = useCallback((actions = {}) => {
+    setHighlightActions(actions);
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       openFiles,
@@ -144,6 +204,7 @@ export const ViewerProvider = ({ children }) => {
       isFileLoaded,
       favoriteDocs,
       favoriteEquipments,
+      favoriteDocMeta,
       handleFileSelect,
       handleTabClick,
       handleTabClose,
@@ -153,6 +214,11 @@ export const ViewerProvider = ({ children }) => {
       handleViewStateChange,
       handleToggleFavorite,
       isActiveDocFavorite,
+      docHighlights,
+      setDocHighlight,
+      clearDocHighlight,
+      highlightActions,
+      registerHighlightActions,
     }),
     [
       openFiles,
@@ -161,6 +227,7 @@ export const ViewerProvider = ({ children }) => {
       isFileLoaded,
       favoriteDocs,
       favoriteEquipments,
+      favoriteDocMeta,
       handleFileSelect,
       handleTabClick,
       handleTabClose,
@@ -170,6 +237,11 @@ export const ViewerProvider = ({ children }) => {
       handleViewStateChange,
       handleToggleFavorite,
       isActiveDocFavorite,
+      docHighlights,
+      setDocHighlight,
+      clearDocHighlight,
+      highlightActions,
+      registerHighlightActions,
     ]
   );
 
