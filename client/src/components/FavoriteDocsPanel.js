@@ -45,14 +45,16 @@ export default function FavoriteDocsPanel({
     return `${docId}-${docVer}`;
   };
 
-  const buildHoverKey = (prefix, doc = {}, fallback = '') => {
+  const buildHoverKey = (prefix, doc = {}, fallback = '', uniqueSuffix = null) => {
     const docId = doc.docId || doc.DOCNO || doc.docNo || '';
     const docVer = doc.docVer || doc.DOCVR || doc.docVr || '';
     if (docId) {
-      return `${prefix}:${docId}:${docVer}`;
+      const base = `${prefix}:${docId}:${docVer}`;
+      return uniqueSuffix ? `${base}:${uniqueSuffix}` : base;
     }
     if (fallback) {
-      return `${prefix}:${fallback}`;
+      const base = `${prefix}:${fallback}`;
+      return uniqueSuffix ? `${base}:${uniqueSuffix}` : base;
     }
     return null;
   };
@@ -97,7 +99,8 @@ export default function FavoriteDocsPanel({
     if (includeDocIdentifierInInfo && titleParts.length) {
       infoParts.push(titleParts.join(' '));
     }
-    const infoLine = infoParts.length ? `도면정보: ${infoParts.join(' / ')}` : '';
+    const infoLabel = options.infoLabel || '도면분류';
+    const infoLine = infoParts.length ? `${infoLabel}: ${infoParts.join(' / ')}` : '';
 
     return {
       title,
@@ -153,7 +156,7 @@ export default function FavoriteDocsPanel({
                 const metaKey = buildDocMetaKey(doc);
                 const docMeta = metaKey ? docMetaMap[metaKey] : {};
                 const docDisplay = buildDocDisplayInfo(doc, docMeta);
-                const docHoverKey = buildHoverKey('doc', doc, `doc-${idx}`);
+                const docHoverKey = buildHoverKey('doc', doc, `doc-${idx}`, idx);
                 const docHovered = hoveredKey === docHoverKey;
                 console.log('즐겨찾기 도면 정보 확인:', docDisplay.debug);
                 return (
@@ -230,8 +233,9 @@ export default function FavoriteDocsPanel({
                 const eqMeta = metaKey ? docMetaMap[metaKey] : {};
                 const eqDisplay = buildDocDisplayInfo(eq, eqMeta, {
                   includeDocIdentifierInInfo: true,
+                  infoLabel: '도면정보',
                 });
-                const eqHoverKey = buildHoverKey('equip', eq, `equip-${idx}`);
+                const eqHoverKey = buildHoverKey('equip', eq, `equip-${idx}`, idx);
                 const eqHovered = hoveredKey === eqHoverKey;
                 console.log('즐겨찾기 설비 정보 확인:', eqDisplay.debug);
                 return (

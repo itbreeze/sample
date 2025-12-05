@@ -1,15 +1,37 @@
-import { useState, useCallback } from 'react';
-import { fetchFavorites, toggleFavoriteDoc } from '../services/favorites';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  fetchFavorites,
+  toggleFavoriteDoc,
+  toggleFavoriteEquipment,
+} from '../services/favorites';
 import { getDocumentMetadata } from '../services/documentsApi';
 
 const normalizeFavoriteDoc = (doc = {}) => ({
   docId: doc.docId || doc.DOCNO || doc.docNo || '',
+});
+const normalizeDocId = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeTagId = (value) => (typeof value === 'string' ? value.trim() : '');
+const buildEquipmentKey = (equipment = {}) => ({
+  docId:
+    normalizeDocId(
+      equipment.docId || equipment.DOCNO || equipment.docNo || equipment.docId || ''
+    ) || '',
+  docVer: equipment.docVer || equipment.DOCVR || equipment.docVr || '001',
+  tagId:
+    normalizeTagId(
+      equipment.tagId || equipment.TAGNO || equipment.tagId || equipment.TAGNO_CD || ''
+    ) || '',
 });
 
 export const useFavorites = () => {
   const [favoriteDocs, setFavoriteDocs] = useState([]);
   const [favoriteEquipments, setFavoriteEquipments] = useState([]);
   const [favoriteDocMeta, setFavoriteDocMeta] = useState({});
+  const favoriteDocMetaRef = useRef(favoriteDocMeta);
+
+  useEffect(() => {
+    favoriteDocMetaRef.current = favoriteDocMeta;
+  }, [favoriteDocMeta]);
 
   const updateFavorites = useCallback((favorite = {}) => {
     setFavoriteDocs(Array.isArray(favorite.documents) ? favorite.documents : []);
@@ -44,7 +66,8 @@ export const useFavorites = () => {
       documents.forEach(collect);
       equipments.forEach(collect);
 
-      const missing = Array.from(memo.values()).filter(({ metaKey }) => !favoriteDocMeta[metaKey]);
+      const existingMeta = favoriteDocMetaRef.current;
+      const missing = Array.from(memo.values()).filter(({ metaKey }) => !existingMeta[metaKey]);
       if (!missing.length) return;
 
       const responses = await Promise.all(
@@ -67,7 +90,7 @@ export const useFavorites = () => {
         return next;
       });
     },
-    [favoriteDocMeta]
+    []
   );
 
   const refreshFavorites = useCallback(async () => {
@@ -89,6 +112,18 @@ export const useFavorites = () => {
     [hydrateFavoritesMeta, updateFavorites]
   );
 
+  const toggleEquipmentFavorite = useCallback(
+    async (equipmentMeta) => {
+      const res = await toggleFavoriteEquipment(equipmentMeta);
+      if (res?.favorite) {
+        updateFavorites(res.favorite);
+        hydrateFavoritesMeta(res.favorite);
+      }
+      return res;
+    },
+    [hydrateFavoritesMeta, updateFavorites]
+  );
+
   const isDocFavorite = useCallback(
     (doc) => {
       if (!doc) return false;
@@ -101,12 +136,30 @@ export const useFavorites = () => {
     [favoriteDocs]
   );
 
+  const isEquipmentFavorite = useCallback(
+    (equipment) => {
+      const target = buildEquipmentKey(equipment);
+      if (!target.docId || !target.tagId) return false;
+      return favoriteEquipments.some((fav) => {
+        const candidate = buildEquipmentKey(fav);
+        return (
+          candidate.docId === target.docId &&
+          candidate.docVer === target.docVer &&
+          candidate.tagId === target.tagId
+        );
+      });
+    },
+    [favoriteEquipments]
+  );
+
   return {
     favoriteDocs,
     favoriteEquipments,
     refreshFavorites,
     toggleDocFavorite,
     isDocFavorite,
+    toggleEquipmentFavorite,
+    isEquipmentFavorite,
     favoriteDocMeta,
   };
 };

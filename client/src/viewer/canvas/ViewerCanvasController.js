@@ -2,49 +2,6 @@
 // client/src/components/viewer/ViewerCanvasController.js
 
 /////////////////////////
-// [BOX CURSOR]
-/////////////////////////
-
-const makeBoxCursorDataURL = ({
-  size = 15,
-  color = '#000000',
-  corner = 0,
-  hotspot = null,
-} = {}) => {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const S = Math.min(Math.round(size * dpr), 128);
-  const W = 1;
-  const R = Math.max(0, Math.round(corner * dpr));
-  const x = W / 2;
-  const y = W / 2;
-  const rectW = Math.max(1, S - W);
-  const rectH = Math.max(1, S - W);
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
-    <rect x="${x}" y="${y}" width="${rectW}" height="${rectH}" rx="${R}" ry="${R}"
-      fill="none" stroke="${color}" stroke-width="${W}" />
-  </svg>`;
-  const encoded = encodeURIComponent(svg)
-    .replace(/'/g, '%27')
-    .replace(/"/g, '%22');
-  const hx = hotspot ? hotspot[0] : Math.round(S / 2);
-  const hy = hotspot ? hotspot[1] : Math.round(S / 2);
-  return {
-    url: `url("data:image/svg+xml,${encoded}") ${hx} ${hy}, crosshair`,
-  };
-};
-
-const applyBoxCursor = (canvas, opts) => {
-  if (!canvas) return () => { };
-  const prev = canvas.style.cursor;
-  const { url } = makeBoxCursorDataURL(opts);
-  canvas.style.cursor = url;
-  return () => {
-    canvas.style.cursor = prev;
-  };
-};
-
-/////////////////////////
 // [WHEEL ZOOM]
 /////////////////////////
 
@@ -89,12 +46,6 @@ export const attachPan = (viewer, canvas, options = {}) => {
   let lastMiddleClickTime = 0;
   const doubleClickThreshold = 400;
 
-  let restoreBoxCursor = applyBoxCursor(canvas, { color: cursorColor });
-  const setBoxCursor = () => {
-    restoreBoxCursor?.();
-    restoreBoxCursor = applyBoxCursor(canvas, { color: cursorColor });
-  };
-
   const grabCursor = 'grabbing';
 
   const onMouseDown = (event) => {
@@ -111,7 +62,7 @@ export const attachPan = (viewer, canvas, options = {}) => {
         lastMiddleClickTime = 0;
         isPanning = false;
         panButton = null;
-        setBoxCursor();
+        canvas.style.cursor = '';
         return;
       }
       lastMiddleClickTime = now;
@@ -146,7 +97,7 @@ export const attachPan = (viewer, canvas, options = {}) => {
     if (isPanning && (!event || event.button === panButton)) {
       isPanning = false;
       panButton = null;
-      setBoxCursor();
+      canvas.style.cursor = '';
     }
   };
 
@@ -161,15 +112,14 @@ export const attachPan = (viewer, canvas, options = {}) => {
   canvas.addEventListener('contextmenu', onContextMenu);
   window.addEventListener('mouseup', endPan);
 
-  return () => {
-    canvas.removeEventListener('mousedown', onMouseDown);
-    canvas.removeEventListener('mousemove', onMouseMove);
-    canvas.removeEventListener('mouseup', endPan);
-    canvas.removeEventListener('mouseleave', endPan);
-    canvas.removeEventListener('contextmenu', onContextMenu);
-    window.removeEventListener('mouseup', endPan);
-    restoreBoxCursor?.();
-  };
+    return () => {
+      canvas.removeEventListener('mousedown', onMouseDown);
+      canvas.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('mouseup', endPan);
+      canvas.removeEventListener('mouseleave', endPan);
+      canvas.removeEventListener('contextmenu', onContextMenu);
+      window.removeEventListener('mouseup', endPan);
+    };
 };
 
 /////////////////////////
@@ -351,7 +301,7 @@ export const attachLeftClickSelect = (viewer, canvas, lib, options = {}) => {
   };
 
 
-  const onMouseUp = (event) => {
+const onMouseUp = (event) => {
     // 좌클릭만 처리
     if (event.button !== 0) {
       isDown = false;
@@ -397,6 +347,135 @@ export const attachLeftClickSelect = (viewer, canvas, lib, options = {}) => {
   };
 };
 
+/////////////////////////
+// [HOVER HIGHLIGHT]
+/////////////////////////
+
+export const attachHoverHighlight = (
+  viewer,
+  canvas,
+  lib,
+  { onHover = () => {}, onHoverEnd = () => {}, filterHandle = null, onHoverCandidate = null } = {}
+) => {
+  if (!viewer || !canvas) return () => {};
+
+  const collectHandles = makeHandleCollector(viewer);
+  let rafId = 0;
+  let pendingEvent = null;
+  let lastHandle = null;
+  let hoverCursorRestore = null;
+
+  const restoreCursor = () => {
+    if (hoverCursorRestore !== null) {
+      canvas.style.cursor = hoverCursorRestore;
+      hoverCursorRestore = null;
+    }
+  };
+
+  const setPointerCursor = () => {
+    if (hoverCursorRestore === null) {
+      hoverCursorRestore = canvas.style.cursor;
+      canvas.style.cursor = 'pointer';
+    }
+  };
+
+  const processHover = () => {
+    rafId = 0;
+    const event = pendingEvent;
+    pendingEvent = null;
+    if (!event) return;
+    if (event.buttons) {
+      if (lastHandle !== null) {
+        lastHandle = null;
+        restoreCursor();
+        onHoverEnd();
+      }
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const x = (event.clientX - rect.left) * dpr;
+    const y = (event.clientY - rect.top) * dpr;
+
+    try {
+      const tolerances = [0, 1, 3];
+      let candidate = null;
+      let reportedCandidate = null;
+
+      for (const tolerance of tolerances) {
+        const t = tolerance * dpr;
+        viewer.select?.(x - t, y + t, x + t, y - t);
+        viewer.update?.();
+        const handles = collectHandles();
+
+        if (handles.length) {
+          const current = handles[0];
+          reportedCandidate = reportedCandidate ?? current;
+          const allowed = filterHandle ? filterHandle(current) : true;
+          if (allowed) {
+            candidate = current;
+            break;
+          }
+        }
+
+        viewer.unselect?.();
+        viewer.update?.();
+      }
+
+      if (reportedCandidate) {
+        onHoverCandidate?.(reportedCandidate);
+      }
+
+      if (candidate) {
+        if (candidate !== lastHandle) {
+          lastHandle = candidate;
+          setPointerCursor();
+          onHover(candidate);
+        }
+      } else if (lastHandle !== null) {
+        lastHandle = null;
+        restoreCursor();
+        onHoverEnd();
+      }
+    } catch (err) {
+      console.warn('[CanvasController] hover highlight failed', err);
+    } finally {
+      viewer.unselect?.();
+      viewer.update?.();
+    }
+  };
+
+  const onPointerMove = (event) => {
+    if (event.buttons && lastHandle !== null) {
+      lastHandle = null;
+      restoreCursor();
+      onHoverEnd();
+    }
+    pendingEvent = event;
+    if (!rafId) {
+      rafId = requestAnimationFrame(processHover);
+    }
+  };
+
+  const onMouseLeave = () => {
+    if (lastHandle !== null) {
+      lastHandle = null;
+      restoreCursor();
+      onHoverEnd();
+    }
+  };
+
+  canvas.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mouseleave', onMouseLeave);
+
+  return () => {
+    canvas.removeEventListener('mousemove', onPointerMove);
+    canvas.removeEventListener('mouseleave', onMouseLeave);
+    if (rafId) cancelAnimationFrame(rafId);
+    restoreCursor();
+  };
+};
 
 /////////////////////////
 // [DRAG BOX SELECT]
@@ -625,19 +704,32 @@ export const attachDragSelect = (viewer, canvas, lib, options = {}) => {
 // [COMPOSE ALL]
 /////////////////////////
 
-/**
- * wheel + pan + leftClickSelect (+ dragSelect는 나중에) 한 번에 붙이고 cleanup 반환
- */
-export const attachCanvasInteractions = (viewer, canvas, lib, { onSelect, cursorColor } = {}) => {
+  /**
+   * wheel + pan + leftClickSelect (+ dragSelect는 나중에) 한 번에 붙이고 cleanup 반환
+   */
+export const attachCanvasInteractions = (
+  viewer,
+  canvas,
+  lib,
+  { onSelect, onHover, onHoverEnd, hoverFilter, onHoverCandidate, cursorColor, enableDragSelect = true } = {}
+) => {
   if (!viewer || !canvas) return () => { };
 
   const cleanups = [];
   const c1 = attachWheelZoom(viewer, canvas);
   const c2 = attachPan(viewer, canvas, { cursorColor });
   const c3 = attachLeftClickSelect(viewer, canvas, lib, { onSelect });
-  const c4 = attachDragSelect(viewer, canvas, lib, { onSelect });
-
-  cleanups.push(c1, c2, c3, c4);
+  const c5 = attachHoverHighlight(viewer, canvas, lib, {
+    onHover,
+    onHoverEnd,
+    filterHandle: hoverFilter,
+    onHoverCandidate,
+  });
+  cleanups.push(c1, c2, c3);
+  if (enableDragSelect) {
+    cleanups.push(attachDragSelect(viewer, canvas, lib, { onSelect }));
+  }
+  cleanups.push(c5);
   return () => {
     cleanups.forEach((fn) => fn && fn());
   };

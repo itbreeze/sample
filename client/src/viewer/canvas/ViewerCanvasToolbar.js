@@ -1,20 +1,23 @@
 // client/src/components/viewer/ViewerCanvasToolbar.js
 
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Sun, Moon, Info, Star } from 'lucide-react';
+import { ChevronUp, ChevronDown, Sun, Moon, Info, Star, Fullscreen } from 'lucide-react';
 
 const ViewerCanvasToolbar = ({
   onToggleInvert,
   isInverted,
   onOpenPanel,
   isInfoActive = false,
+  onZoomExtents,
   // ⭐ 즐겨찾기 관련 추가 props
   isFavorite = false,
   onToggleFavorite,
+  showEntityInfoButton = true,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const ToggleIcon = collapsed ? ChevronUp : ChevronDown;
   const iconColor = '#0e121b';
+  const toolbarRadius = 6;
 
   return (
     <div
@@ -46,9 +49,8 @@ const ViewerCanvasToolbar = ({
           style={{
             width: 80,
             height: 28,
-            borderRadius: '6px 6px 0 0',
-            border: '1px solid #e8ecf5',
-            borderBottom: '1px solid #e8ecf5',
+            borderRadius: `${toolbarRadius}px ${toolbarRadius}px 0 0`,
+            border: '1px solid var(--border-color-dark)',
             background: '#ffffff',
             display: 'flex',
             alignItems: 'center',
@@ -70,19 +72,38 @@ const ViewerCanvasToolbar = ({
               minWidth: 260, // ⭐ 버튼 하나 늘어서 약간 넓게
               maxWidth: '90vw',
               height: 50,
-              background: '#ffffff',
-              border: '1px solid #e8ecf5',
+              background: 'rgba(255, 255, 255, 0.9)',
+              border: '1px solid var(--border-color-dark)',
               borderTop: 'none',
-              borderRadius: '0 0 6px 6px',
+              borderRadius: `0 0 ${toolbarRadius}px ${toolbarRadius}px`,
               boxSizing: 'border-box',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 10,
               padding: '10px 16px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 2px 10px rgba(15, 23, 42, 0.18)',
             }}
           >
+            {/* 전체 보기 */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onZoomExtents?.();
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: 'none',
+                background: 'transparent',
+                color: iconColor,
+                cursor: 'pointer',
+              }}
+              title="전체 보기 (Zoom Extents)"
+            >
+              <Fullscreen size={28} color={iconColor} strokeWidth={2.2} />
+            </button>
             {/* 반전 */}
             <button
               type="button"
@@ -106,6 +127,8 @@ const ViewerCanvasToolbar = ({
                 <Moon size={30} color={iconColor} strokeWidth={2.2} />
               )}
             </button>
+
+            
 
             {/* ⭐ 즐겨찾기 토글 버튼 */}
             <button
@@ -138,35 +161,37 @@ const ViewerCanvasToolbar = ({
             </button>
 
             {/* 객체정보 패널 */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenPanel?.();
-              }}
-              style={{
-                padding: 8,
-                borderRadius: 8,
-                border: 'none',
-                background: 'transparent',
-                color: iconColor,
-                cursor: 'pointer',
-              }}
-              title="객체 정보 패널 열기"
-            >
-              <Info
-                size={30}
-                color={iconColor}
-                strokeWidth={2.2}
-                style={{
-                  transform: 'translateY(1px)',
-                  opacity: isInfoActive ? 1 : 0.3,
-                  filter: isInfoActive
-                    ? 'drop-shadow(0 0 2px rgba(0,0,0,0.2))'
-                    : 'none',
+            {showEntityInfoButton && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenPanel?.();
                 }}
-              />
-            </button>
+                style={{
+                  padding: 8,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'transparent',
+                  color: iconColor,
+                  cursor: 'pointer',
+                }}
+                title="객체 정보 패널 열기"
+              >
+                <Info
+                  size={30}
+                  color={iconColor}
+                  strokeWidth={2.2}
+                  style={{
+                    transform: 'translateY(1px)',
+                    opacity: isInfoActive ? 1 : 0.3,
+                    filter: isInfoActive
+                      ? 'drop-shadow(0 0 2px rgba(0,0,0,0.2))'
+                      : 'none',
+                  }}
+                />
+              </button>
+            )}
           </div>
         )}
       </div>

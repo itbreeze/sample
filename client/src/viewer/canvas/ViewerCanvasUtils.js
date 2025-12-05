@@ -493,7 +493,13 @@ const getOriginalColorFromEntity = (lib, entityId) => getEntityColorInfo(lib, en
  *
  * additive = true 이면 기존 entityDataMapRef 유지하면서 새 것만 추가/보정.
  */
-export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive = false) => {
+export const collectSelectedEntities = (
+  viewer,
+  lib,
+  entityDataMapRef,
+  additive = false,
+  options = {}
+) => {
   const handles = [];
   if (!viewer || !lib || !entityDataMapRef) return handles;
 
@@ -501,6 +507,8 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
     entityDataMapRef.current = new Map();
   }
   const dataMap = entityDataMapRef.current;
+  const allowedHandleSet =
+    options?.allowedHandleSet instanceof Set ? options.allowedHandleSet : null;
 
   const pSelected = viewer.getSelected?.();
   if (!pSelected || pSelected.isNull?.() || pSelected.numItems?.() <= 0) {
@@ -531,6 +539,10 @@ export const collectSelectedEntities = (viewer, lib, entityDataMapRef, additive 
     const handle = target?.getNativeDatabaseHandle?.();
     if (handle) {
       const key = String(handle);
+      if (allowedHandleSet && !allowedHandleSet.has(key)) {
+        itr.step?.();
+        continue;
+      }
       handles.push(key);
 
       let rawName = null;
@@ -730,6 +742,11 @@ export const setColorBasic = (lib, entityId, color) => {
   }
 };
 
+export const NORMAL_SELECTION_COLOR = { r: 200, g: 34, b: 34 };
+export const HOVER_SELECTION_COLOR = { r: 255, g: 199, b: 44 }; 
+export const SELECTED_SELECTION_COLOR = { r: 0, g: 166, b: 90 };
+export const EQUIPMENT_SELECTION_COLOR = { r: 0, g: 0, b: 205 };
+
 /** 지정 핸들들을 빨간색으로 설정 (viewer.update는 한 번만 호출) */
 export const setColorRed = (viewer, lib, entityDataMap, handles) => {
   if (!viewer || !lib || !entityDataMap || !handles || handles.length === 0) {
@@ -756,6 +773,67 @@ export const setColorRed = (viewer, lib, entityDataMap, handles) => {
 
   viewer.update?.();
   return { successCount, failCount };
+};
+
+/**
+ * selectionRef: { current: Set<string> }
+ * color: {r,g,b} | number
+ */
+export const applySelectionColor = (
+  viewer,
+  lib,
+  entityDataMap,
+  selectionRef,
+  handles,
+  options = {}
+) => {
+  if (!viewer || !lib || !entityDataMap || !selectionRef) {
+    return { added: 0, removed: 0 };
+  }
+
+  const prevSet =
+    selectionRef.current instanceof Set
+      ? selectionRef.current
+      : (selectionRef.current = new Set());
+  const normalized = Array.isArray(handles)
+    ? handles.map((handle) => (handle ? String(handle) : '')).filter(Boolean)
+    : [];
+  const nextSet = new Set(normalized);
+
+  const toReset = [];
+  let toColor = [];
+
+  prevSet.forEach((handle) => {
+    if (!nextSet.has(handle)) toReset.push(handle);
+  });
+
+  nextSet.forEach((handle) => {
+    if (!prevSet.has(handle)) toColor.push(handle);
+  });
+
+  const { forceRepaint = false, color = HOVER_SELECTION_COLOR } = options;
+  if (forceRepaint) {
+    toColor = Array.from(nextSet);
+  }
+
+  toReset.forEach((handle) => {
+    resetColorByHandle(viewer, lib, entityDataMap, handle);
+  });
+
+  const colorToApply = color;
+  const applyColor = (handle) => {
+    const data = entityDataMap.get(String(handle));
+    if (!data || !data.entityId) return;
+    setColorBasic(lib, data.entityId, colorToApply);
+  };
+
+  toColor.forEach((handle) => {
+    applyColor(handle);
+  });
+
+  viewer.update?.();
+  selectionRef.current = nextSet;
+  return { added: toColor.length, removed: toReset.length };
 };
 
 /** 특정 핸들의 원본 색상으로 복원 (update는 호출하지 않음) */

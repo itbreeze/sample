@@ -30,6 +30,11 @@
   font-size: 16px;
 }
 
+.global-loading-content .loading-subtext {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.8);
+}
+
 .progress-wrap {
   position: relative;
   width: 200px;

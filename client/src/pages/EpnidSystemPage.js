@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import './EpnidSystemPage.css';
-import { FolderOpen, Star, Search, Waypoints, Layers, Settings, FileText, History } from 'lucide-react';
+import { FolderOpen, Star, Search, Waypoints, Layers, MonitorCog, FileText, History } from 'lucide-react';
 
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -11,6 +11,7 @@ import { useDocumentTree } from '../components/hooks/useDocumentTree';
 import SearchResultList from '../components/Search/SearchResultList';
 import { persistPlantContext } from '../services/api';
 import FavoriteDocsPanel from '../components/FavoriteDocsPanel';
+import RecentDocsPanel from '../components/RecentDocsPanel';
 import { useAuthState } from '../hooks/useAuthState';
 import { usePanelState } from '../hooks/usePanelState';
 import { ViewerProvider, useViewer, ViewerShell } from '../viewer';
@@ -55,13 +56,26 @@ const tabItems = [
   { id: 'inherit', label: '지능화 승계', requiresAuth: true },
 ];
 
+const TAB_VIEWER_MODES = {
+  drawing: 'ViewerMode',
+  pld: 'PLDMode',
+  intelligent: 'IntelligentMode',
+  inherit: 'InheritMode',
+};
+
+const VIEWER_MODE_LOGS = {
+  ViewerMode: '[Viewer Mode]',
+  PLDMode: '[PLD Mode]',
+  IntelligentMode: '[Intelligent Mode]',
+};
+
 const sidebarMenus = {
   drawing: [
     { id: 'search', icon: <Search size={20} />, label: '도면검색' },
+    { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
     { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기 목록' },
     { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서함' },
-    { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
-    { id: 'equipments', icon: <Settings size={20} />, label: '설비 목록' },
+    { id: 'equipments', icon: <MonitorCog size={20} />, label: '설비 목록' },
     { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관 목록' },
     { id: 'layers', icon: <Layers size={20} />, label: '레이어 목록' },
   ],
@@ -75,11 +89,11 @@ const NotImplemented = () => (
 );
 
 const equipmentTabs = [
-    {
-      id: 'equipmentHighlight',
-      label: '설비 목록',
-      content: () => <EquipmentMenu />,
-    },
+  {
+    id: 'equipmentHighlight',
+    label: '설비 목록',
+    content: () => <EquipmentMenu />,
+  },
   { id: 'searchEquipment', label: '설비 상세검색', content: () => <NotImplemented /> },
 ];
 
@@ -121,6 +135,13 @@ function EpnidSystemPageContent() {
     favoriteDocs,
     favoriteEquipments,
     favoriteDocMeta,
+    recentDocs,
+    recentDocsLoading,
+    refreshRecentDocs,
+    logRecentDoc,
+    flagManualRecentLog,
+    consumeManualRecentLog,
+    openFiles,
   } = useViewer();
   const {
     isSidebarOpen,
@@ -144,6 +165,54 @@ function EpnidSystemPageContent() {
     },
     [handleFileSelect, setIsPanelMaximized]
   );
+
+  const handleRecentDocSelect = useCallback(
+    async (doc) => {
+      const docId = doc.docId || doc.docIdFormatted || doc.docNO || doc.DOCNO;
+      const docVr = doc.docVr || doc.docVer || doc.DOCVR || '001';
+      if (!docId) return null;
+      const docNumber = doc.docNumber || doc.DOCNUMBER || doc.DOCNUM || '';
+      const alreadyOpen = openFiles.some(
+        (file) =>
+          file.DOCNO === docId &&
+          (docVr ? file.DOCVR === docVr : true)
+      );
+      flagManualRecentLog(docId, docVr);
+      logRecentDoc({
+        docId,
+        docVr,
+        docNumber,
+      }).catch((err) => {
+        consumeManualRecentLog(docId, docVr);
+      });
+      const loaded = await handleDocumentSelect({ docId, docVr });
+      if (!loaded) {
+        consumeManualRecentLog(docId, docVr);
+        return loaded;
+      }
+      if (alreadyOpen) {
+        consumeManualRecentLog(docId, docVr);
+      }
+      return loaded;
+    },
+    [
+      consumeManualRecentLog,
+      flagManualRecentLog,
+      handleDocumentSelect,
+      logRecentDoc,
+      openFiles,
+    ]
+  );
+
+  const handleDocumentSelectRef = useRef(handleDocumentSelect);
+  useEffect(() => {
+    handleDocumentSelectRef.current = handleDocumentSelect;
+  }, [handleDocumentSelect]);
+
+  useEffect(() => {
+    if (activeMenuItem !== 'recentdocs' || !isPanelOpen) return;
+    refreshRecentDocs({ limit: 40 }).catch(() => {});
+  }, [activeMenuItem, isPanelOpen, refreshRecentDocs]);
 
   const filteredTabItems = authLimited
     ? tabItems.filter(t => !t.requiresAuth)
@@ -253,20 +322,20 @@ function EpnidSystemPageContent() {
     const urlDocvr = params.get('docvr');
     if (!urlDocno || !urlDocvr) return;
 
-    // 1) 우선 도면 자동 로딩
-    (async () => {
+    const loadFromUrl = async () => {
       try {
-        await handleDocumentSelect({ docId: urlDocno, docVr: urlDocvr });
+        await handleDocumentSelectRef.current?.({ docId: urlDocno, docVr: urlDocvr });
       } catch (err) {
         console.error("URL 기반 도면 자동 로딩 실패:", err);
       }
-    })();
+    };
 
-    // 2) 주소창에서 ?docno=...&docvr=... 제거 (SPA 상태 유지)
+    loadFromUrl();
+
     const cleanPath = window.location.pathname.replace(/\/$/, "");
     const cleanUrl = `${window.location.origin}${cleanPath}`;
     window.history.replaceState({}, document.title, cleanUrl);
-  }, [handleDocumentSelect]);
+  }, []);
 
 
 
@@ -371,7 +440,28 @@ function EpnidSystemPageContent() {
         isResizable: true,
       },
       mydocs: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
-      recentdocs: { component: <NotImplemented />, startsMaximized: true, isResizable: true },
+      recentdocs: {
+        component: (
+          <Panel
+            tabs={[
+              {
+                id: 'recentDocs',
+                label: '최근 본 도면',
+                content: () => (
+                  <RecentDocsPanel
+                    items={recentDocs}
+                    loading={recentDocsLoading}
+                    onFileSelect={handleRecentDocSelect}
+                  />
+                ),
+              },
+            ]}
+            defaultTab="recentDocs"
+          />
+        ),
+        startsMaximized: true,
+        isResizable: true,
+      },
       pipeLayers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
       layers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
     }),
@@ -382,6 +472,8 @@ function EpnidSystemPageContent() {
       favoriteDocs,
       favoriteEquipments,
       handleDocumentSelect,
+      handleRecentDocSelect,
+      refreshRecentDocs,
       setActiveSearchTab,
     ]
   );
@@ -428,6 +520,18 @@ function EpnidSystemPageContent() {
       setSearchTrigger,
     ]
   );
+
+  const handleCloseAllTabsMenu = useCallback(() => {
+    closePanel();
+    setIsSidebarOpen(false);
+  }, [closePanel, setIsSidebarOpen]);
+
+  const viewerMode = TAB_VIEWER_MODES[activeTab] || TAB_VIEWER_MODES.drawing;
+
+  useEffect(() => {
+    const message = VIEWER_MODE_LOGS[viewerMode];
+    if (message) console.log(message);
+  }, [viewerMode]);
 
   if (loading) {
     return (
@@ -479,7 +583,13 @@ function EpnidSystemPageContent() {
           </ResizablePanel>
         )}
 
-        <ViewerShell onMainViewClick={handleMainViewClick} />
+        <ViewerShell
+          onMainViewClick={handleMainViewClick}
+          viewerMode={viewerMode}
+          allowEntityPanel={activeTab === 'intelligent'}
+          allowEquipmentInfoPanel={activeTab === 'drawing'}
+          onCloseAllTabsMenu={handleCloseAllTabsMenu}
+        />
       </div>
     </div>
   );

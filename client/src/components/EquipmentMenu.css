@@ -12,6 +12,24 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  gap: 8px;
+}
+
+.equipment-panel__refresh {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #1f2937;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.equipment-panel__refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .equipment-panel__global-toggle {
@@ -25,7 +43,6 @@
   padding: 8px 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border 0.2s ease;
 }
 
 .equipment-panel__global-toggle.active {
@@ -135,7 +152,6 @@
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .equipment-tree-node__toggle:hover {
@@ -210,11 +226,20 @@
 
 .equipment-tree-tag__select.active {
   color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border-radius: 6px;
+  padding: 6px 8px;
+  line-height: 1.2;
+  gap: 10px;
 }
+
 
 .equipment-tree-tag__label {
   font-weight: 600;
   font-size: 15px;
+}
+.equipment-tree-tag__label.active {
+  color: #2563eb;
 }
 
 .equipment-tree-tag__count {
@@ -232,18 +257,41 @@
   gap: 4px;
   padding: 0;
   font-size: 12px;
-  transition: color 0.2s ease;
 }
 
 .equipment-card__chip svg {
   color: currentColor;
 }
 
-.equipment-card__chip.active {
+.equipment-card__chip.active svg {
   color: #2563eb;
 }
-
 .equipment-card__chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+ 
+.equipment-card__zoom {
+  border: none;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.equipment-card__zoom svg {
+  color: currentColor;
+}
+
+.equipment-card__zoom:hover:not(:disabled) {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.equipment-card__zoom:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }

@@ -45,7 +45,7 @@ export const SingleTabs = ({
       const [reordered] = newFiles.splice(result.source.index, 1);
       newFiles.splice(result.destination.index, 0, reordered);
       const reorderedDocnos = newFiles.map((f) => f.DOCNO);
-      if (onReorder) onReorder(reorderedDocnos);
+      if (onReorder) onReorder(reorderedDocnos, result.draggableId);
     }}>
       <div className="view-tabs-container">
         <Droppable droppableId="tabs" direction="horizontal">

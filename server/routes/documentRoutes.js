@@ -11,6 +11,8 @@ const { SYSASM } = require("oracledb");
 const VIEWER_FOLDER = path.resolve(process.env.VIEWER_DOC_FOLDER);
 const CONVERTER_PATH = path.resolve(process.env.FILECONVERTER);
 
+const normalizeInput = (value) => (typeof value === 'string' ? value.trim() : '');
+
 const buildGroupedEquipmentSql = () => `
                 SELECT T1.LIBNO AS "libId", T1.LIBNM AS "libName", T1.LIBDS AS "libDesc", T1.LIBPT AS "parent", T1.LIBLV, T1.DOCNO, T1.DOCVR AS "docVer"
                         , T1.INTELLIGENT AS "intelligent", T1.FUNCTION AS "function", T1.CONNECTION AS "connection"
@@ -224,6 +226,13 @@ router.get("/equipment", async (req, res) => {
   }
 });
 
+const formatBindValue = (value) => {
+  if (value === null || value === undefined) return "NULL";
+  if (typeof value === "string") return `'${value.replace(/'/g, "''")}'`;
+  if (typeof value === "number" || typeof value === "boolean") return value.toString();
+  if (value instanceof Date) return `'${value.toISOString()}'`;
+  return `'${String(value)}'`;
+};
 
 // =================================================================
 // (수정된 코드) /selectDocument 라우트
@@ -310,6 +319,150 @@ router.post("/selectDocument", async (req, res) => {
         console.error("DWG 파일 삭제 실패:", delErr);
       }
     }
+  }
+});
+
+router.get('/recent', async (req, res) => {
+  try {
+    const userId = normalizeInput(req.authUser?.userId);
+    if (!userId) {
+      return res.status(401).json({ ok: false, message: 'UNAUTHORIZED' });
+    }
+
+    const sql = `
+      WITH recent_logs AS (
+        SELECT
+          TRIM(L.DOCNO) AS "docId",
+          NVL(L.DOCVR, '001') AS "docVr",
+          L.DOCNUMBER AS "docNumber",
+          D.DOCNM AS "docName",
+          D.PLANTCODE AS "plantCode",
+          S.PLANTNM AS "plantName",
+          PF.FOLNM AS "systemName",
+          CASE
+            WHEN NVL(F.HOGI_GUBUN, '') = '0' THEN '공용'
+            WHEN REGEXP_LIKE(NVL(F.HOGI_GUBUN, ''), '^[0-9]+$') THEN NVL(F.HOGI_GUBUN, '') || '호기'
+            ELSE NVL(F.HOGI_GUBUN, '')
+          END AS unitLabel,
+          MAX(L.OPEN_DATE) AS lastOpenDate
+        FROM IDS_LOG L
+        LEFT JOIN IDS_DOC D
+          ON TRIM(L.DOCNO) = D.DOCNO
+          AND NVL(L.DOCVR, '001') = D.DOCVR
+        LEFT JOIN IDS_SITE S ON D.PLANTCODE = S.PLANTCODE
+        LEFT JOIN IDS_FOLDER F ON D.FOLID = F.FOLID
+        LEFT JOIN IDS_FOLDER PF ON F.FOLPT = PF.FOLID
+        WHERE TRIM(L.USERID) = :userId
+          AND L.LOG_GUBUN = '001'
+        GROUP BY TRIM(L.DOCNO),
+                 NVL(L.DOCVR, '001'),
+                 L.DOCNUMBER,
+                  D.DOCNM,
+                  D.PLANTCODE,
+                 S.PLANTNM,
+                 PF.FOLNM,
+                  F.HOGI_GUBUN
+      )
+      SELECT
+        "docId" AS docId,
+        "docVr" AS docVr,
+        "docNumber" AS docNumber,
+        "docName" AS docName,
+        "plantCode" AS plantCode,
+        "plantName" AS plantName,
+        "systemName" AS systemName,
+        unitLabel,
+        TO_CHAR(lastOpenDate, 'YYYY-MM-DD"T"HH24:MI:SS') AS lastOpen
+      FROM (
+        SELECT * FROM recent_logs ORDER BY lastOpenDate DESC
+      )
+    `;
+
+    const rows = await oracleClient.executeQuery(sql, { userId });
+    const normalized = rows.map((row) => ({
+      docId: row.docId ?? row.DODID ?? row.DOCID ?? row.docno ?? row.DOCNO ?? null,
+      docVr: row.docVr ?? row.DOCVR ?? '001',
+      docNumber: row.docNumber ?? row.DOCNUMBER ?? null,
+      docName: row.docName ?? row.DOCNAME ?? row.DOCNM ?? null,
+      plantCode: row.plantCode ?? row.PLANTCODE ?? null,
+      plantName: row.plantName ?? row.PLANTNAME ?? row.PLANTNM ?? null,
+      systemName: row.systemName ?? row.SYSTEMNAME ?? row.SYSTEMNM ?? null,
+      unitLabel: row.unitLabel ?? row.UNITLABEL ?? row.UNIT ?? null,
+      lastOpen: row.lastOpen ?? row.LASTOPEN ?? null,
+    }));
+    const rawSample = rows.length ? rows[0] : null;
+    return res.json({ ok: true, recentDocs: normalized, rawSample });
+  } catch (_error) {
+    return res.status(500).json({ ok: false, message: 'RECENT_DOCS_ERROR' });
+  }
+});
+
+router.post('/recent', async (req, res) => {
+  try {
+    const userId = normalizeInput(req.authUser?.userId);
+    if (!userId) {
+      return res.status(401).json({ ok: false, message: 'UNAUTHORIZED' });
+    }
+
+    const docId = normalizeInput(req.body?.docId);
+    if (!docId) {
+      return res.status(400).json({ ok: false, message: 'DOC_ID_REQUIRED' });
+    }
+
+    const docVr = normalizeInput(req.body?.docVr) || '001';
+    const docNumber =
+      normalizeInput(req.body?.docNumber) || docId;
+
+    const sql = `
+      INSERT INTO IDS_LOG (USERID, LOG_GUBUN, DOCNUMBER, DOCNO, DOCVR, OPEN_DATE)
+      VALUES (:userId, '001', :docNumber, :docId, :docVr, SYSDATE)
+    `;
+
+    await oracleClient.executeQuery(
+      sql,
+      { userId, docNumber, docId, docVr },
+      { autoCommit: true }
+    );
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[recent log] 저장 실패', error);
+    return res.status(500).json({ ok: false, message: 'RECENT_DOC_LOG_ERROR' });
+  }
+});
+
+router.post('/recent/remove', async (req, res) => {
+  try {
+    const userId = normalizeInput(req.authUser?.userId);
+    if (!userId) {
+      return res.status(401).json({ ok: false, message: 'UNAUTHORIZED' });
+    }
+
+    const docId = normalizeInput(req.body?.docId);
+    if (!docId) {
+      return res.status(400).json({ ok: false, message: 'DOC_ID_REQUIRED' });
+    }
+
+    const docVr = normalizeInput(req.body?.docVr) || '001';
+
+    const sql = `
+      DELETE FROM IDS_LOG
+      WHERE TRIM(USERID) = :userId
+        AND LOG_GUBUN = '001'
+        AND TRIM(DOCNO) = :docId
+        AND NVL(DOCVR, '001') = :docVr
+    `;
+
+    await oracleClient.executeQuery(
+      sql,
+      { userId, docId, docVr },
+      { autoCommit: true }
+    );
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[recent log] 삭제 실패', error);
+    return res.status(500).json({ ok: false, message: 'RECENT_DOC_DELETE_ERROR' });
   }
 });
 

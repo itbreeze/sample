@@ -1,9 +1,9 @@
 // client/src/components/ViewerWorkspace.js
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import './ViewerWorkspace.css';
 import SearchResultPanel from '../../components/Search/SearchResultPanel';
 import { SingleTabs } from './ViewerTabList';
-import ViewerCanvasPanel from './ViewerCanvasPanel';
+import ViewerCanvasHeader from './ViewerCanvasHeader';
 
 const MAX_VISIBLE_TABS = 5;
 
@@ -13,7 +13,9 @@ const ViewerWorkspace = ({
   onTabClick,
   onTabClose,
   onCloseAllTabs,
+  onCloseAllTabsMenu = () => {},
   onTabReorder,
+  tabOrder = [],
   viewerStates,          // 현재는 사용 안 함
   setViewerStates,       // 현재는 사용 안 함
   searchResults = [],
@@ -22,7 +24,11 @@ const ViewerWorkspace = ({
   highlightMap = {},
   isFavorite = false,
   onToggleFavorite,
- }) => {
+  onDocumentReady,
+  allowEntityPanel = true,
+  allowEquipmentInfoPanel = true,
+  viewerMode = 'ViewerMode',
+}) => {
   const [selectionStates, setSelectionStates] = useState({}); // 추후 선택정보 연동용
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -66,15 +72,46 @@ const ViewerWorkspace = ({
     } catch (_) { }
   }, [openFiles.length]);
 
-  const handleVisibleReorder = useCallback((reorderedDocnos = []) => {
+  const orderedFiles = useMemo(() => {
+    const fileMap = new Map(openFiles.map((file) => [file.DOCNO, file]));
+    const seen = new Set();
+    const ordered = [];
+
+    tabOrder.forEach((docno) => {
+      const file = fileMap.get(docno);
+      if (file && !seen.has(docno)) {
+        seen.add(docno);
+        ordered.push(file);
+      }
+    });
+
+    openFiles.forEach((file) => {
+      if (!seen.has(file.DOCNO)) {
+        seen.add(file.DOCNO);
+        ordered.push(file);
+      }
+    });
+
+    return ordered;
+  }, [tabOrder, openFiles]);
+
+  const handleVisibleReorder = useCallback((reorderedDocnos = [], draggedDocId) => {
     if (!Array.isArray(reorderedDocnos) || reorderedDocnos.length === 0) return;
-    const reorderedFiles = reorderedDocnos
-      .map((id) => openFiles.find((f) => f.DOCNO === id))
-      .filter(Boolean);
-    const rest = openFiles.filter((f) => !reorderedDocnos.includes(f.DOCNO));
-    const merged = [...reorderedFiles, ...rest];
-    onTabReorder?.(merged, reorderedDocnos[0]);
-  }, [openFiles, onTabReorder]);
+    const visibleDocnos = orderedFiles.slice(0, MAX_VISIBLE_TABS).map((file) => file.DOCNO);
+    const visibleSet = new Set(visibleDocnos);
+    const filtered = reorderedDocnos.filter((docno) => visibleSet.has(docno));
+    if (filtered.length === 0) return;
+    const rest = tabOrder.filter((docno) => !visibleSet.has(docno));
+    const merged = [
+      ...filtered,
+      ...rest.filter((docno) => !filtered.includes(docno)),
+    ];
+    const fallback = openFiles
+      .map((file) => file.DOCNO)
+      .filter((docno) => !merged.includes(docno));
+    const finalOrder = [...merged, ...fallback];
+    onTabReorder?.(finalOrder, draggedDocId);
+  }, [orderedFiles, tabOrder, openFiles, onTabReorder]);
 
   const clampMenuPosition = (x, y, menuWidth = 180, menuHeight = 90, margin = 8) => {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
@@ -125,6 +162,9 @@ const ViewerWorkspace = ({
       const docnos = openFiles.map((f) => f.DOCNO);
       docnos.forEach((id) => onTabClose(id));
     }
+    if (typeof onCloseAllTabsMenu === 'function') {
+      onCloseAllTabsMenu();
+    }
     closeContextMenu();
   };
 
@@ -132,9 +172,9 @@ const ViewerWorkspace = ({
     onTabClick?.(docno);
   };
 
-  const activeDocno = activeFileId || openFiles[0]?.DOCNO || null;
+  const activeDocno = activeFileId || orderedFiles[0]?.DOCNO || null;
 
-  const visibleTabs = openFiles.slice(0, MAX_VISIBLE_TABS);
+  const visibleTabs = orderedFiles.slice(0, MAX_VISIBLE_TABS);
 
   const renderViewer = () => {
     return (
@@ -150,22 +190,29 @@ const ViewerWorkspace = ({
         />
 
         <div className="viewer-content-area">
-          {openFiles.map((file) => {
-            const isActiveDoc = file.DOCNO === activeDocno;
-            const handlesForDoc = highlightMap[file.DOCNO]?.handles || [];
-            const highlightHandles = isActiveDoc ? handlesForDoc : [];
-            return (
-              <ViewerCanvasPanel
-                key={file.DOCNO}
-                file={file}
-                selectionInfo={selectionStates[file.DOCNO]}
-                isActive={isActiveDoc}
-                highlightHandles={highlightHandles}
-                onReadyChange={undefined}
-                isFavorite={isActiveDoc ? isFavorite : false}
-                onToggleFavorite={isActiveDoc ? onToggleFavorite : undefined}
-              />
-            );
+        {openFiles.map((file) => {
+          const isActiveDoc = file.DOCNO === activeDocno;
+          const docHighlight = highlightMap[file.DOCNO] || {};
+          const handlesForDoc = docHighlight.handles || [];
+          const highlightColorForDoc = docHighlight.highlightColor;
+          const highlightHandles = isActiveDoc ? handlesForDoc : [];
+          const highlightColor = isActiveDoc ? highlightColorForDoc : undefined;
+          return (
+            <ViewerCanvasHeader
+              key={file.DOCNO}
+              file={file}
+              selectionInfo={selectionStates[file.DOCNO]}
+              isActive={isActiveDoc}
+              highlightHandles={highlightHandles}
+              highlightColor={highlightColor}
+              onReadyChange={onDocumentReady}
+              isFavorite={isActiveDoc ? isFavorite : false}
+              onToggleFavorite={isActiveDoc ? onToggleFavorite : undefined}
+              allowEntityPanel={allowEntityPanel}
+              allowEquipmentInfoPanel={allowEquipmentInfoPanel}
+              viewerMode={viewerMode}
+            />
+          );
           })}
         </div>
       </>

@@ -1,0 +1,206 @@
+.recent-doc-panel {
+  padding: 8px;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recent-doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.recent-doc-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-color-primary);
+}
+
+.recent-doc-count {
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--text-color-secondary);
+  margin-left: 4px;
+}
+
+.recent-doc-groups {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.recent-doc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recent-doc-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  color: var(--text-color-primary, #111);
+}
+
+.recent-doc-group-header:hover,
+.recent-doc-group-header.active {
+  background-color: var(--hover-background-color, #f0f2f5);
+  color: var(--primary-color, #007fff);
+}
+.recent-doc-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 15px;
+  color: inherit;
+}
+
+.recent-doc-group-count {
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  margin-left: 4px;
+}
+
+.recent-doc-group-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: transparent;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+}
+
+.recent-doc-group-delete:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.recent-doc-group-items {
+  margin: 0;
+  padding: 0 0 0 18px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tree-node-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  gap: 8px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  color: var(--text-color-secondary);
+}
+
+.tree-node-header:hover {
+  background: var(--hover-background-color);
+  color: var(--primary-color);
+}
+
+.tree-node-header:hover .recent-doc-date {
+  color: var(--primary-color);
+}
+
+
+.recent-doc-icon-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.recent-doc-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.recent-doc-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+  color: inherit;
+}
+
+.recent-doc-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-doc-info {
+  font-size: 13px;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.recent-doc-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.recent-doc-remove:hover:not(:disabled) {
+  background: transparent;
+  color: var(--primary-color);
+}
+
+.recent-doc-remove--simple {
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.recent-doc-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-color-secondary);
+}
+
+.recent-doc-date {
+  font-size: 13px;
+  color: var(--text-color-secondary);
+  display: block;
+  margin-top: 2px;
+}
+.tree-node-header:hover .recent-doc-date {
+  color: var(--primary-color);
+}

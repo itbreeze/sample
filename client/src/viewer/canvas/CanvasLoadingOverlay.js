@@ -8,7 +8,12 @@ import './CanvasLoadingOverlay.css';
  * @param {number} percent - 진행률 (0~100)
  * @param {string} text - 기본 문구
  */
-const CanvasLoadingOverlay = ({ visible, percent = 0, text = '도면을 불러오는 중입니다...' }) => {
+const CanvasLoadingOverlay = ({
+  visible,
+  percent = 0,
+  text = '도면을 불러오는 중입니다...',
+  subText,
+}) => {
   const [displayPercent, setDisplayPercent] = useState(percent);
 
   // Hook은 항상 호출해야 하므로 조건문 밖에서 선언
@@ -54,14 +59,19 @@ const CanvasLoadingOverlay = ({ visible, percent = 0, text = '도면을 불러�
 
   return createPortal(
     <div className="global-loading-overlay" role="status" aria-live="polite">
-      <div className="global-loading-content">
-        <div className="loading-text">
-          {text} {Math.floor(safePercent)}%
-        </div>
-        <div className="progress-wrap" aria-hidden="true">
-          <div className="progress-bar" style={{ width: `${safePercent}%` }} />
-        </div>
+    <div className="global-loading-content">
+      <div className="loading-text">
+        {text} {Math.floor(safePercent)}%
       </div>
+      {subText && (
+        <div className="loading-subtext">
+          {subText}
+        </div>
+      )}
+      <div className="progress-wrap" aria-hidden="true">
+        <div className="progress-bar" style={{ width: `${safePercent}%` }} />
+      </div>
+    </div>
     </div>,
     document.body
   );

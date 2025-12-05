@@ -7,6 +7,7 @@ const { json } = require('body-parser');
 
 const normalizeUserId = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeDocId = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeTagId = (value) => (typeof value === 'string' ? value.trim() : '');
 
 const DEPT_TO_PLANT = {
   '3200': '5800',
@@ -612,6 +613,93 @@ async function toggleFavoriteDoc(req, res) {
   }
 }
 
+async function toggleFavoriteEquipment(req, res) {
+  try {
+    const authUser = req.authUser;
+    const userId = normalizeUserId(authUser?.userId);
+    if (!authUser || !userId) {
+      return res.status(401).json({ ok: false, message: 'NO_AUTH' });
+    }
+
+    const {
+      docId,
+      docVer,
+      docName,
+      docNumber,
+      plantCode,
+      tagId,
+      function: functionName,
+    } = req.body;
+
+    const normalizedDocId = normalizeDocId(docId);
+    const normalizedTagId = normalizeTagId(tagId);
+    const resolvedDocVer = typeof docVer === 'string' && docVer.trim() ? docVer.trim() : '001';
+    const resolvedPlantCode =
+      typeof plantCode === 'string' ? plantCode.trim() : '';
+
+    if (!normalizedDocId || !normalizedTagId) {
+      return res
+        .status(400)
+        .json({ ok: false, message: 'DOC_ID_OR_TAG_ID_MISSING' });
+    }
+
+    const context = (await findUserContext(userId)) || { userId, favorite: {} };
+    const favorite = context.favorite || {};
+    const equipments = Array.isArray(favorite.equipments)
+      ? favorite.equipments
+      : [];
+
+    const idx = equipments.findIndex(
+      (item) =>
+        normalizeDocId(item?.docId) === normalizedDocId &&
+        (item?.docVer || '001') === resolvedDocVer &&
+        normalizeTagId(item?.tagId) === normalizedTagId
+    );
+
+    let updatedEquipments;
+
+    if (idx >= 0) {
+      updatedEquipments = [
+        ...equipments.slice(0, idx),
+        ...equipments.slice(idx + 1),
+      ];
+    } else {
+      const newEquipment = {
+        docId: normalizedDocId,
+        docVer: resolvedDocVer,
+        docName: docName || '',
+        docNumber: docNumber || '',
+        plantCode: resolvedPlantCode,
+        tagId: normalizedTagId,
+        function: functionName || '',
+      };
+      updatedEquipments = [newEquipment, ...equipments];
+    }
+
+    const updatedContext = {
+      ...context,
+      favorite: {
+        ...favorite,
+        equipments: updatedEquipments,
+      },
+    };
+
+    await saveUserContext(userId, updatedContext);
+
+    return res.json({
+      ok: true,
+      userId,
+      favorite: updatedContext.favorite,
+      isFavorite: idx === -1,
+    });
+  } catch (err) {
+    console.error('[toggleFavoriteEquipment] 오류:', err);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'FAVORITE_EQUIPMENT_TOGGLE_ERROR' });
+  }
+}
+
 
 
 
@@ -621,4 +709,5 @@ module.exports = {
   getSessionUser,
   getUserFavorites,
   toggleFavoriteDoc,
+  toggleFavoriteEquipment,
 };

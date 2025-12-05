@@ -9,14 +9,32 @@ import {
   fixFonts,
   loadFonts,
   collectSelectedEntities,
-  updateRedSelection,
+  applySelectionColor,
   applyTempColorOverride,
+  resetColorByHandle,
+  setColorBasic,
+  HOVER_SELECTION_COLOR,
+  SELECTED_SELECTION_COLOR,
+  EQUIPMENT_SELECTION_COLOR,
 } from './ViewerCanvasUtils';
 import ViewerCanvasToolbar from './ViewerCanvasToolbar';
 import { attachCanvasInteractions } from './ViewerCanvasController';
 import EntityDetailsPanel, { MIN_WIDTH as PANEL_MIN_WIDTH, MIN_HEIGHT as PANEL_MIN_HEIGHT } from './EntityDetailsPanel';
+import EquipmentInfoPanel from '../components/EquipmentInfoPanel';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
 import { useViewer } from '../context/ViewerContext';
+import { normalizeHandles } from '../../components/utils/equipmentHandles';
+
+const EquipmentInfoPanelComponent = EquipmentInfoPanel || (() => null);
+
+const VIEWER_MODES = {
+  PID: 'ViewerMode',
+  PLD: 'PLDMode',
+  INTELLIGENT: 'IntelligentMode',
+  INHERIT: 'InheritMode',
+};
+
+const EQUIPMENT_PANEL_SIZE = { width: 320, height: 360 };
 
 const ViewerCanvas = ({
   filePath,
@@ -28,6 +46,10 @@ const ViewerCanvas = ({
   isFavorite,
   onToggleFavorite,
   highlightHandles = [],
+  highlightColor,
+  allowEntityPanel = true,
+  allowEquipmentInfoPanel = true,
+  viewerMode = VIEWER_MODES.PID,
 }) => { 
 
   const canvasRef = useRef(null);
@@ -42,8 +64,8 @@ const ViewerCanvas = ({
   const interactionsCleanupRef = useRef(null);
   const fontNameSetRef = useRef(new Set());
   const entityDataMapRef = useRef(new Map());
-  const prevRedHandlesRef = useRef(new Set());
-
+  const selectionColorHandlesRef = useRef(new Set());
+  const highlightHandlesRef = useRef([]);
   const [errorMessage, setErrorMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadPercent, setLoadPercent] = useState(0);
@@ -51,15 +73,13 @@ const ViewerCanvas = ({
   const [selectedHandles, setSelectedHandles] = useState([]);
   const [entities, setEntities] = useState([]);
   const [showPanel, setShowPanel] = useState(false);
+  const currentDocRef = useRef(null);
+  const [equipmentInfoEntries, setEquipmentInfoEntries] = useState([]);
+  const [showEquipmentInfoPanel, setShowEquipmentInfoPanel] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
+  const hoverColorHandlesRef = useRef(new Set());
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
   const selectedHandlesRef = useRef([]);
-  const updateSelectedHandles = useCallback((handles = []) => {
-    selectedHandlesRef.current = handles;
-    setSelectedHandles(handles);
-  }, []);
-
-
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
     const vh = window?.innerHeight || 800;
@@ -68,7 +88,6 @@ const ViewerCanvas = ({
       y: Math.max(8, vh - height - 40),
     };
   };
-
   const clampPanelPosition = (position, size) => {
     const vw = window?.innerWidth || 1200;
     const vh = window?.innerHeight || 800;
@@ -79,18 +98,60 @@ const ViewerCanvas = ({
       y: Math.min(Math.max(8, position.y), maxY),
     };
   };
+  const updateSelectedHandles = useCallback((handles = []) => {
+    selectedHandlesRef.current = handles;
+    setSelectedHandles(handles);
+  }, []);
+
+  const [equipmentPanelPosition, setEquipmentPanelPosition] = useState(() =>
+    clampPanelPosition(computePanelPosition(EQUIPMENT_PANEL_SIZE.width, EQUIPMENT_PANEL_SIZE.height), EQUIPMENT_PANEL_SIZE)
+  );
+
+
+  const positionEquipmentPanelNearBounds = useCallback(
+    (screenBox) => {
+      if (!screenBox || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const centerX = rect.left + ((screenBox.x1 + screenBox.x2) / 2);
+      const centerY = rect.top + ((screenBox.y1 + screenBox.y2) / 2);
+      const offset = 12;
+      const target = {
+        x: centerX + offset,
+        y: centerY + offset,
+      };
+      setEquipmentPanelPosition(clampPanelPosition(target, EQUIPMENT_PANEL_SIZE));
+    },
+    [canvasRef]
+  );
 
   const [panelPosition, setPanelPosition] = useState(() => {
     const initial = computePanelPosition(PANEL_DEFAULT.width, PANEL_DEFAULT.height);
     return clampPanelPosition(initial, PANEL_DEFAULT);
   });
   const [panelSize, setPanelSize] = useState(PANEL_DEFAULT);
-  const { registerHighlightActions, openFiles, activeFileId } = useViewer();
+  const mode = viewerMode || VIEWER_MODES.PID;
+  const modeConfig = useMemo(() => ({
+    allowDragSelect: mode === VIEWER_MODES.INTELLIGENT,
+    enforceEquipmentSelection: mode === VIEWER_MODES.PID,
+    allowHoverHighlight: mode === VIEWER_MODES.PID,
+  }), [mode]);
+  const enableHoverVisuals = modeConfig.allowHoverHighlight;
+  const {
+    registerHighlightActions,
+    openFiles,
+    activeFileId,
+    equipmentHandleModel,
+    handleFileSelect,
+  } = useViewer();
 
   const activeFile = useMemo(
     () => openFiles.find((file) => file.DOCNO === activeFileId),
     [openFiles, activeFileId]
   );
+
+  useEffect(() => {
+    currentDocRef.current = activeFile?.DOCNO || null;
+  }, [activeFile?.DOCNO]);
 
   const equipmentTagMap = useMemo(() => {
     const map = new Map();
@@ -107,38 +168,224 @@ const ViewerCanvas = ({
     return map;
   }, [activeFile?.tags]);
 
-  const showEquipmentPopup = useCallback(
+  const tagHandleGroups = useMemo(() => {
+    const map = new Map();
+    equipmentTagMap.forEach((tags, handle) => {
+      const normalizedHandle = String(handle);
+      tags.forEach((tag) => {
+        const tagNo = tag?.TAGNO ?? tag?.tagNo ?? '';
+        if (!tagNo) return;
+        if (!map.has(tagNo)) {
+          map.set(tagNo, new Set());
+        }
+        map.get(tagNo)?.add(normalizedHandle);
+      });
+    });
+    return map;
+  }, [equipmentTagMap]);
+  const expandHandlesToTagGroup = useCallback(
     (handles = []) => {
-      const seen = new Set();
-      const lines = [];
+      const normalized = Array.isArray(handles)
+        ? handles.map((handle) => (handle ? String(handle) : '')).filter(Boolean)
+        : [];
+      if (!normalized.length) return [];
+      const collected = new Set();
+      normalized.forEach((handle) => {
+        collected.add(handle);
+        const tags = equipmentTagMap.get(handle);
+        if (!tags?.length) return;
+        tags.forEach((tag) => {
+          const tagNo = tag?.TAGNO ?? tag?.tagNo ?? '';
+          if (!tagNo) return;
+          const related = tagHandleGroups.get(tagNo);
+          related?.forEach((relatedHandle) => {
+            collected.add(relatedHandle);
+          });
+        });
+      });
+      return Array.from(collected);
+    },
+    [equipmentTagMap, tagHandleGroups]
+  );
+
+  const buildEquipmentInfoDetails = useCallback(
+    (handles = []) => {
+      const groupMap = new Map();
       handles.forEach((handle) => {
         const key = String(handle);
         const tagsForHandle = equipmentTagMap.get(key);
         if (!tagsForHandle) return;
         tagsForHandle.forEach((tag) => {
-          const tagKey = `${tag.TAGNO || ''}-${tag.FUNCTION || ''}-${tag.TAGHANDLE || ''}`;
-          if (seen.has(tagKey)) return;
-          seen.add(tagKey);
           const tagNo = tag.TAGNO || '기타';
           const func = tag.FUNCTION || '기능 미정';
-          const handleLabel = tag.TAGHANDLE ? String(tag.TAGHANDLE) : '핸들 없음';
-          lines.push(`TAGNO: ${tagNo}\nFUNCTION: ${func}\nHANDLE: ${handleLabel}`);
+          const groupKey = `${tagNo}|${func}`;
+          if (!groupMap.has(groupKey)) {
+            groupMap.set(groupKey, {
+              tagNo,
+              func,
+              handles: new Set(),
+              raw: {
+                TAG_TYPE: tag.TAG_TYPE || tag.tagType || 'UNKNOWN',
+                LIBDS: tag.LIBDS || tag.libDs || null,
+                TAGHANDLE: tag.TAGHANDLE || tag.tagHandle || null,
+              },
+            });
+          }
+          groupMap.get(groupKey)?.handles.add(key);
         });
       });
-      if (lines.length) {
-        window.alert(`선택된 설비 정보:\n\n${lines.join('\n\n')}`);
-      }
+      return Array.from(groupMap.values()).map((group) => ({
+        tagNo: group.tagNo,
+        func: group.func,
+        handles: Array.from(group.handles),
+        tagType: group.raw.TAG_TYPE,
+        libds: group.raw.LIBDS,
+        handleKey: group.raw.TAGHANDLE,
+      }));
     },
     [equipmentTagMap]
   );
 
-  const clearSelection = useCallback(() => {
-    if (prevRedHandlesRef.current.size > 0) {
-      updateRedSelection(
+  const showEquipmentPopup = useCallback(() => {}, []);
+
+  const equipmentHandleSet = useMemo(() => {
+    const handles = Array.isArray(equipmentHandleModel?.allHandles) ? equipmentHandleModel.allHandles : [];
+    const normalized = normalizeHandles(handles);
+    return new Set(normalized);
+  }, [equipmentHandleModel]);
+
+  const filterHandlesByEquipment = useCallback(
+    (handles = []) => {
+      if (!modeConfig.enforceEquipmentSelection) return handles || [];
+      if (!Array.isArray(handles) || !handles.length) return [];
+      if (!equipmentHandleSet?.size) return [];
+      return handles
+        .map((handle) => (handle ? String(handle) : ''))
+        .filter((handle) => handle && equipmentHandleSet.has(handle));
+    },
+    [equipmentHandleSet, modeConfig.enforceEquipmentSelection]
+  );
+
+  const hoverSuppressedRef = useRef(false);
+
+  const hoverFilter = useCallback(
+    (handle) => {
+      if (!handle) return false;
+      if (!equipmentHandleSet?.size) return false;
+      return equipmentHandleSet.has(String(handle));
+    },
+    [equipmentHandleSet]
+  );
+
+  const handleHoverCandidate = useCallback(
+    (handle) => {
+      if (hoverSuppressedRef.current) return;
+      if (!handle) return;
+      const key = String(handle);
+      const inEquipment = equipmentHandleSet.size ? equipmentHandleSet.has(key) : false;
+      const inCache = entityDataMapRef.current.has(key);
+    },
+    [equipmentHandleSet]
+  );
+
+  const ensureEntityRef = useRef(() => null);
+
+  const colorizeHoverHandles = useCallback((handles) => {
+    const normalized = Array.isArray(handles)
+      ? handles.map((item) => (item ? String(item) : '')).filter(Boolean)
+      : [];
+
+    const current = hoverColorHandlesRef.current;
+    const nextSet = new Set(normalized);
+    const toRemove = [];
+
+    current.forEach((handle) => {
+      if (!nextSet.has(handle)) {
+        toRemove.push(handle);
+      }
+    });
+
+    toRemove.forEach((handle) => {
+      current.delete(handle);
+      const selected = Array.isArray(selectedHandlesRef.current)
+        ? selectedHandlesRef.current.includes(handle)
+        : false;
+      if (selected) {
+        const entry = entityDataMapRef.current.get(handle);
+        if (entry?.entityId && libRef.current) {
+          setColorBasic(libRef.current, entry.entityId, SELECTED_SELECTION_COLOR);
+        }
+      } else if (viewerRef.current && libRef.current) {
+        resetColorByHandle(
+          viewerRef.current,
+          libRef.current,
+          entityDataMapRef.current,
+          handle
+        );
+      }
+    });
+
+    normalized.forEach((handle) => {
+      if (current.has(handle)) return;
+      ensureEntityRef.current(handle);
+      const entry = entityDataMapRef.current.get(handle);
+      if (!entry?.entityId || !libRef.current) return;
+      setColorBasic(libRef.current, entry.entityId, HOVER_SELECTION_COLOR);
+      current.add(handle);
+    });
+  }, []);
+
+  const applyHoverVisuals = useCallback((handle) => {
+    const canvas = canvasRef.current;
+    if (enableHoverVisuals && canvas) {
+      canvas.style.cursor = handle ? 'pointer' : '';
+    }
+    const handles = handle ? expandHandlesToTagGroup([handle]) : [];
+    colorizeHoverHandles(handles);
+  }, [colorizeHoverHandles, enableHoverVisuals, expandHandlesToTagGroup]);
+
+  const setHoverSuppressed = useCallback(
+    (value = true) => {
+      const next = !!value;
+      if (hoverSuppressedRef.current === next) return;
+      hoverSuppressedRef.current = next;
+      if (next) {
+        applyHoverVisuals(null);
+      }
+    },
+    [applyHoverVisuals]
+  );
+
+  useEffect(() => {
+    setHoverSuppressed(!modeConfig.allowHoverHighlight);
+  }, [modeConfig.allowHoverHighlight, setHoverSuppressed]);
+
+  const handleHover = useCallback(
+    (handle) => {
+    if (hoverSuppressedRef.current) return;
+    if (!handle) {
+      applyHoverVisuals(null);
+      return;
+    }
+    const entry = entityDataMapRef.current.get(String(handle));
+    applyHoverVisuals(handle);
+  },
+  [applyHoverVisuals]
+);
+
+  const handleHoverEndColor = useCallback(() => {
+    if (hoverSuppressedRef.current) return;
+    applyHoverVisuals(null);
+  }, [applyHoverVisuals]);
+
+  const clearSelection = useCallback(({ keepHighlight = false } = {}) => {
+    applyHoverVisuals(null);
+    if (!keepHighlight) {
+      applySelectionColor(
         viewerRef.current,
         libRef.current,
         entityDataMapRef.current,
-        prevRedHandlesRef,
+        selectionColorHandlesRef,
         []
       );
     }
@@ -147,13 +394,17 @@ const ViewerCanvas = ({
     updateSelectedHandles([]);
     setEntities([]);
     setShowPanel(false);
-  }, []);
-
+    setShowEquipmentInfoPanel(false);
+    setEquipmentInfoEntries([]);
+  }, [applyHoverVisuals]);
   // 선택 이벤트 처리
   const handleSelect = useCallback(
     (payload) => {
       const additive = !!payload?.additive;
       const viewer = viewerRef.current;
+      if (!viewer) {
+        return;
+      }
       const selectionHandles = collectSelectedEntities(
         viewer,
         libRef.current,
@@ -165,37 +416,44 @@ const ViewerCanvas = ({
           ? payload.handles
           : selectionHandles;
 
-      let handles = incoming;
+      const filteredIncoming = filterHandlesByEquipment(incoming);
+      const groupHandles = expandHandlesToTagGroup(filteredIncoming);
+      let handles = groupHandles;
       if (additive) {
-      const current = new Set(selectedHandlesRef.current || []);
-        incoming.forEach((h) => {
-          const key = String(h);
-          if (current.has(key)) {
-            current.delete(key); // 토글
+        const current = new Set(
+          (selectedHandlesRef.current || []).map((h) => (h ? String(h) : ''))
+        );
+        groupHandles.forEach((h) => {
+          if (current.has(h)) {
+            current.delete(h); // 토글 group
           } else {
-            current.add(key);
+            current.add(h);
           }
         });
         handles = Array.from(current);
       }
+      handles = expandHandlesToTagGroup(handles);
 
       if (!handles || handles.length === 0) {
-        clearSelection();
+        const keepHighlight = Boolean(highlightHandlesRef.current?.length);
+        clearSelection({ keepHighlight });
         return;
       }
 
-      const applySelectionHandles = (hList) => {
-        if (!viewer) return;
-        try {
-          viewer.unselect?.();
-          if (Array.isArray(hList)) {
+        const applySelectionHandles = (hList) => {
+          if (!viewer) return;
+          try {
+            viewer.unselect?.();
+            if (Array.isArray(hList)) {
             hList.forEach((h) => {
-              try {
-                viewer.setSelectedEntity?.(h);
-              } catch (_) { }
-              try {
-                viewer.setSelected?.(h);
-              } catch (_) { }
+              const key = String(h);
+              const entry = entityDataMapRef.current.get(key);
+              const entityId = entry?.entityId;
+              if (entityId) {
+                try {
+                  viewer.setSelectedEntity?.(entityId);
+                } catch (_) { }
+              }
             });
           }
           viewer.update?.();
@@ -203,6 +461,8 @@ const ViewerCanvas = ({
       };
       applySelectionHandles(handles);
       collectSelectedEntities(viewer, libRef.current, entityDataMapRef, true);
+      viewer.unselect?.();
+      viewer.update?.();
 
       const mappedEntities = handles.map((h) => {
         const data = entityDataMapRef.current.get(String(h)) || {};
@@ -224,25 +484,57 @@ const ViewerCanvas = ({
         };
       });
 
-        updateRedSelection(
-          viewerRef.current,
-          libRef.current,
-          entityDataMapRef.current,
-          prevRedHandlesRef,
-          handles
-        );
-
-        updateSelectedHandles(handles);
+      updateSelectedHandles(handles);
+      const selectionColor = payload?.highlightColor ?? SELECTED_SELECTION_COLOR;
+      applySelectionColor(
+        viewerRef.current,
+        libRef.current,
+        entityDataMapRef.current,
+        selectionColorHandlesRef,
+        handles,
+        { color: selectionColor }
+      );
       setEntities(mappedEntities);
-      const shouldOpenPanel = payload?.openPanel !== false;
+      const shouldOpenPanel = allowEntityPanel && payload?.openPanel !== false;
       setShowPanel(shouldOpenPanel);
-      const shouldShowPopup = payload?.openPanel !== false;
-      if (shouldShowPopup) {
-        showEquipmentPopup(handles);
+        const shouldPopulateEquipmentInfo =
+          allowEquipmentInfoPanel &&
+          payload?.openPanel !== false;
+      if (shouldPopulateEquipmentInfo) {
+        const entries = buildEquipmentInfoDetails(handles);
+        setEquipmentInfoEntries(entries);
+        setShowEquipmentInfoPanel(entries.length > 0);
+        if (entries.length > 0) {
+          if (payload?.screenBox) {
+            positionEquipmentPanelNearBounds(payload.screenBox);
+          } else {
+            setEquipmentPanelPosition(
+              clampPanelPosition(
+                computePanelPosition(EQUIPMENT_PANEL_SIZE.width, EQUIPMENT_PANEL_SIZE.height),
+                EQUIPMENT_PANEL_SIZE
+              )
+            );
+          }
+        }
+      } else {
+        setShowEquipmentInfoPanel(false);
+        setEquipmentInfoEntries([]);
       }
     },
-    [clearSelection, showEquipmentPopup, updateSelectedHandles]
-  );
+      [
+        allowEntityPanel,
+        allowEquipmentInfoPanel,
+        buildEquipmentInfoDetails,
+        clearSelection,
+        expandHandlesToTagGroup,
+        updateSelectedHandles,
+        filterHandlesByEquipment,
+        positionEquipmentPanelNearBounds,
+        handleFileSelect,
+        activeFile?.DOCNO,
+        activeFile?.DOCVR,
+      ]
+    );
 
   useEffect(() => {
     if (isActive && !isLoading && viewerRef.current) {
@@ -260,15 +552,39 @@ const ViewerCanvas = ({
       {
         onSelect: handleSelect,
         cursorColor: isInverted ? '#ffffff' : '#000000',
+        hoverFilter,
+        onHoverCandidate: handleHoverCandidate,
+        onHover: handleHover,
+        onHoverEnd: handleHoverEndColor,
+        enableDragSelect: modeConfig.allowDragSelect,
       }
     );
     interactionsCleanupRef.current = cleanup;
-  }, [handleSelect, isInverted]);
+  }, [handleSelect, handleHoverCandidate, hoverFilter, handleHover, handleHoverEndColor, isInverted, modeConfig.allowDragSelect]);
 
   const handleSelectRef = useRef(handleSelect);
   useEffect(() => {
     handleSelectRef.current = handleSelect;
   }, [handleSelect]);
+
+  const selectHandlesDirectly = useCallback(
+    (handles = [], options = {}) => {
+      const normalized = Array.isArray(handles)
+        ? handles.map((handle) => (handle ? String(handle) : '')).filter(Boolean)
+        : [];
+      if (!normalized.length) {
+        clearSelection();
+        return;
+      }
+      handleSelectRef.current?.({
+        handles: normalized,
+        additive: false,
+        openPanel: false,
+        highlightColor: options.highlightColor,
+      });
+    },
+    [clearSelection]
+  );
 
   const toggleInvert = useCallback(() => {
     setIsInverted((prev) => !prev);
@@ -463,12 +779,20 @@ const ViewerCanvas = ({
   }, [isActive, isLoading, clearSelection]);
 
   useEffect(() => {
+    if (!allowEquipmentInfoPanel) {
+      setShowEquipmentInfoPanel(false);
+      setEquipmentInfoEntries([]);
+    }
+  }, [allowEquipmentInfoPanel]);
+
+  useEffect(() => {
     if (!isActive || isLoading) return;
     const viewer = viewerRef.current;
     if (!viewer) return;
     const handles = Array.isArray(highlightHandles)
       ? highlightHandles.map((h) => String(h)).filter(Boolean)
       : [];
+    highlightHandlesRef.current = handles;
 
     if (!handles.length) {
       clearSelection();
@@ -480,19 +804,26 @@ const ViewerCanvas = ({
     try {
       viewer.unselect?.();
       handles.forEach((handle) => {
+        const entry = entityDataMapRef.current.get(handle);
+        const entityId = entry?.entityId;
+        if (!entityId) return;
         try {
-          viewer.setSelectedEntity?.(handle);
-        } catch (_) { }
-        try {
-          viewer.setSelected?.(handle);
-        } catch (_) { }
+          viewer.setSelectedEntity?.(entityId);
+        } catch (err) {
+          console.warn('[ViewerCanvas] setSelectedEntity failed', handle, err);
+        }
       });
       viewer.update?.();
-      handleSelectRef.current?.({ handles, additive: false, openPanel: false });
+      handleSelectRef.current?.({
+        handles,
+        additive: false,
+        openPanel: false,
+        highlightColor,
+      });
     } catch (err) {
       console.warn('[ViewerCanvas] highlight fail', err);
     }
-  }, [highlightHandles, isActive, isLoading, clearSelection]);
+  }, [highlightHandles, highlightColor, isActive, isLoading, clearSelection]);
 
   const setSelectionHandles = useCallback((handles = []) => {
     const viewer = viewerRef.current;
@@ -500,31 +831,93 @@ const ViewerCanvas = ({
     viewer.unselect?.();
     handles.forEach((handle) => {
       try {
-        viewer.setSelectedEntity?.(handle);
-      } catch (_) { }
-      try {
-        viewer.setSelected?.(handle);
+        const entry = entityDataMapRef.current.get(String(handle));
+        const entityId = entry?.entityId;
+        if (entityId) {
+          viewer.setSelectedEntity?.(entityId);
+        } else {
+          viewer.setSelectedEntity?.(handle);
+        }
       } catch (_) { }
     });
     viewer.update?.();
   }, []);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const onNonLeftDown = (event) => {
+      if (event.button === 1 || event.button === 2) {
+        clearSelection();
+      }
+    };
+    canvas.addEventListener('mousedown', onNonLeftDown);
+    return () => {
+      canvas.removeEventListener('mousedown', onNonLeftDown);
+    };
+  }, [clearSelection]);
+
+  const forcePopulateEntityCache = useCallback(() => {
+    const viewer = viewerRef.current;
+    const canvas = canvasRef.current;
+    const libInstance = libRef.current;
+    if (!viewer || !canvas || !libInstance) return;
+
+    const prevHandles = Array.isArray(selectedHandlesRef.current)
+      ? [...selectedHandlesRef.current]
+      : [];
+
+    viewer.unselect?.();
+    const width = canvas.width || canvas.clientWidth || 0;
+    const height = canvas.height || canvas.clientHeight || 0;
+    if (width && height) {
+      viewer.select?.(0, 0, width, height);
+      collectSelectedEntities(viewer, libInstance, entityDataMapRef, true);
+    }
+    if (prevHandles.length) {
+      setSelectionHandles(prevHandles);
+    } else {
+      viewer.unselect?.();
+    }
+    viewer.update?.();
+  }, [setSelectionHandles]);
+
 
   const ensureEntityForHandle = useCallback(
-    (handle) => {
+    (handle, options = {}) => {
       if (!handle) return null;
       const key = String(handle);
+      const callDoc = currentDocRef.current;
+      if (callDoc && callDoc !== activeFile?.DOCNO) {
+        console.log(
+          '[ViewerCanvas] ensureEntityForHandle skipped stale doc',
+          key,
+          callDoc,
+          activeFile?.DOCNO
+        );
+        return null;
+      }
       let entry = entityDataMapRef.current.get(key);
-      if (entry?.entityId) return entry.entityId;
+      if (entry?.entityId) {
+        return entry.entityId;
+      }
 
       const viewer = viewerRef.current;
       const libInstance = libRef.current;
-      if (!viewer || !libInstance) return null;
+      if (!viewer || !libInstance) {
+        console.warn(
+          '[ViewerCanvas] ensureEntityForHandle missing viewer/lib',
+          key,
+          activeFile?.DOCNO,
+          activeFile?.DOCNUMBER
+        );
+        return null;
+      }
 
       const prevHandles = Array.isArray(selectedHandlesRef.current) ? [...selectedHandlesRef.current] : [];
 
       setSelectionHandles([key]);
-      collectSelectedEntities(viewer, libInstance, entityDataMapRef, true);
+      collectSelectedEntities(viewer, libInstance, entityDataMapRef, true, options);
 
       if (prevHandles.length) {
         setSelectionHandles(prevHandles);
@@ -534,9 +927,75 @@ const ViewerCanvas = ({
       }
 
       entry = entityDataMapRef.current.get(key);
+      if (!entry?.entityId) {
+        forcePopulateEntityCache();
+        entry = entityDataMapRef.current.get(key);
+      }
+      if (!entry?.entityId) {
+        // do nothing when handle is missing
+      }
       return entry?.entityId || null;
     },
-    [selectedHandles, setSelectionHandles]
+    [setSelectionHandles, forcePopulateEntityCache, activeFile?.DOCNO, activeFile?.DOCNUMBER]
+  );
+
+  useEffect(() => {
+    ensureEntityRef.current = ensureEntityForHandle;
+  }, [ensureEntityForHandle]);
+
+  const prepareHandles = useCallback(
+    (handles = [], options = {}) => {
+      const normalized = Array.isArray(handles)
+        ? handles.map((handle) => (handle ? String(handle) : '')).filter(Boolean)
+        : [];
+      if (!normalized.length) {
+        return Promise.resolve({ resolved: [], missing: [] });
+      }
+
+      const chunkSize = Math.max(1, options.chunkSize || 16);
+      const shouldYield = options.shouldYield !== false;
+
+      const waitForIdle = () =>
+        new Promise((resolve) => {
+          if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(() => resolve(), { timeout: 50 });
+          } else {
+            setTimeout(resolve, 16);
+          }
+        });
+
+      const processChunk = async (start = 0) => {
+        if (start >= normalized.length) {
+          return;
+        }
+        if (!viewerRef.current || !libRef.current) return;
+        const end = Math.min(normalized.length, start + chunkSize);
+        for (let idx = start; idx < end; idx += 1) {
+          ensureEntityForHandle(normalized[idx], { allowedHandleSet: equipmentHandleSet });
+        }
+        if (end >= normalized.length) return;
+        if (shouldYield) await waitForIdle();
+        return processChunk(end);
+      };
+
+      const run = async () => {
+        await processChunk(0);
+        const resolved = [];
+        const missing = [];
+        normalized.forEach((handle) => {
+          const entry = entityDataMapRef.current.get(handle);
+          if (entry?.entityId) {
+            resolved.push(handle);
+          } else {
+            missing.push(handle);
+          }
+        });
+        return { resolved, missing };
+      };
+
+      return run();
+    },
+    [ensureEntityForHandle, equipmentHandleSet]
   );
 
   const handleZoomToEntity = useCallback(
@@ -544,6 +1003,7 @@ const ViewerCanvas = ({
       const viewer = viewerRef.current;
       const canvas = canvasRef.current;
       if (!viewer || !handle || !canvas) return;
+      currentDocRef.current = activeFile?.DOCNO || null;
       const entity = ensureEntityForHandle(handle);
       if (!entity) return;
       viewer.zoomToEntity?.(entity);
@@ -553,7 +1013,92 @@ const ViewerCanvas = ({
       viewer.zoomAt?.(zoomFactor, centerX, centerY);
       viewer.update?.();
     },
-    [zoomFactor, ensureEntityForHandle]
+    [zoomFactor, activeFile?.DOCNO]
+  );
+
+  const handleZoomToHandles = useCallback(
+    (handles = []) => {
+      const normalized = Array.isArray(handles)
+        ? handles.map((handle) => (handle ? String(handle) : '')).filter(Boolean)
+        : [];
+      if (!normalized.length) return;
+      currentDocRef.current = activeFile?.DOCNO || null;
+      normalized.forEach((handle) => {
+        ensureEntityRef.current?.(handle);
+      });
+
+      const entries = normalized
+        .map((handle) => {
+          const entry = entityDataMapRef.current.get(handle);
+          if (!entry?.entityId) return null;
+          const extents =
+            typeof entry.entityId.getExtents === 'function'
+              ? entry.entityId.getExtents()
+              : null;
+          if (!extents) return null;
+          const minPoint = extents.getMinPoint?.();
+          const maxPoint = extents.getMaxPoint?.();
+          if (!minPoint || !maxPoint) return null;
+          return {
+            handle,
+            entry,
+            min: minPoint,
+            max: maxPoint,
+            center: {
+              x: (minPoint.x + maxPoint.x) / 2,
+              y: (minPoint.y + maxPoint.y) / 2,
+              z: (minPoint.z + maxPoint.z) / 2,
+            },
+          };
+        })
+        .filter(Boolean);
+
+      if (!entries.length) return;
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let minZ = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      let maxZ = -Infinity;
+
+      entries.forEach(({ min, max }) => {
+        minX = Math.min(minX, min.x);
+        minY = Math.min(minY, min.y);
+        minZ = Math.min(minZ, min.z);
+        maxX = Math.max(maxX, max.x);
+        maxY = Math.max(maxY, max.y);
+        maxZ = Math.max(maxZ, max.z);
+      });
+
+      if (![minX, minY, minZ, maxX, maxY, maxZ].every(Number.isFinite)) return;
+
+      const center = {
+        x: (minX + maxX) / 2,
+        y: (minY + maxY) / 2,
+        z: (minZ + maxZ) / 2,
+      };
+
+      const viewer = viewerRef.current;
+      if (!viewer) return;
+
+      let bestEntry = entries[0];
+      let bestDist = Number.POSITIVE_INFINITY;
+      entries.forEach(({ entry, center: entryCenter }) => {
+        const dx = entryCenter.x - center.x;
+        const dy = entryCenter.y - center.y;
+        const dz = entryCenter.z - center.z;
+        const dist = dx * dx + dy * dy + dz * dz;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestEntry = { entry, center: entryCenter };
+        }
+      });
+
+      viewer.zoomToEntity?.(bestEntry.entry.entityId);
+      viewer.update?.();
+    },
+    [activeFile?.DOCNO]
   );
 
   const handleColorOverride = useCallback((handle, option) => {
@@ -586,17 +1131,39 @@ const ViewerCanvas = ({
     }
   }, []);
 
+
   useEffect(() => {
-    if (typeof registerHighlightActions !== 'function') return undefined;
-    registerHighlightActions({
+    if (typeof registerHighlightActions !== 'function' || !docno) return undefined;
+    registerHighlightActions(docno, {
       zoomToHandle: handleZoomToEntity,
+      zoomToHandles: handleZoomToHandles,
       colorOverride: handleColorOverride,
+      prepareHandles,
+      selectHandles: selectHandlesDirectly,
+      setHoverSuppressed,
     });
-    return () => registerHighlightActions({});
-  }, [handleZoomToEntity, handleColorOverride, registerHighlightActions]);
+    return () => registerHighlightActions(docno, {});
+  }, [
+    docno,
+    handleZoomToEntity,
+    handleZoomToHandles,
+    handleColorOverride,
+    prepareHandles,
+    registerHighlightActions,
+    selectHandlesDirectly,
+    setHoverSuppressed,
+  ]);
+
+  useEffect(() => {
+    if (!allowEntityPanel) {
+      setShowPanel(false);
+    }
+  }, [allowEntityPanel]);
 
   const visibleStyle = { opacity: isLoading ? 0.35 : 1 };
   const invertStyle = isInverted ? { filter: 'invert(1)' } : {};
+  const overlayVisible = Boolean(isLoading);
+  const overlayText = '도면을 불러오는 중입니다...';
 
   return (
     <div
@@ -604,7 +1171,11 @@ const ViewerCanvas = ({
       className="viewer-app-container"
       style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}
     >
-      <CanvasLoadingOverlay visible={isLoading} percent={loadPercent} />
+      <CanvasLoadingOverlay
+        visible={overlayVisible}
+        percent={loadPercent}
+        text={overlayText}
+      />
       <div className="viewer-canvas-container" style={{ flex: 1, position: 'relative', ...visibleStyle, ...invertStyle }}>
         <canvas
           ref={canvasRef}
@@ -613,14 +1184,16 @@ const ViewerCanvas = ({
         />
 
         {isActive && (
-          <ViewerCanvasToolbar
-            onToggleInvert={toggleInvert}
-            isInverted={isInverted}
-            onOpenPanel={() => setShowPanel((prev) => !prev)}
-            isInfoActive={showPanel}
-            isFavorite={isFavorite}
-            onToggleFavorite={onToggleFavorite}
-          />
+        <ViewerCanvasToolbar
+          onToggleInvert={toggleInvert}
+          isInverted={isInverted}
+          onZoomExtents={runZoomExtents}
+          onOpenPanel={allowEntityPanel ? () => setShowPanel((prev) => !prev) : undefined}
+          isInfoActive={showPanel}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+          showEntityInfoButton={allowEntityPanel}
+        />
         )}
 
         {errorMessage && (
@@ -642,17 +1215,17 @@ const ViewerCanvas = ({
         )}
       </div>
 
-      {showPanel && (
-        <EntityDetailsPanel
-          entities={entities}
-          onClose={() => setShowPanel(false)}
-          initialPosition={panelPosition}
-          onPositionChange={(pos) => setPanelPosition(clampPanelPosition(pos, panelSize))}
-          initialSize={panelSize}
-          onSizeChange={(size) => {
-            setPanelSize(size);
-            setPanelPosition((prev) => clampPanelPosition(prev, size));
-          }}
+  {showPanel && (
+  <EntityDetailsPanel
+    entities={entities}
+    onClose={() => setShowPanel(false)}
+    initialPosition={panelPosition}
+    onPositionChange={(pos) => setPanelPosition(clampPanelPosition(pos, panelSize))}
+    initialSize={panelSize}
+    onSizeChange={(size) => {
+      setPanelSize(size);
+      setPanelPosition((prev) => clampPanelPosition(prev, size));
+    }}
           resolveEntityColorDetails={(entityId) => {
             const entry = entityDataMapRef.current?.get(String(entityId)) || null;
             if (!entry) return null;
@@ -662,8 +1235,8 @@ const ViewerCanvas = ({
               type: entry.type || null,
             };
           }}
-          onZoomToEntity={handleZoomToEntity}
-          onColorOverride={handleColorOverride}
+      onZoomToEntity={handleZoomToEntity}
+      onColorOverride={handleColorOverride}
           onToggleInvert={toggleInvert}
           isInverted={isInverted}
           onRestoreOriginal={() => {
@@ -695,6 +1268,14 @@ const ViewerCanvas = ({
           }}
         />
       )}
+        {allowEquipmentInfoPanel && (
+          <EquipmentInfoPanelComponent
+            entries={equipmentInfoEntries}
+            visible={showEquipmentInfoPanel}
+            position={equipmentPanelPosition}
+            onClose={() => setShowEquipmentInfoPanel(false)}
+          />
+        )}
     </div>
   );
 };
