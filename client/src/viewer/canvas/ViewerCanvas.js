@@ -80,6 +80,8 @@ const ViewerCanvas = ({
   const [equipmentInfoEntries, setEquipmentInfoEntries] = useState([]);
   const [showEquipmentInfoPanel, setShowEquipmentInfoPanel] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
+  const showPanelRef = useRef(showPanel);
+  const showEquipmentInfoPanelRef = useRef(showEquipmentInfoPanel);
   const hoverColorHandlesRef = useRef(new Set());
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
   const selectedHandlesRef = useRef([]);
@@ -140,17 +142,17 @@ const ViewerCanvas = ({
     allowHoverHighlight: mode === VIEWER_MODES.PID,
   }), [mode]);
   const enableHoverVisuals = modeConfig.allowHoverHighlight;
-  const {
-    registerHighlightActions,
-    openFiles,
-    activeFileId,
-    equipmentHandleModel,
-    handleFileSelect,
-    handleViewerReady,
-    layerListsByDoc,
-    hiddenLayersByDoc,
-    setLayerListForDoc,
-  } = useViewer();
+    const {
+      registerHighlightActions,
+      openFiles,
+      activeFileId,
+      equipmentHandleModel,
+      handleFileSelect,
+      handleViewerReady,
+      layerListsByDoc,
+      hiddenLayersByDoc,
+      setLayerListForDoc,
+    } = useViewer();
 
   const activeFile = useMemo(
     () => openFiles.find((file) => file.DOCNO === activeFileId),
@@ -442,6 +444,9 @@ const ViewerCanvas = ({
         entityDataMapRef,
         true
       );
+      const previousHandles = Array.isArray(selectedHandlesRef.current)
+        ? [...selectedHandlesRef.current]
+        : [];
       const incoming =
         payload?.handles && Array.isArray(payload.handles) && payload.handles.length
           ? payload.handles
@@ -465,17 +470,11 @@ const ViewerCanvas = ({
       }
       handles = expandHandlesToTagGroup(handles);
 
-      if (!handles || handles.length === 0) {
-        const keepHighlight = Boolean(highlightHandlesRef.current?.length);
-        clearSelection({ keepHighlight });
-        return;
-      }
-
-        const applySelectionHandles = (hList) => {
-          if (!viewer) return;
-          try {
-            viewer.unselect?.();
-            if (Array.isArray(hList)) {
+      const applySelectionHandles = (hList) => {
+        if (!viewer) return;
+        try {
+          viewer.unselect?.();
+          if (Array.isArray(hList)) {
             hList.forEach((h) => {
               const key = String(h);
               const entry = entityDataMapRef.current.get(key);
@@ -490,10 +489,32 @@ const ViewerCanvas = ({
           viewer.update?.();
         } catch (_) { }
       };
+
+      const syncViewerSelection = () => {
+        collectSelectedEntities(viewer, libRef.current, entityDataMapRef, true);
+        viewer.unselect?.();
+        viewer.update?.();
+      };
+
+      const hasHighlightHandles = Boolean(highlightHandlesRef.current?.length);
+      const isBlankClick = payload?.mode === 'click' && (!handles || handles.length === 0);
+      const panelsOpen = showPanelRef.current || showEquipmentInfoPanelRef.current;
+
+      if (!handles || handles.length === 0) {
+        if (panelsOpen) {
+          setShowPanel(false);
+          setShowEquipmentInfoPanel(false);
+          setEquipmentInfoEntries([]);
+          return;
+        }
+        const keepHighlight = hasHighlightHandles;
+        clearSelection({ keepHighlight });
+        return;
+      }
+
+      const equipmentEntries = buildEquipmentInfoDetails(handles);
       applySelectionHandles(handles);
-      collectSelectedEntities(viewer, libRef.current, entityDataMapRef, true);
-      viewer.unselect?.();
-      viewer.update?.();
+      syncViewerSelection();
 
       const mappedEntities = handles.map((h) => {
         const data = entityDataMapRef.current.get(String(h)) || {};
@@ -528,11 +549,11 @@ const ViewerCanvas = ({
       setEntities(mappedEntities);
       const shouldOpenPanel = allowEntityPanel && payload?.openPanel !== false;
       setShowPanel(shouldOpenPanel);
-        const shouldPopulateEquipmentInfo =
-          allowEquipmentInfoPanel &&
-          payload?.openPanel !== false;
+      const shouldPopulateEquipmentInfo =
+        allowEquipmentInfoPanel &&
+        payload?.openPanel !== false;
       if (shouldPopulateEquipmentInfo) {
-        const entries = buildEquipmentInfoDetails(handles);
+        const entries = equipmentEntries;
         setEquipmentInfoEntries(entries);
         setShowEquipmentInfoPanel(entries.length > 0);
         if (entries.length > 0) {
@@ -552,20 +573,20 @@ const ViewerCanvas = ({
         setEquipmentInfoEntries([]);
       }
     },
-      [
-        allowEntityPanel,
-        allowEquipmentInfoPanel,
-        buildEquipmentInfoDetails,
-        clearSelection,
-        expandHandlesToTagGroup,
-        updateSelectedHandles,
-        filterHandlesByEquipment,
-        positionEquipmentPanelNearBounds,
-        handleFileSelect,
-        activeFile?.DOCNO,
-        activeFile?.DOCVR,
-      ]
-    );
+    [
+      allowEntityPanel,
+      allowEquipmentInfoPanel,
+      buildEquipmentInfoDetails,
+      clearSelection,
+      expandHandlesToTagGroup,
+      updateSelectedHandles,
+      filterHandlesByEquipment,
+      positionEquipmentPanelNearBounds,
+      handleFileSelect,
+      activeFile?.DOCNO,
+      activeFile?.DOCVR,
+    ]
+  );
 
   useEffect(() => {
     if (isActive && !isLoading && viewerRef.current) {
@@ -878,11 +899,27 @@ const ViewerCanvas = ({
   }, []);
 
   useEffect(() => {
+    showPanelRef.current = showPanel;
+  }, [showPanel]);
+
+  useEffect(() => {
+    showEquipmentInfoPanelRef.current = showEquipmentInfoPanel;
+  }, [showEquipmentInfoPanel]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     const onNonLeftDown = (event) => {
       if (event.button === 1 || event.button === 2) {
-        clearSelection();
+        if (showPanelRef.current || showEquipmentInfoPanelRef.current) {
+          setShowPanel(false);
+          setShowEquipmentInfoPanel(false);
+          setEquipmentInfoEntries([]);
+        } else {
+          const keepHighlight =
+            Boolean(highlightHandlesRef.current?.length);
+          clearSelection({ keepHighlight });
+        }
       }
     };
     canvas.addEventListener('mousedown', onNonLeftDown);
