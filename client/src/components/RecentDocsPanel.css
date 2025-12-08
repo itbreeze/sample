@@ -111,6 +111,13 @@
   color: inherit;
 }
 
+.recent-doc-item {
+  background-color: var(--background-color);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
 .recent-doc-title {
   font-size: 15px;
   font-weight: var(--tree-node-leaf-weight, 400);
@@ -128,6 +135,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 2px;
+}
+
+.recent-doc-item:hover {
+  background-color: #f1f3f4;
+  border-color: var(--primary-color-border);
+}
+
+.recent-doc-date {
+  font-size: 13px;
+  color: inherit;
+  margin-top: 2px;
+}
+
+.recent-doc-item:hover .recent-doc-date {
+  color: var(--primary-color);
 }
 
 .recent-doc-remove {

@@ -43,6 +43,10 @@
   text-overflow: ellipsis;
   transition: background-color 0.2s ease;
   position: relative;
+  user-select: none;
+  -webkit-user-drag: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .view-tab.dragging {
@@ -90,6 +94,7 @@
   margin-right: 6px;
   flex: 1;
   min-width: 0;
+  user-select: none;
 }
 
 .close-tab-btn {

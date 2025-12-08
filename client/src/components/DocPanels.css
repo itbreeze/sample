@@ -52,6 +52,7 @@
   align-items: center;
   padding: 4px 6px;
   border-radius: 4px;
+  border: 1px solid transparent;
   transition: background-color 0.2s ease, color 0.2s ease;
   color: var(--text-color-primary, #111);
   gap: 8px;
@@ -70,8 +71,17 @@
 .doc-node:hover .doc-node-header,
 .doc-node.hovered .doc-node-header,
 .doc-node-header:hover {
-  background-color: var(--hover-background-color, #f0f2f5);
+  background-color: #f1f3f4;
   color: var(--primary-color, #007fff);
+  border: 1px solid var(--primary-color-border, #b3d8ff);
+}
+
+.favorite-tree-node:hover .doc-node-header,
+.favorite-tree-node.hovered .doc-node-header,
+.favorite-tree-node .doc-node-header:hover {
+  background-color: #f1f3f4;
+  color: var(--primary-color, #007fff);
+  border: 1px solid var(--primary-color-border, #b3d8ff);
 }
 
 .doc-node-header:hover svg,

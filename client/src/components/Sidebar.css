@@ -38,6 +38,10 @@
   cursor: pointer;
   box-sizing: border-box;
   transition: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .sidebar-toggle {
@@ -61,6 +65,7 @@
   transition: none;
   white-space: nowrap;
   overflow: hidden;
+  user-select: none;
 }
 
 .app-sidebar.open {

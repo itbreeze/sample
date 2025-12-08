@@ -394,16 +394,6 @@ const SearchResultList = ({
                 value={draftConditions.selectedPath}
               />
             )}
-            {draftConditions.selectedPath && draftConditions.selectedPath !== '전체' && (
-              <button
-                type="button"
-                className="field-clear-btn"
-                onClick={clearLevelSelection}
-                title="검색범위 초기화"
-              >
-                <X size={16} />
-              </button>
-            )}
           </div>
         </div>
 
