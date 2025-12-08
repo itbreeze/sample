@@ -59,7 +59,10 @@ const LayerMenu = () => {
                 'equipment-card__chip',
                 'layer-tree-node__chip',
                 isVisible ? 'layer-tree-node__chip--visible' : 'layer-tree-node__chip--hidden',
-              ].join(' ')}
+                isVisible ? 'active' : null,
+              ]
+                .filter(Boolean)
+                .join(' ')}
               aria-pressed={isHidden}
               aria-label={`${layer.name} 레이어 ${isHidden ? '보이기' : '숨기기'}`}
               onClick={(event) => {
