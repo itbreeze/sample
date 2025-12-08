@@ -7,6 +7,11 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, selectedId }
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedId === node.id;
   const isFolder = node.type === 'folder';
+  const typographyVariant = hasChildren
+    ? level === 0
+      ? 'tree-typography--parent'
+      : 'tree-typography--child'
+    : 'tree-typography--leaf';
 
   const handleArrowClick = (e) => {
     e.stopPropagation();
@@ -42,7 +47,10 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, selectedId }
             <FileText size={16} />
           )}
         </span>
-        <span className="node-name" title="선택">
+        <span
+          className={`node-name tree-typography ${typographyVariant}`}
+          title="선택"
+        >
           {node.name}
         </span>
         {isSelected && (
@@ -128,7 +136,7 @@ const TreeComboBox = ({ data, onNodeSelect, placeholder = '항목을 선택하�
           >
             <span className="expand-icon" style={{ visibility: 'hidden' }} />
             <span className="type-icon"><FolderClosed size={16} /></span>
-            <span className="node-name">전체</span>
+          <span className="node-name tree-typography tree-typography--parent">전체</span>
           </div>
 
           {data.map((node) => (

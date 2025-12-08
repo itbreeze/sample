@@ -95,6 +95,13 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
     isActive ? 'active' : '',
   ].filter(Boolean).join(' ');
 
+  const labelVariant = node.CHILDREN && node.CHILDREN.length > 0
+    ? depth === 0
+      ? 'tree-typography--parent'
+      : 'tree-typography--child'
+    : 'tree-typography--leaf';
+  const labelClassName = ['tree-node-label', 'tree-typography', labelVariant].join(' ');
+
   return (
     <li className="tree-node">
       <div
@@ -111,7 +118,9 @@ const TreeNode = ({ node, filter, onFileSelect, activeFileId, depth, expandedNod
         ) : (
           <FolderClosed style={{ flexShrink: 0, width: "16px", height: "16px" }} />
         )}
-        <span style={{
+        <span
+          className={labelClassName}
+          style={{
           marginLeft: "5px",
           whiteSpace: "nowrap",
           overflow: "hidden",

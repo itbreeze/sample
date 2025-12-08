@@ -17,7 +17,7 @@
 
 .recent-doc-heading {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--tree-node-parent-weight, 400);
   color: var(--text-color-primary);
 }
 
@@ -50,14 +50,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
+  font-weight: var(--tree-node-parent-weight, 400);
   font-size: 15px;
   color: inherit;
 }
 
 .recent-doc-group-count {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--tree-node-parent-weight, 400);
   color: inherit;
   margin-left: 4px;
 }
@@ -113,7 +113,8 @@
 
 .recent-doc-title {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--tree-node-leaf-weight, 400);
+  font-family: var(--tree-node-font-family, inherit);
   color: inherit;
   overflow: hidden;
   text-overflow: ellipsis;

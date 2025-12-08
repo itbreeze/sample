@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 700;
+  font-weight: var(--tree-node-parent-weight, 400);
   font-size: 15px;
   color: var(--text-color-primary, #111);
   padding: 4px 6px;
@@ -82,7 +82,7 @@
 .doc-node-header.active {
   background-color: var(--primary-color-light, #e0f2ff);
   color: var(--primary-color, #007fff);
-  font-weight: 600;
+  font-weight: var(--tree-node-parent-weight, 400);
 }
 
 /* make doc text shrink to allow ellipsis when panels narrow */
@@ -98,13 +98,18 @@
   color: var(--text-color-secondary, #5c6578);
 }
 
+.favorite-tree-node .doc-node-text {
+  color: inherit;
+}
+
 .doc-node-title {
-  font-weight: 600;
+  font-weight: var(--tree-node-leaf-weight, 400);
   font-size: 15px;
+  font-family: var(--tree-node-font-family, inherit);
+  color: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: inherit;
   display: block;
   width: 100%;
   min-width: 0;

@@ -50,7 +50,7 @@ const LayerMenu = () => {
             onKeyDown={handleKeyDown}
           >
             <div className="equipment-tree-node__label layer-tree-node__label">
-              <strong>{layer.name}</strong>
+              <strong className="tree-typography tree-typography--leaf">{layer.name}</strong>
             </div>
             <div className="equipment-tree-node__actions layer-tree-node__actions--right">
               <span

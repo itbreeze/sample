@@ -290,9 +290,10 @@
 
 
 .equipment-tree-tag__label {
-  font-weight: 600;
   font-size: 15px;
+  transition: color 0.15s ease;
 }
+.equipment-tree-tag__select:hover .equipment-tree-tag__label,
 .equipment-tree-tag__label.active {
   color: #2563eb;
 }

@@ -409,6 +409,14 @@ const EquipmentMenu = () => {
     const tagHasManualHighlight = manualTagHighlightIds.has(tag.id);
     const tagHasHighlight = nodeActive || tagHasManualHighlight;
     const isActive = nodeActive || tagHasManualHighlight;
+    const tagLabelClassName = [
+      'equipment-tree-tag__label',
+      tagHasHighlight ? 'active' : null,
+      'tree-typography',
+      'tree-typography--leaf',
+    ]
+      .filter(Boolean)
+      .join(' ');
     return (
       <div className="equipment-tree-tag" key={tag.id}>
         <button
@@ -420,7 +428,7 @@ const EquipmentMenu = () => {
           aria-label={`${tag.label} 선택하여 하이라이트 및 줌`}
         >
           <FileCog size={14} />
-          <span className={`equipment-tree-tag__label ${tagHasHighlight ? 'active' : ''}`}>{tag.label}</span>
+          <span className={tagLabelClassName}>{tag.label}</span>
         </button>
       </div>
     );
@@ -430,6 +438,13 @@ const EquipmentMenu = () => {
     const nodeHandles = node.totalHandles || [];
     const isNodeActive = isHandleSetActive(node.id);
     const isExpanded = expandedNodes.has(node.id);
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const nodeLabelVariant = hasChildren
+      ? depth === 0
+        ? 'tree-typography--parent'
+        : 'tree-typography--child'
+      : 'tree-typography--leaf';
+    const nodeLabelClassName = ['tree-typography', nodeLabelVariant].join(' ');
     return (
       <div className="equipment-tree-node" key={node.id} style={{ '--equipment-depth': depth }}>
         <div className="equipment-tree-node__header">
@@ -450,7 +465,7 @@ const EquipmentMenu = () => {
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
           <div className="equipment-tree-node__label">
-            <strong>{node.label}</strong>
+            <strong className={nodeLabelClassName}>{node.label}</strong>
             <span className="equipment-tree-node__count">
               {`(${node.tagGroupCount || 0})`}
             </span>

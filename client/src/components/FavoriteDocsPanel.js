@@ -137,7 +137,7 @@ export default function FavoriteDocsPanel({
                   <ChevronRight size={14} />
                 )}
 
-                <span>
+                <span className="tree-typography tree-typography--parent">
                   도면 ({docs.length})
                 </span>
               </div>
@@ -167,7 +167,7 @@ export default function FavoriteDocsPanel({
                       >
                         <FileText style={{ width: 18, height: 18 }} />
                         <div className="doc-node-text">
-                          <span className="doc-node-title">
+                          <span className="doc-node-title tree-typography tree-typography--leaf">
                             {docDisplay.title}
                           </span>
                           {docDisplay.infoLine && (
@@ -207,7 +207,7 @@ export default function FavoriteDocsPanel({
                   <ChevronRight size={14} />
                 )}
 
-                <span>
+                <span className="tree-typography tree-typography--parent">
                   설비 ({equips.length})
                 </span>
               </div>
@@ -247,7 +247,7 @@ export default function FavoriteDocsPanel({
                           }}
                         />
                         <div className="doc-node-text">
-                          <span className="doc-node-title">
+                          <span className="doc-node-title tree-typography tree-typography--leaf">
                             설비명: {eq.function}
                           </span>
                           {eqDisplay.infoLine && (

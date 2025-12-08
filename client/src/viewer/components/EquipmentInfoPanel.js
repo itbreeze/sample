@@ -184,6 +184,20 @@ const EquipmentInfoPanel = ({
     };
   }, [visible, onClose]);
 
+  useEffect(() => {
+    if (!visible) return undefined;
+
+    const handleWheel = (event) => {
+      if (panelRef.current?.contains(event.target)) return;
+      onClose?.();
+    };
+
+    document.addEventListener('wheel', handleWheel, { passive: true });
+    return () => {
+      document.removeEventListener('wheel', handleWheel, { passive: true });
+    };
+  }, [visible, onClose]);
+
   const handleFavoriteClick = useCallback(
     async (funcEntry, event) => {
       event?.stopPropagation();

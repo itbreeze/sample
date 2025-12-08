@@ -165,13 +165,13 @@ const RecentDocsPanel = ({
       className="recent-doc-group-header doc-section-heading"
       onClick={() => handleGroupToggle(group.key)}
     >
-      <div className="recent-doc-group-title">
-        {isExpanded ? (
-          <ChevronDown size={14} />
-        ) : (
+        <div className="recent-doc-group-title">
+          {isExpanded ? (
+            <ChevronDown size={14} />
+          ) : (
           <ChevronRight size={14} />
         )}
-        <span>{group.label}</span>
+        <span className="tree-typography tree-typography--parent">{group.label}</span>
         <span className="recent-doc-group-count">
           ({group.total})
         </span>
@@ -202,7 +202,7 @@ const RecentDocsPanel = ({
             <FileText className="recent-doc-icon" />
           </div>
           <div className="recent-doc-text doc-node-text">
-            <span className="recent-doc-title doc-node-title">{title}</span>
+            <span className="recent-doc-title doc-node-title tree-typography tree-typography--leaf">{title}</span>
             {infoLine && (
               <span className="recent-doc-info doc-node-info">
                 {infoLine}
