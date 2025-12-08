@@ -1,0 +1,46 @@
+.tab-component {
+  width: 100%;
+}
+
+.tab-list {
+  display: flex;
+  white-space: nowrap;
+}
+
+.tab-item {
+  position: relative;
+  padding: 8px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-color-primary);
+  cursor: pointer;
+  transition: none;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tab-component.single-tab .tab-item {
+  cursor: default;
+}
+
+.tab-component.multi-tab .tab-item.selectable {
+  cursor: pointer;
+}
+
+.tab-component.single-tab .tab-item.disabled {
+  cursor: default;
+}
+
+.tab-item .label-short {
+  display: none;
+}
+
+.resizable-panel-container.compact .tabbed-panel-tabs .tab-item .label-full {
+  display: none;
+}
+
+.resizable-panel-container.compact .tabbed-panel-tabs .tab-item .label-short {
+  display: inline;
+}

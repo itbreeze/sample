@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, X } from 'lucide-react';
+import { formatLayerName } from '../utils/layerName';
 
 export const MIN_WIDTH = 700;
 export const MIN_HEIGHT = 400;
@@ -94,13 +95,6 @@ const EntityDetailsPanel = ({
               : ent?.type || 'UNKNOWN';
           return t === selectedType;
         });
-
-  const formatLayerName = (layer) => {
-    if (layer === null || layer === undefined) return '';
-    const trimmed = String(layer).trim();
-    if (trimmed === 'ZeroLayerName') return '0';
-    return trimmed;
-  };
 
   const renderColorSwatch = (color, label, meta = {}) => {
     const { colorType = null, indexColor = null, layerColor = null, trueColor = null } = meta;

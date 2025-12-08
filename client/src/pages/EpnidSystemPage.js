@@ -4,7 +4,7 @@ import { FolderOpen, Star, Search, Waypoints, Layers, MonitorCog, FileText, Hist
 
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
-import { Panel } from '../components/utils/Panel';
+import { TabbedPanel } from '../components/panels/TabbedPanel/TabbedPanel';
 import DrawingList from '../components/DrawingList';
 import ResizablePanel from '../components/ResizablePanel';
 import { useDocumentTree } from '../components/hooks/useDocumentTree';
@@ -12,6 +12,7 @@ import SearchResultList from '../components/Search/SearchResultList';
 import { persistPlantContext } from '../services/api';
 import FavoriteDocsPanel from '../components/FavoriteDocsPanel';
 import RecentDocsPanel from '../components/RecentDocsPanel';
+import LayerMenu from '../components/LayerMenu';
 import { useAuthState } from '../hooks/useAuthState';
 import { usePanelState } from '../hooks/usePanelState';
 import { ViewerProvider, useViewer, ViewerShell } from '../viewer';
@@ -67,6 +68,7 @@ const VIEWER_MODE_LOGS = {
   ViewerMode: '[Viewer Mode]',
   PLDMode: '[PLD Mode]',
   IntelligentMode: '[Intelligent Mode]',
+  InheritMode: '[Inherit Mode]'
 };
 
 const sidebarMenus = {
@@ -76,8 +78,8 @@ const sidebarMenus = {
     { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기 목록' },
     { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서함' },
     { id: 'equipments', icon: <MonitorCog size={20} />, label: '설비 목록' },
-    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관 목록' },
     { id: 'layers', icon: <Layers size={20} />, label: '레이어 목록' },
+    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관 목록' },    
   ],
   pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD 메뉴' }],
   intelligent: [{ id: 'intelligent', icon: <FileText size={20} />, label: '샘플 메뉴' }],
@@ -94,7 +96,12 @@ const equipmentTabs = [
     label: '설비 목록',
     content: () => <EquipmentMenu />,
   },
-  { id: 'searchEquipment', label: '설비 상세검색', content: () => <NotImplemented /> },
+  {
+    id: 'searchEquipment',
+    label: '도면 내 설비 검색',
+    shortLabel: '설비 검색',
+    content: () => <NotImplemented />,
+  },
 ];
 
 function EpnidSystemPageContent() {
@@ -394,7 +401,7 @@ function EpnidSystemPageContent() {
     () => ({
       search: {
         component: (
-          <Panel
+          <TabbedPanel
             tabs={searchTabs}
             activeTab={activeSearchTab}
             onTabChange={setActiveSearchTab}
@@ -407,13 +414,13 @@ function EpnidSystemPageContent() {
         isResizable: true,
       },
       equipments: {
-        component: <Panel tabs={equipmentTabs} defaultTab="equipmentHighlight" />,
+        component: <TabbedPanel tabs={equipmentTabs} defaultTab="equipmentHighlight" />,
         startsMaximized: false,
         isResizable: true,
       },
       bookmark: {
         component: (
-          <Panel
+          <TabbedPanel
             tabs={[
               {
                 id: 'favoriteDocs',
@@ -442,7 +449,7 @@ function EpnidSystemPageContent() {
       mydocs: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
       recentdocs: {
         component: (
-          <Panel
+          <TabbedPanel
             tabs={[
               {
                 id: 'recentDocs',
@@ -463,7 +470,22 @@ function EpnidSystemPageContent() {
         isResizable: true,
       },
       pipeLayers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
-      layers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
+      layers: {
+        component: (
+          <TabbedPanel
+            tabs={[
+              {
+                id: 'layerList',
+                label: '레이어 목록',
+                content: () => <LayerMenu />,
+              },
+            ]}
+            defaultTab="layerList"
+          />
+        ),
+        startsMaximized: false,
+        isResizable: true,
+      },
     }),
     [
       searchTabs,
@@ -527,11 +549,6 @@ function EpnidSystemPageContent() {
   }, [closePanel, setIsSidebarOpen]);
 
   const viewerMode = TAB_VIEWER_MODES[activeTab] || TAB_VIEWER_MODES.drawing;
-
-  useEffect(() => {
-    const message = VIEWER_MODE_LOGS[viewerMode];
-    if (message) console.log(message);
-  }, [viewerMode]);
 
   if (loading) {
     return (

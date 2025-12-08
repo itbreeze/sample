@@ -75,6 +75,9 @@ const MENU_SECTIONS = [
   },
 ];
 
+const getContextLabel = (label, funcName) =>
+  label === 'NULL' && funcName ? funcName : label;
+
 const EquipmentInfoPanel = ({
   entries = [],
   visible = false,
@@ -84,8 +87,24 @@ const EquipmentInfoPanel = ({
   const [submenuDirection, setSubmenuDirection] = useState('right');
   const [hoveredFunction, setHoveredFunction] = useState(null);
   const [submenuHoverPath, setSubmenuHoverPath] = useState([]);
+  const [submenuDirections, setSubmenuDirections] = useState({});
   const panelRef = useRef(null);
   const { toggleEquipmentFavorite, isEquipmentFavorite } = useViewer();
+
+  const calculateSubmenuDirection = useCallback((rect) => {
+    if (!rect) return 'right';
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const margin = 12;
+    const availableRight = vw - rect.right - margin;
+    const availableLeft = rect.left - margin;
+    if (availableRight >= CONTEXT_MENU_WIDTH) {
+      return 'right';
+    }
+    if (availableLeft >= CONTEXT_MENU_WIDTH) {
+      return 'left';
+    }
+    return 'right';
+  }, []);
 
   const functions = useMemo(() => {
     const seen = new Map();
@@ -114,9 +133,12 @@ const EquipmentInfoPanel = ({
     return '설비정보 조회';
   }, [entries]);
 
+  const singleFunctionEntry = functions.length === 1 ? functions[0] : null;
+  const shouldShowBody = functions.length > 1;
   useEffect(() => {
     if (!visible) {
       setSubmenuDirection('right');
+      setSubmenuDirections({});
       return;
     }
     const updateDirection = () => {
@@ -139,8 +161,15 @@ const EquipmentInfoPanel = ({
     if (!visible) {
       setHoveredFunction(null);
       setSubmenuHoverPath([]);
+      setSubmenuDirections({});
+      return;
     }
-  }, [visible]);
+    if (singleFunctionEntry) {
+      setHoveredFunction(singleFunctionEntry.func);
+      setSubmenuHoverPath([]);
+      setSubmenuDirections({});
+    }
+  }, [visible, singleFunctionEntry]);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -182,24 +211,44 @@ const EquipmentInfoPanel = ({
     [toggleEquipmentFavorite]
   );
 
+  const stopEventPropagation = useCallback((event) => {
+    event?.stopPropagation();
+  }, []);
+
   if (!visible) return null;
 
   const handleRowEnter = (func) => {
     setHoveredFunction(func);
     setSubmenuHoverPath([]);
+    setSubmenuDirections({});
   };
 
-  const handleMenuItemHover = (itemId, depth) => {
+  const handleMenuItemHover = (itemId, depth, event) => {
     setSubmenuHoverPath((prev) => {
       const updated = prev.slice(0, depth);
       updated[depth] = itemId;
       return updated;
     });
+    if (event?.currentTarget) {
+      const direction = calculateSubmenuDirection(
+        event.currentTarget.getBoundingClientRect()
+      );
+      setSubmenuDirections((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((key) => {
+          if (Number(key) > depth + 1) {
+            delete updated[key];
+          }
+        });
+        updated[depth + 1] = direction;
+        return updated;
+      });
+    }
   };
 
-  const renderArrow = () => (
-    <span className={`equipment-info-context-arrow equipment-info-context-arrow--${submenuDirection}`}>
-      {submenuDirection === 'right' ? (
+  const renderArrow = (direction = submenuDirection) => (
+    <span className={`equipment-info-context-arrow equipment-info-context-arrow--${direction}`}>
+      {direction === 'right' ? (
         <ChevronRight size={12} />
       ) : (
         <ChevronLeft size={12} />
@@ -207,18 +256,27 @@ const EquipmentInfoPanel = ({
     </span>
   );
 
-  const renderChildPanel = (items, depth = 1) => {
+  const renderChildPanel = (items, depth = 1, funcName) => {
     if (!items?.length) return null;
+    const panelDirection = submenuDirections[depth] || submenuDirection;
     const childrenWithDividers = items.flatMap((item, index) => {
+      const childDirection =
+        submenuHoverPath[depth] === item.id
+          ? submenuDirections[depth + 1] || panelDirection
+          : panelDirection;
       const element = (
         <div
           key={item.id}
           className="equipment-info-context-item"
-          onMouseEnter={() => handleMenuItemHover(item.id, depth)}
+          onMouseEnter={(event) => handleMenuItemHover(item.id, depth, event)}
         >
-          <span className="equipment-info-context-label">{item.label}</span>
-          {item.children && renderArrow()}
-          {item.children && submenuHoverPath[depth] === item.id && renderChildPanel(item.children, depth + 1)}
+          <span className="equipment-info-context-label">
+            {getContextLabel(item.label, depth === 1 ? funcName : null)}
+          </span>
+          {item.children && renderArrow(childDirection)}
+          {item.children &&
+            submenuHoverPath[depth] === item.id &&
+            renderChildPanel(item.children, depth + 1, funcName)}
         </div>
       );
       if (index < items.length - 1) {
@@ -234,44 +292,96 @@ const EquipmentInfoPanel = ({
     });
     return (
       <div
-        className={`equipment-info-context-children-panel equipment-info-context-children-panel--${submenuDirection}`}
+        className={`equipment-info-context-children-panel equipment-info-context-children-panel--${panelDirection}`}
       >
         {childrenWithDividers}
       </div>
     );
   };
 
-  const renderMenu = (func) => (
-    <div
-      className={`equipment-info-context-menu equipment-info-context-menu--${submenuDirection}`}
-      onMouseEnter={() => handleRowEnter(func)}
-    >
-      {MENU_SECTIONS.map((section, sectionIndex) => (
-        <React.Fragment key={section.id}>
-          {section.items.map((item) => (
-            <div
-              key={item.id}
-              className="equipment-info-context-item"
-              onMouseEnter={() => item.children && handleMenuItemHover(item.id, 0)}
+  const renderMenu = (funcEntry, showHeader = true) => {
+    const isFavorited =
+      typeof isEquipmentFavorite === 'function'
+        ? isEquipmentFavorite(funcEntry)
+        : false;
+    return (
+      <div
+        className={`equipment-info-context-menu equipment-info-context-menu--${submenuDirection}`}
+        onMouseEnter={() => handleRowEnter(funcEntry.func)}
+      >
+        {showHeader && (
+          <div className="equipment-info-context-menu__header">
+            <button
+              type="button"
+              className={`equipment-info-context-menu__favorite ${isFavorited ? 'active' : ''}`}
+              aria-label="즐겨찾기"
+              aria-pressed={isFavorited}
+              onMouseDownCapture={stopEventPropagation}
+              onMouseDown={stopEventPropagation}
+              onTouchStartCapture={stopEventPropagation}
+              onTouchStart={stopEventPropagation}
+              onClick={(event) => handleFavoriteClick(funcEntry, event)}
             >
-              <span className="equipment-info-context-label">
-                {item.id === 'equipment-info' ? infoMenuLabel : item.label}
-              </span>
-              {item.children && renderArrow()}
-              {item.children && submenuHoverPath[0] === item.id && renderChildPanel(item.children, 1)}
-            </div>
-          ))}
-          {sectionIndex < MENU_SECTIONS.length - 1 && (
-            <div className="equipment-info-context-divider" />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
+              <Star
+                size={18}
+                strokeWidth={isFavorited ? 2.2 : 1.8}
+                color={isFavorited ? '#facc15' : '#9ca3af'}
+                fill={isFavorited ? '#facc15' : 'none'}
+                style={{
+                  filter: isFavorited
+                    ? 'drop-shadow(0 0 3px rgba(250, 204, 21, 0.7))'
+                    : 'none',
+                }}
+              />
+            </button>
+            <span className="equipment-info-context-menu__title">{funcEntry.func}</span>
+          </div>
+        )}
+        {MENU_SECTIONS.map((section, sectionIndex) => (
+          <React.Fragment key={section.id}>
+            {section.items.map((item) => (
+              <div
+                key={item.id}
+                className="equipment-info-context-item"
+                onMouseEnter={(event) =>
+                  item.children && handleMenuItemHover(item.id, 0, event)
+                }
+              >
+                <span className="equipment-info-context-label">
+                  {item.id === 'equipment-info' ? infoMenuLabel : item.label}
+                </span>
+                {item.children && renderArrow()}
+                {item.children &&
+                  submenuHoverPath[0] === item.id &&
+                  renderChildPanel(item.children, 1, funcEntry.func)}
+              </div>
+            ))}
+            {sectionIndex < MENU_SECTIONS.length - 1 && (
+              <div className="equipment-info-context-divider" />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
+  const panelClassName = `equipment-info-panel${singleFunctionEntry ? ' equipment-info-panel--single' : ''}`;
+
+  if (!shouldShowBody && singleFunctionEntry) {
+    return (
+      <div
+        className={panelClassName}
+        style={{ left: position.x, top: position.y }}
+        ref={panelRef}
+      >
+        {renderMenu(singleFunctionEntry)}
+      </div>
+    );
+  }
 
   return (
     <div
-      className="equipment-info-panel"
+      className={panelClassName}
       style={{ left: position.x, top: position.y }}
       ref={panelRef}
     >
@@ -291,25 +401,29 @@ const EquipmentInfoPanel = ({
                 className="equipment-info-function-row"
                 onMouseEnter={() => handleRowEnter(funcEntry.func)}
               >
-            <button
-              type="button"
-              className={`equipment-info-function-row__favorite ${isFavorited ? 'active' : ''}`}
-              aria-label="즐겨찾기"
-              aria-pressed={isFavorited}
-              onClick={(event) => handleFavoriteClick(funcEntry, event)}
-            >
-              <Star
-                size={20}
-                strokeWidth={isFavorited ? 2.2 : 1.8}
-                color={isFavorited ? '#facc15' : '#9ca3af'}
-                fill={isFavorited ? '#facc15' : 'none'}
-                style={{
-                  filter: isFavorited
-                    ? 'drop-shadow(0 0 3px rgba(250, 204, 21, 0.7))'
-                    : 'none',
-                }}
-              />
-            </button>
+                <button
+                  type="button"
+                className={`equipment-info-function-row__favorite ${isFavorited ? 'active' : ''}`}
+                aria-label="즐겨찾기"
+                aria-pressed={isFavorited}
+                onMouseDownCapture={stopEventPropagation}
+                onMouseDown={stopEventPropagation}
+                onTouchStartCapture={stopEventPropagation}
+                onTouchStart={stopEventPropagation}
+                onClick={(event) => handleFavoriteClick(funcEntry, event)}
+              >
+                  <Star
+                    size={20}
+                    strokeWidth={isFavorited ? 2.2 : 1.8}
+                    color={isFavorited ? '#facc15' : '#9ca3af'}
+                    fill={isFavorited ? '#facc15' : 'none'}
+                    style={{
+                      filter: isFavorited
+                        ? 'drop-shadow(0 0 3px rgba(250, 204, 21, 0.7))'
+                        : 'none',
+                    }}
+                  />
+                </button>
                 <span className="equipment-info-function-row__label">{funcEntry.func}</span>
                 <div className="equipment-info-function-row__arrow">
                   {submenuDirection === 'right' ? (
@@ -319,7 +433,8 @@ const EquipmentInfoPanel = ({
                   )}
                 </div>
               </div>
-              {hoveredFunction === funcEntry.func && renderMenu(funcEntry.func)}
+              {hoveredFunction === funcEntry.func &&
+                renderMenu(funcEntry, false)}
             </div>
           );
         })}

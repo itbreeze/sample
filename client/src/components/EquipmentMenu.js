@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useViewer } from '../viewer/context/ViewerContext';
 import { EQUIPMENT_SELECTION_COLOR } from '../viewer/canvas/ViewerCanvasUtils';
-import { Eye, EyeOff, ChevronDown, ChevronRight, FileCog } from 'lucide-react';
+import { Eye, EyeOff, ChevronDown, ChevronRight, FileCog, RotateCw } from 'lucide-react';
 import './EquipmentMenu.css';
 
 const parseHandles = (value) => {
@@ -124,6 +124,7 @@ const EquipmentMenu = () => {
   const [expandedNodes, setExpandedNodes] = useState(() => new Set());
   const [activeNodeIds, setActiveNodeIds] = useState(() => new Set());
   const [groupHandles, setGroupHandles] = useState(() => new Set());
+  const [manualTagHighlightIds, setManualTagHighlightIds] = useState(() => new Set());
   const manualSelectionRef = useRef(new Set());
   const persistSelection = useCallback(
     (manual, group) => {
@@ -216,6 +217,7 @@ const EquipmentMenu = () => {
       setHighlightedHandles(combined);
       setGlobalHighlight(false);
       setActiveNodeIds(new Set());
+      setManualTagHighlightIds(new Set());
       applyHighlightSet(combined);
       return;
     }
@@ -224,6 +226,7 @@ const EquipmentMenu = () => {
     setHighlightedHandles(new Set());
     setGlobalHighlight(false);
     setActiveNodeIds(new Set());
+    setManualTagHighlightIds(new Set());
     applyHighlightSet(new Set());
   }, [activeFile?.DOCNO, applyHighlightSet, readEquipmentHighlightCache, unionWithManualSelection]);
 
@@ -281,6 +284,7 @@ const EquipmentMenu = () => {
         const isSubset = manualHandles.length && manualHandles.every((handle) => nodeHandles.has(handle));
         if (isSubset) {
           manualSelectionRef.current.clear();
+          setManualTagHighlightIds(new Set());
           const recalculated = unionWithManualSelection(union);
           setHighlightedHandles(recalculated);
           applyHighlightSet(recalculated);
@@ -306,7 +310,7 @@ const EquipmentMenu = () => {
   }, [pendingZoomHandles, highlightActions]);
 
   const selectHandles = useCallback(
-    async (handles = [], zoom = false) => {
+    async (handles = [], zoom = false, tagId = null) => {
       const normalized = normalizeHandles(handles);
       if (!normalized.length) return;
       const currentlyHighlighted = normalized.every((handle) =>
@@ -317,6 +321,7 @@ const EquipmentMenu = () => {
       );
       if (currentlyHighlighted && isManualSubset) {
         manualSelectionRef.current.clear();
+        setManualTagHighlightIds(new Set());
         const combined = unionWithManualSelection(groupHandles);
         setHighlightedHandles(combined);
         applyHighlightSet(combined);
@@ -332,6 +337,7 @@ const EquipmentMenu = () => {
       setGlobalHighlight(false);
       setActiveNodeIds(new Set());
       persistSelection(manualSelectionRef.current, groupHandles);
+      setManualTagHighlightIds(tagId ? new Set([tagId]) : new Set());
       try {
         await highlightActions?.prepareHandles?.(normalized, { chunkSize: 32 });
       } catch (_) {}
@@ -363,6 +369,7 @@ const EquipmentMenu = () => {
     setGlobalHighlight((prev) => {
       const next = !prev;
       manualSelectionRef.current.clear();
+      setManualTagHighlightIds(new Set());
       if (next) {
         const allSet = new Set(allHandles);
         setGroupHandles(allSet);
@@ -399,14 +406,15 @@ const EquipmentMenu = () => {
 
   const renderTag = (tag, nodeActive) => {
     const handles = Array.isArray(tag.handles) ? tag.handles : [];
-    const tagHasHighlight = handles.some((handle) => highlightedHandles.has(handle));
-    const isActive = nodeActive || tagHasHighlight;
+    const tagHasManualHighlight = manualTagHighlightIds.has(tag.id);
+    const tagHasHighlight = nodeActive || tagHasManualHighlight;
+    const isActive = nodeActive || tagHasManualHighlight;
     return (
       <div className="equipment-tree-tag" key={tag.id}>
         <button
           type="button"
           className={`equipment-tree-tag__select ${isActive ? 'active' : ''}`}
-          onClick={() => selectHandles(tag.handles, true)}
+          onClick={() => selectHandles(tag.handles, true, tag.id)}
           disabled={!tag.handles.length}
           aria-pressed={isActive}
           aria-label={`${tag.label} 선택하여 하이라이트 및 줌`}
@@ -500,8 +508,10 @@ const EquipmentMenu = () => {
             className="equipment-panel__refresh"
             onClick={refreshEquipmentData}
             disabled={equipmentLoading || !activeFile?.DOCNO}
+            title="새로고침"
+            aria-label="설비 목록 새로고침"
           >
-            새로고침
+            <RotateCw size={18} />
           </button>
       </header>
       <div className="equipment-panel__body">

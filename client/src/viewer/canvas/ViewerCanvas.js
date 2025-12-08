@@ -24,6 +24,8 @@ import EquipmentInfoPanel from '../components/EquipmentInfoPanel';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
 import { useViewer } from '../context/ViewerContext';
 import { normalizeHandles } from '../../components/utils/equipmentHandles';
+import { formatLayerName } from '../utils/layerName';
+import { getDocumentKey } from '../utils/documentKey';
 
 const EquipmentInfoPanelComponent = EquipmentInfoPanel || (() => null);
 
@@ -39,6 +41,7 @@ const EQUIPMENT_PANEL_SIZE = { width: 320, height: 360 };
 const ViewerCanvas = ({
   filePath,
   docno,
+  docVr,
   isActive,
   visible,          // 그대로 두고 싶으면 유지 (없애도 무관)
   onReadyChange,
@@ -142,12 +145,18 @@ const ViewerCanvas = ({
     activeFileId,
     equipmentHandleModel,
     handleFileSelect,
+    handleViewerReady,
+    layerListsByDoc,
+    setLayerListForDoc,
   } = useViewer();
 
   const activeFile = useMemo(
     () => openFiles.find((file) => file.DOCNO === activeFileId),
     [openFiles, activeFileId]
   );
+
+  const docKey = getDocumentKey(docno, docVr);
+  const layerListForDoc = docKey ? layerListsByDoc?.[docKey] : null;
 
   useEffect(() => {
     currentDocRef.current = activeFile?.DOCNO || null;
@@ -210,6 +219,19 @@ const ViewerCanvas = ({
 
   const buildEquipmentInfoDetails = useCallback(
     (handles = []) => {
+      const docId = activeFile?.DOCNO || activeFile?.docId || '';
+      const docVer =
+        activeFile?.DOCVR || activeFile?.docVr || '001';
+      const docName =
+        activeFile?.DOCNM || activeFile?.docName || '';
+      const docNumber =
+        activeFile?.DOCNUMBER || activeFile?.docNumber || '';
+      const plantCode =
+        activeFile?.PLANTCD ||
+        activeFile?.PLANTCODE ||
+        activeFile?.plantCode ||
+        '';
+
       const groupMap = new Map();
       handles.forEach((handle) => {
         const key = String(handle);
@@ -241,9 +263,16 @@ const ViewerCanvas = ({
         tagType: group.raw.TAG_TYPE,
         libds: group.raw.LIBDS,
         handleKey: group.raw.TAGHANDLE,
+        docId,
+        docVer,
+        docName,
+        docNumber,
+        plantCode,
+        tagId: group.tagNo,
+        functionName: group.func,
       }));
     },
-    [equipmentTagMap]
+    [equipmentTagMap, activeFile]
   );
 
   const showEquipmentPopup = useCallback(() => {}, []);
@@ -646,6 +675,7 @@ const ViewerCanvas = ({
         }
         viewerRef.current = viewerInstance;
         window.currentViewerInstance = viewerInstance;
+        handleViewerReady?.(viewerInstance);
 
         let arrayBuffer;
         if (fileCache.has(filePath)) {          
@@ -687,8 +717,10 @@ const ViewerCanvas = ({
 
     return () => {
       isMounted = false;
+      handleViewerReady?.(null);
+      window.currentViewerInstance = null;
     };
-  }, [filePath]);
+  }, [filePath, handleViewerReady]);
 
   // visible 대신 isActive만 써도 되는 구조로 바꿀 수 있음
   useEffect(() => {
@@ -881,6 +913,51 @@ const ViewerCanvas = ({
     }
     viewer.update?.();
   }, [setSelectionHandles]);
+
+  useEffect(() => {
+    if (!docKey || layerListForDoc) return;
+    if (!isActive || isLoading) return;
+    if (!viewerRef.current || !libRef.current) return;
+
+    let cancelled = false;
+    forcePopulateEntityCache();
+    if (cancelled) return;
+
+    const layerMap = new Map();
+    entityDataMapRef.current.forEach((entry) => {
+      const normalizedName = formatLayerName(entry.layer);
+      if (!normalizedName) return;
+
+      const existing = layerMap.get(normalizedName);
+      const next = {
+        id: normalizedName,
+        name: normalizedName,
+        count: (existing?.count ?? 0) + 1,
+      };
+      layerMap.set(normalizedName, next);
+    });
+
+    const normalized = Array.from(layerMap.values())
+      .map((layer) => ({
+        ...layer,
+        entityCount: layer.count,
+      }))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (cancelled) return;
+    setLayerListForDoc(docKey, normalized);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    docKey,
+    layerListForDoc,
+    isActive,
+    isLoading,
+    forcePopulateEntityCache,
+    setLayerListForDoc,
+  ]);
 
 
   const ensureEntityForHandle = useCallback(

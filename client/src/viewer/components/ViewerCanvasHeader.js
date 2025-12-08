@@ -36,6 +36,7 @@ const ViewerCanvasHeader = ({
       <ViewerCanvas
         filePath={file.tmpFile}
         docno={file.DOCNO}
+        docVr={file.DOCVR || file.docVr}
         isActive={isActive}
         onReadyChange={onReadyChange}
         canvasId={`canvas-${file.DOCNO}`}

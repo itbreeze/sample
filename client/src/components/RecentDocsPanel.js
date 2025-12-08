@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import './DocPanels.css';
 import './RecentDocsPanel.css';
 
 const formatRecentDate = (value) => {
@@ -161,7 +162,7 @@ const RecentDocsPanel = ({
 
   const renderGroupHeader = (group, isExpanded) => (
     <div
-      className="recent-doc-group-header"
+      className="recent-doc-group-header doc-section-heading"
       onClick={() => handleGroupToggle(group.key)}
     >
       <div className="recent-doc-group-title">
@@ -188,10 +189,10 @@ const RecentDocsPanel = ({
     return (
       <li
         key={buildDocKey(doc, globalIndex)}
-        className="tree-node recent-doc-item"
+        className="tree-node recent-doc-item doc-node"
       >
         <div
-          className="tree-node-header"
+          className="tree-node-header doc-node-header"
           onClick={() => {
             onFileSelect?.(doc);
           }}
@@ -200,18 +201,18 @@ const RecentDocsPanel = ({
           <div className="recent-doc-icon-wrapper">
             <FileText className="recent-doc-icon" />
           </div>
-          <div className="recent-doc-text">
-            <span className="recent-doc-title">{title}</span>
+          <div className="recent-doc-text doc-node-text">
+            <span className="recent-doc-title doc-node-title">{title}</span>
             {infoLine && (
-              <span className="recent-doc-info">
+              <span className="recent-doc-info doc-node-info">
                 {infoLine}
               </span>
             )}
-                    {dateLabel && (
-                      <span className="recent-doc-date">
-                        열람일자: {dateLabel}
-                      </span>
-                    )}
+            {dateLabel && (
+              <span className="recent-doc-date doc-node-date">
+                열람일자: {dateLabel}
+              </span>
+            )}
 
           </div>
         </div>
@@ -227,13 +228,7 @@ const RecentDocsPanel = ({
   const counterLabel = hasDocs ? `(${totalDocs})` : '';
 
   return (
-    <div className="recent-doc-panel">
-      <div className="recent-doc-header">
-        <span className="recent-doc-heading">
-          최근 본 도면 <span className="recent-doc-count">{counterLabel}</span>
-        </span>
-      </div>
-
+    <div className="recent-doc-panel doc-panel">
       {loading && (
         <div className="recent-doc-empty">
           <div className="spinner" />
@@ -246,7 +241,7 @@ const RecentDocsPanel = ({
       )}
 
       {!loading && hasDocs && (
-        <div className="recent-doc-groups" data-scroll-container>
+        <div className="recent-doc-groups doc-panel-inner" data-scroll-container>
           {(() => {
             let globalIndex = 0;
             return displayGroups.map((group) => {

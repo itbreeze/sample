@@ -1,0 +1,138 @@
+.doc-panel {
+  padding: 8px;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-panel-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-color-primary, #111);
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.doc-section-heading svg {
+  width: 14px;
+  height: 14px;
+}
+
+.doc-section-heading span {
+  margin-left: 0;
+}
+
+.doc-section-heading:hover,
+.doc-section-heading.active {
+  background-color: var(--hover-background-color, #f0f2f5);
+  color: var(--primary-color, #007fff);
+}
+
+.doc-node {
+  cursor: pointer;
+  width: 100%;
+  min-width: 0;
+}
+
+.doc-node-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  color: var(--text-color-primary, #111);
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.doc-node-header svg {
+  color: inherit;
+  transition: color 0.2s ease;
+  width: 18px;
+  height: 18px;
+}
+
+.doc-node:hover .doc-node-header,
+.doc-node.hovered .doc-node-header,
+.doc-node-header:hover {
+  background-color: var(--hover-background-color, #f0f2f5);
+  color: var(--primary-color, #007fff);
+}
+
+.doc-node-header:hover svg,
+.doc-node.hovered .doc-node-header svg {
+  color: var(--primary-color, #007fff);
+}
+
+.doc-node-header.active {
+  background-color: var(--primary-color-light, #e0f2ff);
+  color: var(--primary-color, #007fff);
+  font-weight: 600;
+}
+
+/* make doc text shrink to allow ellipsis when panels narrow */
+.doc-node-text {
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  line-height: 1.3;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-color-secondary, #5c6578);
+}
+
+.doc-node-title {
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.doc-node-info {
+  font-size: 13px;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.doc-node:hover .doc-node-text,
+.doc-node.hovered .doc-node-text,
+.doc-node-header.active .doc-node-text {
+  color: var(--primary-color, #007fff);
+}
+
+.doc-node-date {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-color-secondary, #5c6578);
+  display: block;
+  margin-top: 2px;
+  font-family: inherit;
+  line-height: 1.2;
+}

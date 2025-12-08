@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { FileText, FileCog, ChevronRight, ChevronDown } from 'lucide-react';
+import './DocPanels.css';
 import './FavoriteDocsPanel.css';
 
 
@@ -58,8 +59,6 @@ export default function FavoriteDocsPanel({
     }
     return null;
   };
-
-  console.log('즐겨찾기 도면/설비 목록:', { docs, equips });
 
   const buildDocDisplayInfo = (doc = {}, meta = {}, options = {}) => {
     const includeDocIdentifierInInfo = !!options.includeDocIdentifierInInfo;
@@ -118,8 +117,9 @@ export default function FavoriteDocsPanel({
   };
 
   return (
-    <div style={{ padding: 8, height: '100%', boxSizing: 'border-box' }}>
-      <ul className="tree-list" data-scroll-container>
+    <div className="favorite-doc-panel doc-panel">
+      <div className="favorite-doc-inner doc-panel-inner">
+        <ul className="tree-list favorite-tree-list" data-scroll-container>
 
         {/* ================================
             ▪ 도면 섹션
@@ -128,66 +128,60 @@ export default function FavoriteDocsPanel({
           <>
             <li className="tree-node" style={{ padding: '4px 0' }}>
               <div
-                className="tree-node-header"
+                className="tree-node-header doc-section-heading"
                 onClick={() => setDocsOpen((v) => !v)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontWeight: 700,                  // ★ 굵게
-                  fontSize: '15px',                 // ★ 기존보다 2배 크게
-                  color: '#111',                    // 더 진하게
-                  padding: '4px 0',
-                }}
               >
                 {docsOpen ? (
-                  <ChevronDown style={{ width: 20, height: 20 }} />
+                  <ChevronDown size={14} />
                 ) : (
-                  <ChevronRight style={{ width: 20, height: 20 }} />
+                  <ChevronRight size={14} />
                 )}
 
-                <span style={{ marginLeft: 8 }}>
+                <span>
                   도면 ({docs.length})
                 </span>
               </div>
             </li>
 
-            {docsOpen &&
-              docs.map((doc, idx) => {
-                const metaKey = buildDocMetaKey(doc);
-                const docMeta = metaKey ? docMetaMap[metaKey] : {};
-                const docDisplay = buildDocDisplayInfo(doc, docMeta);
-                const docHoverKey = buildHoverKey('doc', doc, `doc-${idx}`, idx);
-                const docHovered = hoveredKey === docHoverKey;
-                console.log('즐겨찾기 도면 정보 확인:', docDisplay.debug);
-                return (
-                  <li
-                    key={`fav-doc-${doc.docId || doc.DOCNO}-${doc.docVer || doc.DOCVR}`}
-                    className={`tree-node favorite-tree-node${docHovered ? ' hovered' : ''}`}
-                    style={{ position: 'relative' }}
-                    onMouseEnter={() => docHoverKey && handleMouseEnter(docHoverKey)}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <div
-                      className="tree-node-header"
-                      onClick={() => handleClick(doc)}
-                      title={doc.docName}
-                      style={{ fontSize: '15px', minWidth: 0 }} // 일반 목록은 적당히 유지
+            {docsOpen && (
+              <ul className="favorite-tree-node-items">
+                {docs.map((doc, idx) => {
+                  const metaKey = buildDocMetaKey(doc);
+                  const docMeta = metaKey ? docMetaMap[metaKey] : {};
+                  const docDisplay = buildDocDisplayInfo(doc, docMeta);
+                  const docHoverKey = buildHoverKey('doc', doc, `doc-${idx}`, idx);
+                  const docHovered = hoveredKey === docHoverKey;
+                  return (
+                    <li
+                      key={`fav-doc-${doc.docId || doc.DOCNO}-${doc.docVer || doc.DOCVR}`}
+                      className={`tree-node favorite-tree-node doc-node${docHovered ? ' hovered' : ''}`}
+                      style={{ position: 'relative' }}
+                      onMouseEnter={() => docHoverKey && handleMouseEnter(docHoverKey)}
+                      onMouseLeave={handleMouseLeave}
                     >
-                      <FileText style={{ width: 18, height: 18 }} />
-                      <div className="favorite-tree-node__text">
-                        <span className="favorite-tree-node__title">
-                          {docDisplay.title}
-                        </span>
-                        {docDisplay.infoLine && (
-                          <span className="favorite-tree-node__info">
-                            {docDisplay.infoLine}
+                      <div
+                        className="tree-node-header doc-node-header"
+                        onClick={() => handleClick(doc)}
+                        title={docDisplay.title}
+                        style={{ fontSize: '15px', minWidth: 0 }} // 일반 목록은 적당히 유지
+                      >
+                        <FileText style={{ width: 18, height: 18 }} />
+                        <div className="doc-node-text">
+                          <span className="doc-node-title">
+                            {docDisplay.title}
                           </span>
-                        )}
+                          {docDisplay.infoLine && (
+                            <span className="doc-node-info">
+                              {docDisplay.infoLine}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </>
         )}
         {hasDocs && hasEquips && (
@@ -204,79 +198,74 @@ export default function FavoriteDocsPanel({
               style={{ padding: '8px 0 4px', marginTop: hasDocs ? 3 : 0 }}
             >
               <div
-                className="tree-node-header"
+                className="tree-node-header doc-section-heading"
                 onClick={() => setEquipsOpen((v) => !v)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  color: '#111',
-                  padding: '4px 0',
-                }}
               >
                 {equipsOpen ? (
-                  <ChevronDown style={{ width: 20, height: 20 }} />
+                  <ChevronDown size={14} />
                 ) : (
-                  <ChevronRight style={{ width: 20, height: 20 }} />
+                  <ChevronRight size={14} />
                 )}
 
-                <span style={{ marginLeft: 8 }}>
+                <span>
                   설비 ({equips.length})
                 </span>
               </div>
             </li>
 
-            {equipsOpen &&
-              equips.map((eq, idx) => {
-                const metaKey = buildDocMetaKey(eq);
-                const eqMeta = metaKey ? docMetaMap[metaKey] : {};
-                const eqDisplay = buildDocDisplayInfo(eq, eqMeta, {
-                  includeDocIdentifierInInfo: true,
-                  infoLabel: '도면정보',
-                });
-                const eqHoverKey = buildHoverKey('equip', eq, `equip-${idx}`, idx);
-                const eqHovered = hoveredKey === eqHoverKey;
-                console.log('즐겨찾기 설비 정보 확인:', eqDisplay.debug);
-                return (
+            {equipsOpen && (
+              <ul className="favorite-tree-node-items">
+                {equips.map((eq, idx) => {
+                  const metaKey = buildDocMetaKey(eq);
+                  const eqMeta = metaKey ? docMetaMap[metaKey] : {};
+                  const eqDisplay = buildDocDisplayInfo(eq, eqMeta, {
+                    includeDocIdentifierInInfo: true,
+                    infoLabel: '도면정보',
+                  });
+                  const eqHoverKey = buildHoverKey('equip', eq, `equip-${idx}`, idx);
+                  const eqHovered = hoveredKey === eqHoverKey;
+                  return (
                     <li
                       key={`fav-eq-${eq.docId}-${eq.docVer}-${eq.function}`}
-                      className={`tree-node favorite-tree-node${eqHovered ? ' hovered' : ''}`}
-                    style={{ position: 'relative' }}
-                    onMouseEnter={() => eqHoverKey && handleMouseEnter(eqHoverKey)}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <div
-                      className="tree-node-header"
-                      onClick={() => handleClick(eq)}
-                      title={eq.docName}
-                      style={{
-                        fontSize: '15px',
-                      }} // 목록 표시는 유지
+                      className={`tree-node favorite-tree-node doc-node${eqHovered ? ' hovered' : ''}`}
+                      style={{ position: 'relative' }}
+                      onMouseEnter={() => eqHoverKey && handleMouseEnter(eqHoverKey)}
+                      onMouseLeave={handleMouseLeave}
                     >
-                      <FileCog
+                      <div
+                        className="tree-node-header doc-node-header"
+                        onClick={() => handleClick(eq)}
+                        title={eqDisplay.title}
                         style={{
-                          width: 18,
-                          height: 18,
-                        }}
-                      />
-                      <div className="favorite-tree-node__text">
-                        <span className="favorite-tree-node__title">
-                          설비명: {eq.function}
-                        </span>
-                        {eqDisplay.infoLine && (
-                          <span className="favorite-tree-node__info">
-                            {eqDisplay.infoLine}
+                          fontSize: '15px',
+                        }} // 목록 표시는 유지
+                      >
+                        <FileCog
+                          style={{
+                            width: 18,
+                            height: 18,
+                          }}
+                        />
+                        <div className="doc-node-text">
+                          <span className="doc-node-title">
+                            설비명: {eq.function}
                           </span>
-                        )}
+                          {eqDisplay.infoLine && (
+                            <span className="doc-node-info">
+                              {eqDisplay.infoLine}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-              );
-            })}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </>
         )}
-      </ul>
+        </ul>
+      </div>
     </div>
   );
 }

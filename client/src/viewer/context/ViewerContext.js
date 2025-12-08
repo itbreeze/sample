@@ -24,6 +24,17 @@ const areArraysEqual = (a = [], b = []) => {
   return true;
 };
 
+const areLayerListsEqual = (a = [], b = []) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const prev = a[i];
+    const next = b[i];
+    if (!prev || !next) return false;
+    if (prev.id !== next.id || prev.count !== next.count) return false;
+  }
+  return true;
+};
+
 const areColorsEqual = (a, b) => {
   if (a === b) return true;
   if (!a && !b) return true;
@@ -104,6 +115,7 @@ export const ViewerProvider = ({ children }) => {
   const viewerInstanceRef = useRef(null);
   const [docHighlights, setDocHighlights] = useState({});
   const [tabOrder, setTabOrder] = useState([]);
+  const [layerListsByDoc, setLayerListsByDoc] = useState({});
   const [equipmentData, setEquipmentData] = useState([]);
   const [equipmentLoading, setEquipmentLoading] = useState(false);
   const [equipmentError, setEquipmentError] = useState(null);
@@ -126,6 +138,20 @@ export const ViewerProvider = ({ children }) => {
     setTabOrder((prev) => {
       const filtered = prev.filter((id) => id !== docno);
       return [docno, ...filtered];
+    });
+  }, []);
+
+  const setLayerListForDoc = useCallback((docKey, layers) => {
+    if (!docKey || !Array.isArray(layers)) return;
+    setLayerListsByDoc((prev) => {
+      const prevList = prev[docKey];
+      if (prevList && areLayerListsEqual(prevList, layers)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [docKey]: layers,
+      };
     });
   }, []);
 
@@ -256,10 +282,14 @@ export const ViewerProvider = ({ children }) => {
     [setDocHighlight]
   );
 
+  const [viewerReadyVersion, setViewerReadyVersion] = useState(0);
   const handleViewerReady = useCallback((viewerInstance) => {
     viewerInstanceRef.current = viewerInstance;
     window.currentViewerInstance = viewerInstance;
+    setViewerReadyVersion((prev) => prev + 1);
   }, []);
+
+  const getViewerInstance = useCallback(() => viewerInstanceRef.current, []);
 
   const handleViewStateChange = useCallback((docno, viewState) => {
     setViewStates((prev) => ({
@@ -437,18 +467,18 @@ export const ViewerProvider = ({ children }) => {
       recentDocsLoading,
       recentDocsError,
       handleFileSelect,
-    handleTabClick,
-    handleTabClose,
-    handleCloseAllTabs,
-    handleTabReorder,
-    handleViewerReady,
-    handleDocumentReady,
-    handleViewStateChange,
-    handleToggleFavorite,
-    isActiveDocFavorite,
-    toggleEquipmentFavorite,
-    isEquipmentFavorite,
-    docHighlights,
+      handleTabClick,
+      handleTabClose,
+      handleCloseAllTabs,
+      handleTabReorder,
+      handleViewerReady,
+      handleDocumentReady,
+      handleViewStateChange,
+      handleToggleFavorite,
+      isActiveDocFavorite,
+      toggleEquipmentFavorite,
+      isEquipmentFavorite,
+      docHighlights,
       setDocHighlight,
       clearDocHighlight,
       highlightActions,
@@ -458,6 +488,8 @@ export const ViewerProvider = ({ children }) => {
       consumeManualRecentLog,
       logRecentDoc,
       tabOrder,
+      layerListsByDoc,
+      setLayerListForDoc,
       equipmentData,
       equipmentLoading,
       equipmentError,
@@ -465,6 +497,8 @@ export const ViewerProvider = ({ children }) => {
       refreshEquipmentData,
       persistEquipmentHighlight,
       readEquipmentHighlightCache,
+      getViewerInstance,
+      viewerReadyVersion,
     }),
     [
       openFiles,
@@ -499,6 +533,8 @@ export const ViewerProvider = ({ children }) => {
       consumeManualRecentLog,
       logRecentDoc,
       tabOrder,
+      layerListsByDoc,
+      setLayerListForDoc,
       equipmentData,
       equipmentLoading,
       equipmentError,
@@ -506,6 +542,8 @@ export const ViewerProvider = ({ children }) => {
       refreshEquipmentData,
       persistEquipmentHighlight,
       readEquipmentHighlightCache,
+      getViewerInstance,
+      viewerReadyVersion,
     ]
   );
 
