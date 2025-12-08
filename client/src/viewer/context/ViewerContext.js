@@ -13,6 +13,8 @@ import { useRecentDocs } from '../../hooks/useRecentDocs';
 import { getDocumentEquipment } from '../../services/documentsApi';
 import { triggerResize } from '../utils/triggerResize';
 import { buildEquipmentModel } from '../../components/utils/equipmentHandles';
+import { getDocumentKey } from '../utils/documentKey';
+import { formatLayerName } from '../utils/layerName';
 
 const ViewerContext = createContext(null);
 
@@ -116,6 +118,7 @@ export const ViewerProvider = ({ children }) => {
   const [docHighlights, setDocHighlights] = useState({});
   const [tabOrder, setTabOrder] = useState([]);
   const [layerListsByDoc, setLayerListsByDoc] = useState({});
+  const [hiddenLayersByDoc, setHiddenLayersByDoc] = useState({});
   const [equipmentData, setEquipmentData] = useState([]);
   const [equipmentLoading, setEquipmentLoading] = useState(false);
   const [equipmentError, setEquipmentError] = useState(null);
@@ -152,6 +155,42 @@ export const ViewerProvider = ({ children }) => {
         ...prev,
         [docKey]: layers,
       };
+    });
+  }, []);
+
+  const toggleLayerVisibility = useCallback((docKey, layerName) => {
+    if (!docKey) return;
+    const normalized = formatLayerName(layerName);
+    if (!normalized) return;
+    setHiddenLayersByDoc((prev) => {
+      const prevList = Array.isArray(prev[docKey]) ? prev[docKey] : [];
+      const nextSet = new Set(prevList);
+      const wasHidden = nextSet.has(normalized);
+      if (wasHidden) {
+        nextSet.delete(normalized);
+      } else {
+        nextSet.add(normalized);
+      }
+      if (!nextSet.size) {
+        if (!prev[docKey]) return prev;
+        const nextState = { ...prev };
+        delete nextState[docKey];
+        return nextState;
+      }
+      return {
+        ...prev,
+        [docKey]: Array.from(nextSet),
+      };
+    });
+  }, []);
+
+  const clearHiddenLayersForDoc = useCallback((docKey) => {
+    if (!docKey) return;
+    setHiddenLayersByDoc((prev) => {
+      if (!prev[docKey]) return prev;
+      const nextState = { ...prev };
+      delete nextState[docKey];
+      return nextState;
     });
   }, []);
 
@@ -201,6 +240,8 @@ export const ViewerProvider = ({ children }) => {
   }, []);
 
   const handleTabClose = useCallback((docno) => {
+    const docToClose = openFiles.find((file) => file.DOCNO === docno);
+    const docKeyToClear = docToClose ? getDocumentKey(docToClose.DOCNO, docToClose.DOCVR) : null;
     setOpenFiles((prev) => {
       const filtered = prev.filter((file) => file.DOCNO !== docno);
       fittedDocsRef.current.delete(docno);
@@ -218,8 +259,11 @@ export const ViewerProvider = ({ children }) => {
       }
       return filtered;
     });
+    if (docKeyToClear) {
+      clearHiddenLayersForDoc(docKeyToClear);
+    }
     setTabOrder((prev) => prev.filter((id) => id !== docno));
-  }, [activeFileId]);
+  }, [activeFileId, clearHiddenLayersForDoc, openFiles]);
 
   const handleCloseAllTabs = useCallback(() => {
     setOpenFiles([]);
@@ -228,6 +272,7 @@ export const ViewerProvider = ({ children }) => {
     fittedDocsRef.current = new Set();
     setDocHighlights({});
     setTabOrder([]);
+    setHiddenLayersByDoc({});
   }, []);
 
   const handleTabReorder = useCallback((newOrder = [], draggedDocId) => {
@@ -489,7 +534,10 @@ export const ViewerProvider = ({ children }) => {
       logRecentDoc,
       tabOrder,
       layerListsByDoc,
+      hiddenLayersByDoc,
       setLayerListForDoc,
+      toggleLayerVisibility,
+      clearHiddenLayersForDoc,
       equipmentData,
       equipmentLoading,
       equipmentError,
@@ -534,7 +582,10 @@ export const ViewerProvider = ({ children }) => {
       logRecentDoc,
       tabOrder,
       layerListsByDoc,
+      hiddenLayersByDoc,
       setLayerListForDoc,
+      toggleLayerVisibility,
+      clearHiddenLayersForDoc,
       equipmentData,
       equipmentLoading,
       equipmentError,

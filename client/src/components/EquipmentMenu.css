@@ -140,6 +140,15 @@
   gap: 10px;
 }
 
+.layer-tree-node__header.layer-tree-node__header--align {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
 .equipment-tree-node__label {
   display: flex;
   flex-direction: row;
@@ -193,6 +202,12 @@
 
 .layer-tree-node__label[role='button'] {
   cursor: pointer;
+}
+
+.layer-tree-node__actions--right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .layer-tree-node__label[role='button']:hover {

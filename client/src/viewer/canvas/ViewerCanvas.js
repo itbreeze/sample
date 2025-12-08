@@ -83,6 +83,7 @@ const ViewerCanvas = ({
   const hoverColorHandlesRef = useRef(new Set());
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
   const selectedHandlesRef = useRef([]);
+  const hiddenLayersCacheRef = useRef(new Map());
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
     const vh = window?.innerHeight || 800;
@@ -147,6 +148,7 @@ const ViewerCanvas = ({
     handleFileSelect,
     handleViewerReady,
     layerListsByDoc,
+    hiddenLayersByDoc,
     setLayerListForDoc,
   } = useViewer();
 
@@ -914,6 +916,35 @@ const ViewerCanvas = ({
     viewer.update?.();
   }, [setSelectionHandles]);
 
+  const toggleViewerLayerVisibility = useCallback((viewer, layerName, visible) => {
+    if (!viewer || !layerName || typeof viewer.findLayer !== 'function') return false;
+    const normalized = formatLayerName(layerName);
+    if (!normalized) return false;
+    let layerPtr;
+    try {
+      layerPtr = viewer.findLayer(normalized);
+    } catch {
+      layerPtr = null;
+    }
+    if (!layerPtr) return false;
+    const layerObject = typeof layerPtr.openObject === 'function' ? layerPtr.openObject() : null;
+    const target = layerObject || layerPtr;
+    if (!target) return false;
+    const setter =
+      typeof target.setVisibility === 'function'
+        ? target.setVisibility
+        : typeof target.setVisible === 'function'
+        ? target.setVisible
+        : null;
+    if (!setter) return false;
+    try {
+      setter.call(target, visible);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     if (!docKey || layerListForDoc) return;
     if (!isActive || isLoading) return;
@@ -957,6 +988,72 @@ const ViewerCanvas = ({
     isLoading,
     forcePopulateEntityCache,
     setLayerListForDoc,
+  ]);
+
+
+  useEffect(() => {
+    if (!docKey) return;
+    if (!isActive || isLoading) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const targetLayers = Array.isArray(hiddenLayersByDoc?.[docKey])
+      ? hiddenLayersByDoc[docKey]
+      : [];
+    const normalizedHidden = new Set(
+      targetLayers
+        .map((name) => formatLayerName(name))
+        .filter(Boolean)
+    );
+
+    const prevEntry = hiddenLayersCacheRef.current.get(docKey);
+    const prevViewerMatches = prevEntry?.viewer === viewer;
+    const prevSet =
+      prevViewerMatches && prevEntry?.set instanceof Set
+        ? prevEntry.set
+        : new Set();
+
+    const toHide = [];
+    const toShow = [];
+
+    normalizedHidden.forEach((name) => {
+      if (!prevSet.has(name)) {
+        toHide.push(name);
+      }
+    });
+
+    prevSet.forEach((name) => {
+      if (!normalizedHidden.has(name)) {
+        toShow.push(name);
+      }
+    });
+
+    let changed = false;
+    toHide.forEach((name) => {
+      if (toggleViewerLayerVisibility(viewer, name, false)) {
+        changed = true;
+      }
+    });
+    toShow.forEach((name) => {
+      if (toggleViewerLayerVisibility(viewer, name, true)) {
+        changed = true;
+      }
+    });
+
+    hiddenLayersCacheRef.current.set(docKey, {
+      viewer,
+      set: normalizedHidden,
+    });
+
+    if (changed) {
+      viewer.update?.();
+    }
+  }, [
+    docKey,
+    hiddenLayersByDoc,
+    isActive,
+    isLoading,
+    toggleViewerLayerVisibility,
   ]);
 
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useViewer } from '../viewer/context/ViewerContext';
 import { getDocumentKeyFromFile } from '../viewer/utils/documentKey';
@@ -10,6 +10,8 @@ const LayerMenu = () => {
     activeFileId,
     layerListsByDoc,
     isFileLoaded,
+    hiddenLayersByDoc,
+    toggleLayerVisibility,
   } = useViewer();
   const activeFile = openFiles.find((file) => file.DOCNO === activeFileId);
   const docKey = getDocumentKeyFromFile(activeFile);
@@ -17,21 +19,19 @@ const LayerMenu = () => {
   const hasLayers = Array.isArray(layers) && layers.length > 0;
   const isLoading = Boolean(activeFile && docKey && layers === undefined && isFileLoaded);
 
-  const [hiddenLayerIds, setHiddenLayerIds] = useState(() => new Set());
-
-  const toggleLayerVisibility = useCallback((layerId) => {
-    setHiddenLayerIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(layerId)) next.delete(layerId);
-      else next.add(layerId);
-      return next;
-    });
-  }, []);
+  const hiddenLayerSet = useMemo(() => {
+    if (!docKey) return new Set();
+    const list = hiddenLayersByDoc?.[docKey];
+    return new Set(Array.isArray(list) ? list : []);
+  }, [docKey, hiddenLayersByDoc]);
 
   const renderLayer = (layer) => {
-    const isHidden = hiddenLayerIds.has(layer.id);
+    const isHidden = hiddenLayerSet.has(layer.id);
     const isVisible = !isHidden;
-    const handleToggle = () => toggleLayerVisibility(layer.id);
+    const handleToggle = () => {
+      if (!docKey) return;
+      toggleLayerVisibility(docKey, layer.id);
+    };
     const handleKeyDown = (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
@@ -41,40 +41,34 @@ const LayerMenu = () => {
 
     return (
       <div className="equipment-tree-node" key={layer.id}>
-        <div className="equipment-tree-node__header layer-tree-node__header">
           <div
-            className="equipment-tree-node__label layer-tree-node__label"
+            className="equipment-tree-node__header layer-tree-node__header layer-tree-node__header--align"
             role="button"
             tabIndex={0}
             aria-pressed={isHidden}
             onClick={handleToggle}
             onKeyDown={handleKeyDown}
           >
-            <strong>{layer.name}</strong>
-          </div>
-          <div className="equipment-tree-node__actions">
-            <button
-              type="button"
-              className={[
-                'equipment-card__chip',
-                'layer-tree-node__chip',
-                isVisible ? 'layer-tree-node__chip--visible' : 'layer-tree-node__chip--hidden',
-                isVisible ? 'active' : null,
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-pressed={isHidden}
-              aria-label={`${layer.name} 레이어 ${isHidden ? '보이기' : '숨기기'}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                handleToggle();
-              }}
-            >
-              {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-            </button>
+            <div className="equipment-tree-node__label layer-tree-node__label">
+              <strong>{layer.name}</strong>
+            </div>
+            <div className="equipment-tree-node__actions layer-tree-node__actions--right">
+              <span
+                className={[
+                  'equipment-card__chip',
+                  'layer-tree-node__chip',
+                  isVisible ? 'layer-tree-node__chip--visible' : 'layer-tree-node__chip--hidden',
+                  isVisible ? 'active' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-hidden="true"
+              >
+                {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
     );
   };
 
