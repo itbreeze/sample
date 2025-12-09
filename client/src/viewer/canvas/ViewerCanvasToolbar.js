@@ -1,7 +1,8 @@
 // client/src/components/viewer/ViewerCanvasToolbar.js
 
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Sun, Moon, Info, Star, Fullscreen } from 'lucide-react';
+import { ChevronUp, ChevronDown, Sun, Moon, Info, Star, Fullscreen, Palette } from 'lucide-react';
+import './ViewerCanvasToolbar.css';
 
 const ViewerCanvasToolbar = ({
   onToggleInvert,
@@ -13,10 +14,11 @@ const ViewerCanvasToolbar = ({
   isFavorite = false,
   onToggleFavorite,
   showEntityInfoButton = true,
+  isColorfulMode = false,
+  onToggleColorMode,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const ToggleIcon = collapsed ? ChevronUp : ChevronDown;
-  const iconColor = '#0e121b';
   const toolbarRadius = 6;
 
   return (
@@ -62,7 +64,7 @@ const ViewerCanvasToolbar = ({
           }}
           title={collapsed ? '툴바 펼치기' : '툴바 숨기기'}
         >
-          <ToggleIcon size={18} color={iconColor} strokeWidth={2} />
+          <ToggleIcon size={18} color="#0e121b" strokeWidth={2} />
         </button>
 
         {/* 펼쳐진 본체 */}
@@ -88,6 +90,7 @@ const ViewerCanvasToolbar = ({
             {/* 전체 보기 */}
             <button
               type="button"
+              className="viewer-canvas-toolbar__button"
               onClick={(e) => {
                 e.stopPropagation();
                 onZoomExtents?.();
@@ -97,16 +100,34 @@ const ViewerCanvasToolbar = ({
                 borderRadius: 8,
                 border: 'none',
                 background: 'transparent',
-                color: iconColor,
                 cursor: 'pointer',
               }}
               title="전체 보기 (Zoom Extents)"
             >
-              <Fullscreen size={28} color={iconColor} strokeWidth={2.2} />
+              <Fullscreen size={28} strokeWidth={2.2} />
+            </button>
+            <button
+              type="button"
+              className="viewer-canvas-toolbar__button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleColorMode?.();
+              }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
+              title={isColorfulMode ? '색상 끔' : '색상 켬'}
+            >
+              <Palette size={28} strokeWidth={2.2} color={isColorfulMode ? '#facc15' : '#9ca3af'} />
             </button>
             {/* 반전 */}
             <button
               type="button"
+              className="viewer-canvas-toolbar__button"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleInvert?.();
@@ -116,15 +137,14 @@ const ViewerCanvasToolbar = ({
                 borderRadius: 8,
                 border: 'none',
                 background: 'transparent',
-                color: iconColor,
                 cursor: 'pointer',
               }}
               title={isInverted ? '반전 끄기' : '반전 켜기'}
             >
               {isInverted ? (
-                <Sun size={30} color={iconColor} strokeWidth={2.2} />
+                <Sun size={30} strokeWidth={2.2} />
               ) : (
-                <Moon size={30} color={iconColor} strokeWidth={2.2} />
+                <Moon size={30} strokeWidth={2.2} />
               )}
             </button>
 
@@ -164,6 +184,7 @@ const ViewerCanvasToolbar = ({
             {showEntityInfoButton && (
               <button
                 type="button"
+                className="viewer-canvas-toolbar__button viewer-canvas-toolbar__button--info"
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenPanel?.();
@@ -173,14 +194,12 @@ const ViewerCanvasToolbar = ({
                   borderRadius: 8,
                   border: 'none',
                   background: 'transparent',
-                  color: iconColor,
                   cursor: 'pointer',
                 }}
                 title="객체 정보 패널 열기"
               >
                 <Info
                   size={30}
-                  color={iconColor}
                   strokeWidth={2.2}
                   style={{
                     transform: 'translateY(1px)',

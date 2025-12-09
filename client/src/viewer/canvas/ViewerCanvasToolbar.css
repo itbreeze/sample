@@ -1,0 +1,25 @@
+.viewer-canvas-toolbar__button {
+  color: #0e121b;
+  transition: color var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-canvas-toolbar__button svg {
+  color: currentColor;
+}
+
+.viewer-canvas-toolbar__button:hover,
+.viewer-canvas-toolbar__button:focus-visible {
+  color: var(--color-primary-hover);
+}
+
+.viewer-canvas-toolbar__button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}
+
+.viewer-canvas-toolbar__button--info svg {
+  transition: color var(--transition-fast), opacity var(--transition-fast);
+}

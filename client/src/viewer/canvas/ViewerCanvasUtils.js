@@ -881,6 +881,82 @@ export const resetColorsForHandles = (viewer, lib, entityDataMap, handles) => {
   return { successCount, failCount };
 };
 
+const normalizeHandleTargets = (handles) => {
+  if (!handles) return new Set();
+  let collection = [];
+  if (handles instanceof Set) {
+    collection = Array.from(handles);
+  } else if (Array.isArray(handles)) {
+    collection = handles;
+  } else {
+    collection = [handles];
+  }
+  return new Set(
+    collection
+      .map((handle) => (handle ? String(handle) : ''))
+      .filter(Boolean)
+  );
+};
+
+const applyColorWithoutUpdate = (viewer, lib, entityDataMap, handleSet, color) => {
+  if (!viewer || !lib || !entityDataMap || !handleSet || !handleSet.size) return 0;
+  let applied = 0;
+  handleSet.forEach((handle) => {
+    const entry = entityDataMap.get(handle);
+    if (!entry?.entityId) return;
+    setColorBasic(lib, entry.entityId, color);
+    applied += 1;
+  });
+  return applied;
+};
+
+const restoreColorWithoutUpdate = (viewer, lib, entityDataMap, handleSet) => {
+  if (!viewer || !lib || !entityDataMap || !handleSet || !handleSet.size) return 0;
+  let restored = 0;
+  handleSet.forEach((handle) => {
+    if (resetColorByHandle(viewer, lib, entityDataMap, handle)) {
+      restored += 1;
+    }
+  });
+  return restored;
+};
+
+const DEFAULT_COLOR_OFF = Object.freeze({ r: 0, g: 0, b: 0 });
+
+export const COLOR_ON_OFF = {
+  disabledColor: DEFAULT_COLOR_OFF,
+  disableHandles: (viewer, lib, entityDataMap, handles, disabledColor = DEFAULT_COLOR_OFF) => {
+    const handleSet = normalizeHandleTargets(handles);
+    const applied = applyColorWithoutUpdate(viewer, lib, entityDataMap, handleSet, disabledColor);
+    if (applied > 0) viewer.update?.();
+    return applied;
+  },
+  enableHandles: (viewer, lib, entityDataMap, handles) => {
+    const handleSet = normalizeHandleTargets(handles);
+    const restored = restoreColorWithoutUpdate(viewer, lib, entityDataMap, handleSet);
+    if (restored > 0) viewer.update?.();
+    return restored;
+  },
+  toggleHandles: (
+    viewer,
+    lib,
+    entityDataMap,
+    handles,
+    { enabled = true, disabledColor = DEFAULT_COLOR_OFF } = {}
+  ) => {
+    const handleSet = normalizeHandleTargets(handles);
+    if (!handleSet.size) return false;
+    if (enabled) {
+      const restored = restoreColorWithoutUpdate(viewer, lib, entityDataMap, handleSet);
+      if (restored > 0) viewer.update?.();
+      return restored > 0;
+    }
+    const applied = applyColorWithoutUpdate(viewer, lib, entityDataMap, handleSet, disabledColor);
+    if (applied > 0) viewer.update?.();
+    return applied > 0;
+  },
+};
+
 /**
  * 선택된 핸들을 하이라이트로 표시
  *

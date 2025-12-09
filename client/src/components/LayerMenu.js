@@ -2,9 +2,18 @@ import React, { useCallback, useMemo } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useViewer } from '../viewer/context/ViewerContext';
 import { getDocumentKeyFromFile } from '../viewer/utils/documentKey';
-import './EquipmentMenu.css';
+import './LayerMenu.css';
 
-const LayerMenu = () => {
+const DEFAULT_LAYER_FILTER = () => true;
+
+const LayerMenu = ({
+  filterLayer = DEFAULT_LAYER_FILTER,
+  stripLayerKeywords = [],
+  colorizeLayer = false,
+  renderLayerActions = null,
+  emptyMessage = '레이어 정보를 찾을 수 없습니다.',
+  toolbar = null,
+}) => {
   const {
     openFiles,
     activeFileId,
@@ -16,7 +25,11 @@ const LayerMenu = () => {
   const activeFile = openFiles.find((file) => file.DOCNO === activeFileId);
   const docKey = getDocumentKeyFromFile(activeFile);
   const layers = docKey ? layerListsByDoc?.[docKey] : undefined;
-  const hasLayers = Array.isArray(layers) && layers.length > 0;
+  const filteredLayers = useMemo(() => {
+    if (!Array.isArray(layers)) return [];
+    return layers.filter(filterLayer);
+  }, [layers, filterLayer]);
+  const hasLayers = filteredLayers.length > 0;
   const isLoading = Boolean(activeFile && docKey && layers === undefined && isFileLoaded);
 
   const hiddenLayerSet = useMemo(() => {
@@ -24,6 +37,19 @@ const LayerMenu = () => {
     const list = hiddenLayersByDoc?.[docKey];
     return new Set(Array.isArray(list) ? list : []);
   }, [docKey, hiddenLayersByDoc]);
+
+  const computeDisplayName = (name) => {
+    if (typeof name !== 'string') return name;
+    const cleaned = stripLayerKeywords
+      .reduce(
+        (current, keyword) =>
+          keyword ? current.split(keyword).join('') : current,
+        name
+      )
+      .trim();
+    if (cleaned === '0') return '기본 레이어';
+    return cleaned || name;
+  };
 
   const renderLayer = (layer) => {
     const isHidden = hiddenLayerSet.has(layer.id);
@@ -40,19 +66,27 @@ const LayerMenu = () => {
     };
 
     return (
-      <div className="equipment-tree-node" key={layer.id}>
+      <div className="layer-tree-node" key={layer.id}>
           <div
-            className="equipment-tree-node__header layer-tree-node__header layer-tree-node__header--align"
+            className="layer-tree-node__header layer-tree-node__header--align"
             role="button"
             tabIndex={0}
             aria-pressed={isHidden}
             onClick={handleToggle}
             onKeyDown={handleKeyDown}
           >
-            <div className="equipment-tree-node__label layer-tree-node__label">
-              <strong className="tree-typography tree-typography--leaf">{layer.name}</strong>
+            <div className="layer-tree-node__label">
+              <strong
+                className="tree-typography tree-typography--leaf"
+                style={
+                  colorizeLayer && layer.color ? { color: layer.color } : undefined
+                }
+              >
+                {computeDisplayName(layer.name)}
+              </strong>
             </div>
-            <div className="equipment-tree-node__actions layer-tree-node__actions--right">
+            <div className="layer-tree-node__actions layer-tree-node__actions--right">
+              {renderLayerActions?.(layer, { isHidden, isVisible })}
               <span
                 className={[
                   'equipment-card__chip',
@@ -73,17 +107,18 @@ const LayerMenu = () => {
   };
 
   return (
-    <div className="equipment-panel">
-      <div className="equipment-panel__body">
+    <div className="layer-panel">
+      {toolbar && <header className="layer-panel__header">{toolbar}</header>}
+      <div className="layer-panel__body">
         {!isLoading && !activeFile && (
-          <div className="equipment-panel__message">도면을 선택해 주세요.</div>
+          <div className="layer-panel__message">도면을 선택해 주세요.</div>
         )}
         {!isLoading && activeFile && !hasLayers && (
-          <div className="equipment-panel__message">레이어 정보를 찾을 수 없습니다.</div>
+          <div className="layer-panel__message">{emptyMessage}</div>
         )}
         {!isLoading && hasLayers && (
-          <div className="equipment-tree">
-            {layers.map(renderLayer)}
+          <div className="layer-tree">
+            {filteredLayers.map(renderLayer)}
           </div>
         )}
       </div>

@@ -10,7 +10,7 @@ function Header({ tabItems, activeTab, setActiveTab, onLogoClick, onFileSelect, 
     <header className="app-header">
       {/* 1. 로고 영역 - 클릭 이벤트를 추가하고 커서 스타일을 변경 */}
       <div className="header-left" onClick={onLogoClick} style={{ cursor: 'pointer' }} title="전체화면" role="button" aria-label="전체화면">
-        <img src={logo} className="header-logo" alt="logo" />
+        <img src={logo} className="header-logo" alt="logo" draggable="false" />
       </div>
 
       {/* 2. 탭 영역 Wrapper */}

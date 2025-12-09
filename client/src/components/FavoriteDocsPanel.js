@@ -1,7 +1,7 @@
 // client/src/components/FavoriteDocsPanel.js
 
 import React, { useState } from 'react';
-import { FileText, FileCog, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileText, FileCog, ChevronRight, ChevronDown, X } from 'lucide-react';
 import './DocPanels.css';
 import './FavoriteDocsPanel.css';
 
@@ -12,6 +12,8 @@ export default function FavoriteDocsPanel({
   equipmentItems = [],
   onFileSelect,
   favoriteDocMeta = {},
+  onRemoveDocFavorite,
+  onRemoveEquipmentFavorite,
 }) {
   const docs =
     documentItems && documentItems.length > 0 ? documentItems : items || [];
@@ -25,16 +27,42 @@ export default function FavoriteDocsPanel({
   const [hoveredKey, setHoveredKey] = useState(null);
   const handleMouseEnter = (key) => setHoveredKey(key);
   const handleMouseLeave = () => setHoveredKey(null);
+  const handleRemoveClick = (event, type, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (type === 'doc') {
+      onRemoveDocFavorite?.(item);
+    } else {
+      onRemoveEquipmentFavorite?.(item);
+    }
+  };
 
   if (!hasDocs && !hasEquips) {
     return <div style={{ padding: 20 }}>즐겨찾기된 도면/설비가 없습니다.</div>;
   }
 
-  const handleClick = (item) => {    
-    onFileSelect({
-      docId: item.docId || item.DOCNO || item.docNO,
-      docVr: item.docVer || item.DOCVR,
-    });
+  const handleClick = (item, type = 'doc') => {
+    const docId = item.docId || item.DOCNO || item.docNO || item.docno || '';
+    if (!docId) return;
+    const docVr = item.docVer || item.DOCVR || item.docVr || '001';
+    const payload = {
+      docId,
+      docVr,
+    };
+    if (type === 'equipment') {
+      payload.favoriteEquipment = {
+        ...item,
+        tagId:
+          item.tagId ||
+          item.TAGNO ||
+          item.tagNo ||
+          item.tagNO ||
+          item.tagno ||
+          '',
+        function: item.function || item.func || item.functionName || '',
+      };
+    }
+    onFileSelect?.(payload);
   };
 
   const docMetaMap = favoriteDocMeta || {};
@@ -161,7 +189,7 @@ export default function FavoriteDocsPanel({
                     >
                       <div
                         className="tree-node-header doc-node-header"
-                        onClick={() => handleClick(doc)}
+                        onClick={() => handleClick(doc, 'doc')}
                         title={docDisplay.title}
                         style={{ fontSize: '15px', minWidth: 0 }} // 일반 목록은 적당히 유지
                       >
@@ -177,6 +205,15 @@ export default function FavoriteDocsPanel({
                           )}
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        className="favorite-tree-node-remove"
+                        onClick={(event) => handleRemoveClick(event, 'doc', doc)}
+                        title="즐겨찾기에서 제거"
+                        aria-label="즐겨찾기에서 제거"
+                      >
+                        <X size={14} />
+                      </button>
                     </li>
                   );
                 })}
@@ -234,7 +271,7 @@ export default function FavoriteDocsPanel({
                     >
                       <div
                         className="tree-node-header doc-node-header"
-                        onClick={() => handleClick(eq)}
+                        onClick={() => handleClick(eq, 'equipment')}
                         title={eqDisplay.title}
                         style={{
                           fontSize: '15px',
@@ -257,6 +294,15 @@ export default function FavoriteDocsPanel({
                           )}
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        className="favorite-tree-node-remove"
+                        onClick={(event) => handleRemoveClick(event, 'equipment', eq)}
+                        title="즐겨찾기에서 제거"
+                        aria-label="즐겨찾기에서 제거"
+                      >
+                        <X size={14} />
+                      </button>
                     </li>
                   );
                 })}

@@ -41,6 +41,11 @@
   color: var(--primary-color, #007fff);
 }
 
+.doc-section-heading:hover svg,
+.doc-section-heading:hover .tree-typography {
+  color: inherit;
+}
+
 .doc-node {
   cursor: pointer;
   width: 100%;
@@ -84,6 +89,12 @@
   border: 1px solid var(--primary-color-border, #b3d8ff);
 }
 
+.favorite-tree-node:hover .doc-node-title,
+.favorite-tree-node:hover .doc-node-info,
+.favorite-tree-node:hover .doc-node-date {
+  color: inherit;
+}
+
 .doc-node-header:hover svg,
 .doc-node.hovered .doc-node-header svg {
   color: var(--primary-color, #007fff);
@@ -106,6 +117,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-color-secondary, #5c6578);
+  padding-right: 36px;
 }
 
 .favorite-tree-node .doc-node-text {

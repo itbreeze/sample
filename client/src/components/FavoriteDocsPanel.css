@@ -16,3 +16,35 @@
   min-width: 0;
   overflow-x: hidden;
 }
+
+.favorite-tree-node .doc-node-header {
+  padding-right: 42px;
+}
+
+.favorite-tree-node-remove {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color-secondary, #5c6578);
+  opacity: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.favorite-tree-node-remove:hover {
+  color: var(--primary-color, #007fff);
+}
+
+.favorite-tree-node-remove svg {
+  width: 14px;
+  height: 14px;
+}

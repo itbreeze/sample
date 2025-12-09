@@ -1,0 +1,48 @@
+﻿.pipe-layer-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.pipe-layer-panel .equipment-panel {
+  flex: 1;
+}
+
+.pipe-layer-panel .equipment-panel__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.pipe-layer-panel .equipment-panel__global-toggle {
+  width: auto;
+  height: auto;
+  padding: 2px 4px;
+}
+
+.pipe-layer-toolbar__visibility {
+  border: none;
+  background: transparent;
+  color: #475569;
+  border-radius: 8px;
+  padding: 2px;
+  width: auto;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.pipe-layer-toolbar__visibility:hover:not(:disabled):not(.active) {
+  color: #475569;
+}
+
+.pipe-layer-toolbar__visibility:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipe-layer-toolbar__visibility.active {
+  color: #2563eb;
+}

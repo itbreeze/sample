@@ -16,6 +16,7 @@ import { buildEquipmentModel } from '../../components/utils/equipmentHandles';
 import { getDocumentKey } from '../utils/documentKey';
 import { formatLayerName } from '../utils/layerName';
 
+const DEFAULT_COLORFUL_MODE = true;
 const ViewerContext = createContext(null);
 
 const areArraysEqual = (a = [], b = []) => {
@@ -119,6 +120,10 @@ export const ViewerProvider = ({ children }) => {
   const [tabOrder, setTabOrder] = useState([]);
   const [layerListsByDoc, setLayerListsByDoc] = useState({});
   const [hiddenLayersByDoc, setHiddenLayersByDoc] = useState({});
+  const [isColorfulMode, setIsColorfulMode] = useState(DEFAULT_COLORFUL_MODE);
+  const toggleColorfulMode = useCallback(() => {
+    setIsColorfulMode((prev) => !prev);
+  }, []);
   const [equipmentData, setEquipmentData] = useState([]);
   const [equipmentLoading, setEquipmentLoading] = useState(false);
   const [equipmentError, setEquipmentError] = useState(null);
@@ -499,7 +504,7 @@ export const ViewerProvider = ({ children }) => {
     [equipmentData]
   );
 
-  const contextValue = useMemo(
+    const contextValue = useMemo(
     () => ({
       openFiles,
       activeFileId,
@@ -508,6 +513,8 @@ export const ViewerProvider = ({ children }) => {
       favoriteDocs,
       favoriteEquipments,
       favoriteDocMeta,
+      refreshFavorites,
+      toggleDocFavorite,
       recentDocs,
       recentDocsLoading,
       recentDocsError,
@@ -547,6 +554,9 @@ export const ViewerProvider = ({ children }) => {
       readEquipmentHighlightCache,
       getViewerInstance,
       viewerReadyVersion,
+      isColorfulMode,
+      setIsColorfulMode,
+      toggleColorfulMode,
     }),
     [
       openFiles,
@@ -556,6 +566,8 @@ export const ViewerProvider = ({ children }) => {
       favoriteDocs,
       favoriteEquipments,
       favoriteDocMeta,
+      refreshFavorites,
+      toggleDocFavorite,
       recentDocs,
       recentDocsLoading,
       recentDocsError,
@@ -595,6 +607,9 @@ export const ViewerProvider = ({ children }) => {
       readEquipmentHighlightCache,
       getViewerInstance,
       viewerReadyVersion,
+      isColorfulMode,
+      setIsColorfulMode,
+      toggleColorfulMode,
     ]
   );
 

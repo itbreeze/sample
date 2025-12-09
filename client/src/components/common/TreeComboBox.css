@@ -100,6 +100,7 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    justify-content: center;
     color: var(--color-text);
 }
 
@@ -111,19 +112,13 @@
 }
 
 /* 라벨 */
-.tree-combobox-container .node-name {
+.tree-combobox-container .tree-node-body .node-name {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer; /* 라벨도 선택 가능 표시 */
-    padding: 2px 4px;
-    border-radius: 4px;
 }
 
-.tree-combobox-container .tree-node .node-name:hover {
-    color: var(--primary-color, #38bdf8);
-    background-color: var(--primary-color-light, #e0f5ff);
-}
 
 /* 확장 아이콘 hover */
 .tree-combobox-container .tree-node .expand-icon:hover {
@@ -133,7 +128,22 @@
 }
 
 /* hover 시 전체적으로 아이콘도 함께 컬러 변경 */
-.tree-combobox-container .tree-node:hover .type-icon {
+.tree-combobox-container .tree-node-body {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.tree-combobox-container .tree-node:hover .tree-node-body {
+    background-color: var(--primary-color-light, #e0f5ff);
+}
+
+.tree-combobox-container .tree-node:hover .tree-node-body .type-icon,
+.tree-combobox-container .tree-node:hover .tree-node-body .node-name {
     color: var(--primary-color, #38bdf8);
 }
 
@@ -159,19 +169,9 @@
     border-left-color: transparent !important;
 }
 
-/* 2) Tree menu (icon/text) get their own subtle backgrounds */
-.tree-combobox-container .tree-node .type-icon {
-    border-radius: 4px;
-}
-.tree-combobox-container .tree-node .type-icon:hover {
-    background-color: var(--primary-color-light, #e0f5ff);
-}
 .tree-combobox-container .tree-node .node-name {
     padding: 2px 4px;
     border-radius: 4px;
-}
-.tree-combobox-container .tree-node .node-name:hover {
-    background-color: var(--primary-color-light, #e0f5ff);
 }
 
 /* 3) Arrow area keeps its distinct hover background (already defined above) */

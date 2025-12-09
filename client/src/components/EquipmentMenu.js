@@ -203,7 +203,7 @@ const EquipmentMenu = () => {
     const key = normalized.join('|');
     if (preparerHandlesRef.current === key) return;
     preparerHandlesRef.current = key;
-    prepareHandlesAction(normalized, { chunkSize: 32 }).catch(() => {});
+    prepareHandlesAction(normalized, { chunkSize: 32 }).catch(() => { });
   }, [equipmentHandleModel, highlightActions]);
 
   useEffect(() => {
@@ -340,7 +340,7 @@ const EquipmentMenu = () => {
       setManualTagHighlightIds(tagId ? new Set([tagId]) : new Set());
       try {
         await highlightActions?.prepareHandles?.(normalized, { chunkSize: 32 });
-      } catch (_) {}
+      } catch (_) { }
       highlightActions?.selectHandles?.(normalized, {
         highlightColor: EQUIPMENT_SELECTION_COLOR,
         openPanel: false,
@@ -488,7 +488,7 @@ const EquipmentMenu = () => {
             className="equipment-tree-node__tags"
             style={{ '--equipment-tag-depth': depth + 1 }}
           >
-          {node.tags.map((tag) => renderTag(tag, isNodeActive))}
+            {node.tags.map((tag) => renderTag(tag, isNodeActive))}
             {node.children.length ? (
               <div className="equipment-tree-node__children">
                 {node.children.map((child) => renderNode(child, depth + 1))}
@@ -502,22 +502,12 @@ const EquipmentMenu = () => {
 
   return (
     <div className="equipment-panel">
-        <header className="equipment-panel__header">
-            <button
-              type="button"
-              className={`equipment-panel__global-toggle ${globalHighlight ? 'active' : ''}`}
-              onClick={handleGlobalToggle}
-              disabled={!allHandles.length}
-              aria-pressed={globalHighlight}
-            >
-              <div className="equipment-panel__global-toggle-text">
-                <span>전체</span>
-                <span className="equipment-panel__global-toggle-count">{`(${totalTagGroups})`}</span>
-              </div>
-            <span className="equipment-panel__global-toggle-icon">
-              {renderEyeIcon(globalHighlight)}
-            </span>
-          </button>
+      <header className="equipment-panel__header">
+        <div className="equipment-panel__header-title">
+          <span>전체</span>
+          <span className="equipment-panel__global-toggle-count">{`(${totalTagGroups})`}</span>
+        </div>
+        <div className="equipment-panel__header-actions">
           <button
             type="button"
             className="equipment-panel__refresh"
@@ -528,6 +518,18 @@ const EquipmentMenu = () => {
           >
             <RotateCw size={18} />
           </button>
+          <button
+            type="button"
+            className={`equipment-panel__global-toggle ${globalHighlight ? 'active' : ''}`}
+            onClick={handleGlobalToggle}
+            disabled={!allHandles.length}
+            aria-pressed={globalHighlight}
+            aria-label="전체 설비 하이라이트 토글"
+          >
+            {renderEyeIcon(globalHighlight)}
+          </button>
+
+        </div>
       </header>
       <div className="equipment-panel__body">
         {equipmentLoading && <div className="equipment-panel__message">설비 목록을 불러오는 중입니다...</div>}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import './EpnidSystemPage.css';
-import { FolderOpen, Star, Search, Waypoints, Layers, MonitorCog, FileText, History } from 'lucide-react';
+import { FolderOpen, Star, Search, Waypoints, Layers, MonitorCog, FileText, History, Palette, Eye, EyeOff } from 'lucide-react';
 
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -17,6 +17,9 @@ import { useAuthState } from '../hooks/useAuthState';
 import { usePanelState } from '../hooks/usePanelState';
 import { ViewerProvider, useViewer, ViewerShell } from '../viewer';
 import EquipmentMenu from '../components/EquipmentMenu';
+import { EQUIPMENT_SELECTION_COLOR } from '../viewer/canvas/ViewerCanvasUtils';
+import { getDocumentKeyFromFile } from '../viewer/utils/documentKey';
+import PipeLayerPanel from '../components/PipeLayerMenu';
 
 
 
@@ -76,10 +79,9 @@ const sidebarMenus = {
     { id: 'search', icon: <Search size={20} />, label: '도면검색' },
     { id: 'recentdocs', icon: <History size={20} />, label: '최근 본 도면' },
     { id: 'bookmark', icon: <Star size={20} />, label: '즐겨찾기 목록' },
-    { id: 'mydocs', icon: <FolderOpen size={20} />, label: '내 문서함' },
     { id: 'equipments', icon: <MonitorCog size={20} />, label: '설비 목록' },
     { id: 'layers', icon: <Layers size={20} />, label: '레이어 목록' },
-    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관 목록' },    
+    { id: 'pipeLayers', icon: <Waypoints size={20} />, label: '배관 목록' },
   ],
   pld: [{ id: 'pld', icon: <FileText size={20} />, label: 'PLD 메뉴' }],
   intelligent: [{ id: 'intelligent', icon: <FileText size={20} />, label: '샘플 메뉴' }],
@@ -104,6 +106,40 @@ const equipmentTabs = [
   },
 ];
 
+const normalizeDocIdValue = (value) =>
+  typeof value === 'string' ? value.trim() : '';
+
+const normalizeDocVrValue = (value) =>
+  typeof value === 'string' && value.trim() ? value.trim() : '001';
+
+const normalizeTagIdValue = (value) =>
+  typeof value === 'string' ? value.trim() : '';
+
+const parseHandleString = (value) => {
+  if (!value) return [];
+  return value
+    .split('/')
+    .map((handle) => (typeof handle === 'string' ? handle.trim() : ''))
+    .filter(Boolean);
+};
+
+const gatherHandlesForTagId = (model, tagId) => {
+  if (!tagId || !model || !Array.isArray(model.tree)) return [];
+  const collected = new Set();
+  const traverse = (node) => {
+    node.tags?.forEach((tag) => {
+      if (tag.id === tagId && Array.isArray(tag.handles)) {
+        tag.handles.forEach((handle) => {
+          if (handle) collected.add(handle);
+        });
+      }
+    });
+    node.children?.forEach((child) => traverse(child));
+  };
+  model.tree.forEach((node) => traverse(node));
+  return Array.from(collected);
+};
+
 function EpnidSystemPageContent() {
   const [activeTab, setActiveTab] = useState(tabItems[0].id);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
@@ -123,6 +159,16 @@ function EpnidSystemPageContent() {
   const [advancedSearchHighlight, setAdvancedSearchHighlight] = useState('');
 
   const [previewResultCount, setPreviewResultCount] = useState(0);
+  const [pendingFavoriteEquipment, setPendingFavoriteEquipment] = useState(null);
+  const [favoriteDocRequest, setFavoriteDocRequest] = useState(null);
+  const [favoriteHighlightRetry, setFavoriteHighlightRetry] = useState(0);
+  const favoriteHighlightRetryTimerRef = useRef(null);
+  const clearFavoriteHighlightRetryTimer = useCallback(() => {
+    if (favoriteHighlightRetryTimerRef.current) {
+      clearTimeout(favoriteHighlightRetryTimerRef.current);
+      favoriteHighlightRetryTimerRef.current = null;
+    }
+  }, []);
 
   const {
     user,
@@ -142,6 +188,11 @@ function EpnidSystemPageContent() {
     favoriteDocs,
     favoriteEquipments,
     favoriteDocMeta,
+    toggleDocFavorite,
+    toggleEquipmentFavorite,
+    equipmentData,
+    equipmentLoading,
+    equipmentHandleModel,
     recentDocs,
     recentDocsLoading,
     refreshRecentDocs,
@@ -149,12 +200,13 @@ function EpnidSystemPageContent() {
     flagManualRecentLog,
     consumeManualRecentLog,
     openFiles,
+    viewerReadyVersion,
+    highlightActions,
   } = useViewer();
   const {
     isSidebarOpen,
     setIsSidebarOpen,
     activeMenuItem,
-    setActiveMenuItem,
     isPanelMaximized,
     setIsPanelMaximized,
     isPanelOpen,
@@ -171,6 +223,139 @@ function EpnidSystemPageContent() {
       return loaded;
     },
     [handleFileSelect, setIsPanelMaximized]
+  );
+
+  const handleFavoritePanelSelect = useCallback(
+    async (payload) => {
+      if (!payload) return null;
+      const docId = normalizeDocIdValue(
+        payload.docId || payload.DOCNO || payload.docNo || payload.docno || ''
+      );
+      if (!docId) return null;
+      const docVr = normalizeDocVrValue(
+        payload.docVr || payload.DOCVR || payload.docVer || payload.docvr
+      );
+      const equipmentMeta = payload.favoriteEquipment;
+      setFavoriteDocRequest({ docId, docVr });
+      if (equipmentMeta) {
+        const tagId = normalizeTagIdValue(
+          equipmentMeta.tagId ||
+          equipmentMeta.TAGNO ||
+          equipmentMeta.tagNo ||
+          equipmentMeta.tagNO ||
+          equipmentMeta.tagno ||
+          ''
+        );
+        const functionName =
+          equipmentMeta.function ||
+          equipmentMeta.func ||
+          equipmentMeta.functionName ||
+          equipmentMeta.FUNCTION ||
+          '';
+        setPendingFavoriteEquipment({
+          docId,
+          docVr,
+          tagId,
+          functionName,
+        });
+      } else {
+        setPendingFavoriteEquipment(null);
+      }
+      return handleDocumentSelect({ docId, docVr });
+    },
+    [handleDocumentSelect]
+  );
+
+  const buildDocFavoritePayload = useCallback(
+    (doc = {}) => {
+      const docId = normalizeDocIdValue(
+        doc.docId || doc.DOCNO || doc.docNo || doc.docno || ''
+      );
+      if (!docId) return null;
+      const docVer = normalizeDocVrValue(
+        doc.docVer || doc.DOCVR || doc.docVr || doc.docvr
+      );
+      return {
+        docId,
+        docVer,
+        docName: doc.docName || doc.DOCNM || doc.DOCNAME || '',
+        docNumber: doc.docNumber || doc.DOCNUMBER || doc.DOCNUM || '',
+        plantCode: doc.plantCode || doc.PLANTCD || doc.PLANTCODE || '',
+      };
+    },
+    []
+  );
+
+  const buildEquipmentFavoritePayload = useCallback(
+    (equipment = {}) => {
+      const docId = normalizeDocIdValue(
+        equipment.docId ||
+        equipment.DOCNO ||
+        equipment.docNo ||
+        equipment.docno ||
+        equipment.DOCID ||
+        ''
+      );
+      if (!docId) return null;
+      const docVer = normalizeDocVrValue(
+        equipment.docVer ||
+        equipment.DOCVR ||
+        equipment.docVr ||
+        equipment.docvr
+      );
+      const tagId = normalizeTagIdValue(
+        equipment.tagId ||
+        equipment.TAGNO ||
+        equipment.tagNo ||
+        equipment.tagNO ||
+        equipment.tagno ||
+        ''
+      );
+      if (!tagId) return null;
+      const functionName =
+        equipment.function ||
+        equipment.func ||
+        equipment.functionName ||
+        equipment.FUNCTION ||
+        '';
+      return {
+        docId,
+        docVer,
+        tagId,
+        function: functionName,
+        docName: equipment.docName || equipment.DOCNM || '',
+        docNumber: equipment.docNumber || equipment.DOCNUMBER || equipment.DOCNUM || '',
+        plantCode:
+          equipment.plantCode || equipment.PLANTCD || equipment.PLANTCODE || '',
+      };
+    },
+    []
+  );
+
+  const handleRemoveFavoriteDoc = useCallback(
+    async (doc) => {
+      const payload = buildDocFavoritePayload(doc);
+      if (!payload) return;
+      try {
+        await toggleDocFavorite(payload);
+      } catch (error) {
+        console.error('[favorites] failed to remove document', error);
+      }
+    },
+    [buildDocFavoritePayload, toggleDocFavorite]
+  );
+
+  const handleRemoveFavoriteEquipment = useCallback(
+    async (equipment) => {
+      const payload = buildEquipmentFavoritePayload(equipment);
+      if (!payload) return;
+      try {
+        await toggleEquipmentFavorite(payload);
+      } catch (error) {
+        console.error('[favorites] failed to remove equipment', error);
+      }
+    },
+    [buildEquipmentFavoritePayload, toggleEquipmentFavorite]
   );
 
   const handleRecentDocSelect = useCallback(
@@ -217,8 +402,130 @@ function EpnidSystemPageContent() {
   }, [handleDocumentSelect]);
 
   useEffect(() => {
+    if (!favoriteDocRequest) return;
+    if (activeFileId !== favoriteDocRequest.docId) return;
+    if (!isFileLoaded && !viewerReadyVersion) return;
+    setFavoriteDocRequest(null);
+  }, [favoriteDocRequest, activeFileId, isFileLoaded, viewerReadyVersion]);
+
+  useEffect(() => {
+    return () => {
+      clearFavoriteHighlightRetryTimer();
+    };
+  }, [clearFavoriteHighlightRetryTimer]);
+
+  useEffect(() => {
+    if (!pendingFavoriteEquipment) return;
+    const scheduleFavoriteHighlightRetry = (delay = 600) => {
+      if (!pendingFavoriteEquipment) return;
+      clearFavoriteHighlightRetryTimer();
+      favoriteHighlightRetryTimerRef.current = setTimeout(() => {
+        setFavoriteHighlightRetry((prev) => prev + 1);
+      }, delay);
+    };
+
+    if (!viewerReadyVersion || !highlightActions?.prepareHandles || !highlightActions?.selectHandles) {
+      scheduleFavoriteHighlightRetry();
+      return;
+    }
+
+    const normalizedPendingDocId = normalizeDocIdValue(pendingFavoriteEquipment.docId);
+    const normalizedActiveDocId = normalizeDocIdValue(activeFileId);
+    if (!normalizedActiveDocId || normalizedPendingDocId !== normalizedActiveDocId) return;
+
+    const docVr = normalizeDocVrValue(pendingFavoriteEquipment.docVr);
+    const tagId = normalizeTagIdValue(pendingFavoriteEquipment.tagId);
+    const functionName = pendingFavoriteEquipment.functionName || '';
+
+    const normalizeHandlesList = (handles) =>
+      handles
+        .map((handle) => (handle ? String(handle) : ''))
+        .filter(Boolean);
+
+    const finalizeSelection = () => {
+      clearFavoriteHighlightRetryTimer();
+      setPendingFavoriteEquipment(null);
+    };
+
+    const applyHighlight = async (handles, source) => {
+      const normalizedHandles = normalizeHandlesList(handles);
+      if (!normalizedHandles.length) return;
+      try {
+        await highlightActions.prepareHandles(normalizedHandles, { chunkSize: 32 });
+      } catch { }
+      highlightActions.selectHandles(normalizedHandles, {
+        highlightColor: EQUIPMENT_SELECTION_COLOR,
+        openPanel: false,
+      });
+      if (typeof highlightActions.zoomToHandles === 'function') {
+        highlightActions.zoomToHandles(normalizedHandles);
+      } else if (typeof highlightActions.zoomToHandle === 'function') {
+        highlightActions.zoomToHandle(normalizedHandles[0]);
+      }
+    };
+
+    const processFavoriteHighlight = async () => {
+      if (!tagId) {
+        finalizeSelection();
+        return;
+      }
+
+      const modelHandles = gatherHandlesForTagId(equipmentHandleModel, tagId);
+      if (modelHandles.length) {
+        await applyHighlight(modelHandles, 'equipmentModel');
+        finalizeSelection();
+        return;
+      }
+
+      if (equipmentLoading || !equipmentData?.length) {
+        scheduleFavoriteHighlightRetry();
+        return;
+      }
+
+      const matchingRows = (equipmentData || []).filter((row) => {
+        const rowDocId = normalizeDocIdValue(
+          row.docId || row.docno || row.DOCNO || ''
+        );
+        if (rowDocId !== normalizedPendingDocId) return false;
+        const rowDocVr = normalizeDocVrValue(row.docVr || row.DOCVR || row.docVer);
+        if (docVr && rowDocVr && rowDocVr !== docVr) return false;
+        const rowTagId = normalizeTagIdValue(
+          row.tagId ||
+          row.TAGNO ||
+          row.tagNo ||
+          row.tagNO ||
+          row.tagno ||
+          ''
+        );
+        return rowTagId === tagId;
+      });
+
+      const dataHandles = matchingRows.flatMap((row) =>
+        parseHandleString(row.handle || row.TAGHANDLE)
+      );
+      if (dataHandles.length) {
+        await applyHighlight(dataHandles, 'equipmentData');
+      }
+      finalizeSelection();
+    };
+
+    processFavoriteHighlight().catch(() => { });
+  }, [
+    pendingFavoriteEquipment,
+    activeFileId,
+    equipmentData,
+    equipmentLoading,
+    equipmentHandleModel,
+    viewerReadyVersion,
+    isFileLoaded,
+    highlightActions,
+    favoriteHighlightRetry,
+    clearFavoriteHighlightRetryTimer,
+  ]);
+
+  useEffect(() => {
     if (activeMenuItem !== 'recentdocs' || !isPanelOpen) return;
-    refreshRecentDocs({ limit: 40 }).catch(() => {});
+    refreshRecentDocs({ limit: 40 }).catch(() => { });
   }, [activeMenuItem, isPanelOpen, refreshRecentDocs]);
 
   const filteredTabItems = authLimited
@@ -397,6 +704,37 @@ function EpnidSystemPageContent() {
     ]
   );
 
+  const pipeLayerKeywords = useMemo(() => ['6_']);
+  const pipeLayerExcludeKeywords = useMemo(() => ['6_기타유체']);
+
+  const pipeLayerFilter = useCallback(
+    (layer) => {
+      if (!layer) return false;
+      const textValues = [layer.name, layer.id];
+      const textIncludes = (keyword) =>
+        textValues.some((value) => typeof value === 'string' && value.includes(keyword));
+      const hasIncluded = pipeLayerKeywords.some(textIncludes);
+      if (!hasIncluded) return false;
+      const hasExcluded = pipeLayerExcludeKeywords.some(textIncludes);
+      return !hasExcluded;
+    },
+    [pipeLayerKeywords, pipeLayerExcludeKeywords]
+  );
+
+  const pipeLayerMatcher = useCallback(
+    (layerName) => {
+      if (!layerName) return false;
+      const textValues = [layerName];
+      const textIncludes = (keyword) =>
+        textValues.some((value) => typeof value === 'string' && value.includes(keyword));
+      const hasIncluded = pipeLayerKeywords.some(textIncludes);
+      if (!hasIncluded) return false;
+      const hasExcluded = pipeLayerExcludeKeywords.some(textIncludes);
+      return !hasExcluded;
+    },
+    [pipeLayerKeywords, pipeLayerExcludeKeywords]
+  );
+
   const PANEL_CONFIG = useMemo(
     () => ({
       search: {
@@ -429,13 +767,10 @@ function EpnidSystemPageContent() {
                   <FavoriteDocsPanel
                     documentItems={favoriteDocs}
                     equipmentItems={favoriteEquipments}
-                    onFileSelect={(doc) =>
-                      handleDocumentSelect({
-                        docId: doc.docId || doc.docNO,
-                        docVr: doc.docVer,
-                      })
-                    }
+                    onFileSelect={handleFavoritePanelSelect}
                     favoriteDocMeta={favoriteDocMeta}
+                    onRemoveDocFavorite={handleRemoveFavoriteDoc}
+                    onRemoveEquipmentFavorite={handleRemoveFavoriteEquipment}
                   />
                 ),
               },
@@ -446,7 +781,6 @@ function EpnidSystemPageContent() {
         startsMaximized: true,
         isResizable: true,
       },
-      mydocs: { component: <NotImplemented />, startsMaximized: false, isResizable: true },
       recentdocs: {
         component: (
           <TabbedPanel
@@ -469,7 +803,29 @@ function EpnidSystemPageContent() {
         startsMaximized: true,
         isResizable: true,
       },
-      pipeLayers: { component: <NotImplemented />, startsMaximized: false, isResizable: false },
+      pipeLayers: {
+        component: (
+          <TabbedPanel
+            tabs={[
+              {
+                id: 'pipeLayerList',
+                label: '배관 목록',
+                content: () => (
+                  <PipeLayerPanel
+                    filterLayer={pipeLayerFilter}
+                    stripLayerKeywords={pipeLayerKeywords}
+                    pipeLayerMatcher={pipeLayerMatcher}
+                    highlightActions={highlightActions}
+                  />
+                ),
+              },
+            ]}
+            defaultTab="pipeLayerList"
+          />
+        ),
+        startsMaximized: false,
+        isResizable: true,
+      },
       layers: {
         component: (
           <TabbedPanel
@@ -496,6 +852,7 @@ function EpnidSystemPageContent() {
       handleDocumentSelect,
       handleRecentDocSelect,
       refreshRecentDocs,
+      pipeLayerFilter,
       setActiveSearchTab,
     ]
   );

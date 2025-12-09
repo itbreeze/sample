@@ -13,6 +13,7 @@ import {
   applyTempColorOverride,
   resetColorByHandle,
   setColorBasic,
+  COLOR_ON_OFF,
   HOVER_SELECTION_COLOR,
   SELECTED_SELECTION_COLOR,
   EQUIPMENT_SELECTION_COLOR,
@@ -34,6 +35,35 @@ const VIEWER_MODES = {
   PLD: 'PLDMode',
   INTELLIGENT: 'IntelligentMode',
   INHERIT: 'InheritMode',
+};
+
+const toRgbString = (value) => {
+  if (!value) return null;
+  const arrayLike = Array.isArray(value) || ArrayBuffer.isView(value);
+  if (arrayLike) {
+    const [r, g, b] = Array.from(value);
+    if ([r, g, b].every((num) => Number.isFinite(num))) {
+      return `rgb(${r},${g},${b})`;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    const { r, g, b } = value;
+    if ([r, g, b].every((num) => Number.isFinite(num))) {
+      return `rgb(${r},${g},${b})`;
+    }
+  }
+  return null;
+};
+
+const getLayerColorString = (entry) => {
+  if (!entry) return null;
+  const candidates = [entry.layerColor, entry.trueColor, entry.objectColor];
+  for (const candidate of candidates) {
+    const cssColor = toRgbString(candidate);
+    if (cssColor) return cssColor;
+  }
+  return null;
 };
 
 const EQUIPMENT_PANEL_SIZE = { width: 320, height: 360 };
@@ -86,6 +116,8 @@ const ViewerCanvas = ({
   const PANEL_DEFAULT = { width: PANEL_MIN_WIDTH, height: PANEL_MIN_HEIGHT };
   const selectedHandlesRef = useRef([]);
   const hiddenLayersCacheRef = useRef(new Map());
+  const layerHandlesCacheRef = useRef(new Map());
+  const [layerHandlesVersion, setLayerHandlesVersion] = useState(0);
   const computePanelPosition = (width, height) => {
     const vw = window?.innerWidth || 1200;
     const vh = window?.innerHeight || 800;
@@ -142,17 +174,20 @@ const ViewerCanvas = ({
     allowHoverHighlight: mode === VIEWER_MODES.PID,
   }), [mode]);
   const enableHoverVisuals = modeConfig.allowHoverHighlight;
-    const {
-      registerHighlightActions,
-      openFiles,
-      activeFileId,
-      equipmentHandleModel,
-      handleFileSelect,
-      handleViewerReady,
-      layerListsByDoc,
-      hiddenLayersByDoc,
-      setLayerListForDoc,
-    } = useViewer();
+  const {
+    registerHighlightActions,
+    openFiles,
+    activeFileId,
+    equipmentHandleModel,
+    handleFileSelect,
+    handleViewerReady,
+    layerListsByDoc,
+    hiddenLayersByDoc,
+    setLayerListForDoc,
+    isColorfulMode,
+    toggleColorfulMode,
+    viewerReadyVersion,
+  } = useViewer();
 
   const activeFile = useMemo(
     () => openFiles.find((file) => file.DOCNO === activeFileId),
@@ -983,16 +1018,20 @@ const ViewerCanvas = ({
   }, []);
 
   useEffect(() => {
-    if (!docKey || layerListForDoc) return;
+    if (!docKey) return;
     if (!isActive || isLoading) return;
     if (!viewerRef.current || !libRef.current) return;
+
+    const hasHandlesSnapshot = layerHandlesCacheRef.current.has(docKey);
+    if (layerListForDoc && hasHandlesSnapshot) return;
 
     let cancelled = false;
     forcePopulateEntityCache();
     if (cancelled) return;
 
     const layerMap = new Map();
-    entityDataMapRef.current.forEach((entry) => {
+    const handlesMap = new Map();
+    entityDataMapRef.current.forEach((entry, handleKey) => {
       const normalizedName = formatLayerName(entry.layer);
       if (!normalizedName) return;
 
@@ -1001,8 +1040,19 @@ const ViewerCanvas = ({
         id: normalizedName,
         name: normalizedName,
         count: (existing?.count ?? 0) + 1,
+        color: existing?.color ?? getLayerColorString(entry) ?? null,
       };
       layerMap.set(normalizedName, next);
+
+      const bucket = handlesMap.get(normalizedName);
+      if (bucket) {
+        bucket.handles.push(handleKey);
+      } else {
+        handlesMap.set(normalizedName, {
+          rawName: entry.layer ?? normalizedName,
+          handles: [handleKey],
+        });
+      }
     });
 
     const normalized = Array.from(layerMap.values())
@@ -1014,6 +1064,10 @@ const ViewerCanvas = ({
 
     if (cancelled) return;
     setLayerListForDoc(docKey, normalized);
+    if (handlesMap.size) {
+      layerHandlesCacheRef.current.set(docKey, handlesMap);
+      setLayerHandlesVersion((prev) => prev + 1);
+    }
 
     return () => {
       cancelled = true;
@@ -1026,6 +1080,42 @@ const ViewerCanvas = ({
     forcePopulateEntityCache,
     setLayerListForDoc,
   ]);
+
+  const matchesLayerFilter = (layerName, normalizedName, matcher) => {
+    if (!matcher) return false;
+    const rawLayer = layerName ?? normalizedName;
+    if (typeof matcher === 'function') {
+      return matcher(rawLayer, normalizedName);
+    }
+    if (typeof matcher === 'string') {
+      return formatLayerName(matcher) === normalizedName;
+    }
+    if (matcher instanceof RegExp) {
+      return matcher.test(rawLayer);
+    }
+    if (Array.isArray(matcher)) {
+      return matcher.some((item) =>
+        matchesLayerFilter(layerName, normalizedName, item)
+      );
+    }
+    return false;
+  };
+
+  const resolveLayerHandles = useCallback(
+    (matcher) => {
+      if (!matcher || !docKey) return [];
+      const docLayers = layerHandlesCacheRef.current.get(docKey);
+      if (!docLayers || !docLayers.size) return [];
+      const resolved = [];
+      docLayers.forEach((value, normalizedName) => {
+        if (matchesLayerFilter(value.rawName, normalizedName, matcher)) {
+          resolved.push(...value.handles);
+        }
+      });
+      return resolved;
+    },
+    [docKey]
+  );
 
 
   useEffect(() => {
@@ -1342,6 +1432,35 @@ const ViewerCanvas = ({
     }
   }, []);
 
+  const colorOnOff = useCallback(
+    ({ handles, layerMatcher, enabled = true, disabledColor } = {}) => {
+      if (!viewerRef.current || !libRef.current || !entityDataMapRef.current) {
+        return false;
+      }
+      const directHandles = Array.isArray(handles) ? handles : [];
+      const matchedHandles =
+        layerMatcher !== undefined ? resolveLayerHandles(layerMatcher) : [];
+      const aggregated = [...directHandles, ...matchedHandles];
+      if (!aggregated.length) return false;
+      return COLOR_ON_OFF.toggleHandles(
+        viewerRef.current,
+        libRef.current,
+        entityDataMapRef.current,
+        aggregated,
+        { enabled, disabledColor }
+      );
+    },
+    [resolveLayerHandles]
+  );
+
+  useEffect(() => {
+    if (!colorOnOff || !docKey) return;
+    colorOnOff({
+      layerMatcher: () => true,
+      enabled: isColorfulMode,
+      disabledColor: COLOR_ON_OFF.disabledColor,
+    });
+  }, [colorOnOff, isColorfulMode, docKey, layerHandlesVersion, viewerReadyVersion]);
 
   useEffect(() => {
     if (typeof registerHighlightActions !== 'function' || !docno) return undefined;
@@ -1349,6 +1468,7 @@ const ViewerCanvas = ({
       zoomToHandle: handleZoomToEntity,
       zoomToHandles: handleZoomToHandles,
       colorOverride: handleColorOverride,
+      colorOnOff,
       prepareHandles,
       selectHandles: selectHandlesDirectly,
       setHoverSuppressed,
@@ -1359,6 +1479,7 @@ const ViewerCanvas = ({
     handleZoomToEntity,
     handleZoomToHandles,
     handleColorOverride,
+    colorOnOff,
     prepareHandles,
     registerHighlightActions,
     selectHandlesDirectly,
@@ -1404,6 +1525,8 @@ const ViewerCanvas = ({
           isFavorite={isFavorite}
           onToggleFavorite={onToggleFavorite}
           showEntityInfoButton={allowEntityPanel}
+          isColorfulMode={isColorfulMode}
+          onToggleColorMode={toggleColorfulMode}
         />
         )}
 

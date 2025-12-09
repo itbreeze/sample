@@ -21,8 +21,8 @@ const ResizablePanel = ({
     setWidth(initialWidth);
   }, [initialWidth]);
 
-  // 더블클릭: 최소 <-> 최대 너비 토글
-  const handleDoubleClick = useCallback(() => {
+  // 클릭: 최소 <-> 최대 너비 토글
+  const handleClickToggle = useCallback(() => {
     setWidth(currentWidth =>
       currentWidth < maxWidth - 10 ? maxWidth : minWidth
     );
@@ -74,7 +74,7 @@ const ResizablePanel = ({
       <strong>❓ 도움말</strong>
       <hr />
       드래그: 크기 조절<br />
-      더블클릭: 최대/최소화
+      한번클릭: 최대/최소화
     </div>
   );
 
@@ -96,7 +96,7 @@ const ResizablePanel = ({
           <div
             className="panel-resizer-handle"
             onMouseDown={handleMouseDown}
-            onDoubleClick={handleDoubleClick}
+            onClick={handleClickToggle}
             onMouseEnter={() => setIsTooltipVisible(true)}
             onMouseLeave={() => setIsTooltipVisible(false)}
           >

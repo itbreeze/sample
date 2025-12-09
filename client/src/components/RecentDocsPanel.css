@@ -45,6 +45,17 @@
 
 .recent-doc-group-header {
   justify-content: space-between;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.recent-doc-group-header:hover {
+  background-color: var(--hover-background-color, #f0f2f5);
+  color: var(--primary-color, #007fff);
 }
 .recent-doc-group-title {
   display: flex;
@@ -60,6 +71,11 @@
   font-weight: var(--tree-node-parent-weight, 400);
   color: inherit;
   margin-left: 4px;
+}
+
+.recent-doc-group-header:hover .recent-doc-group-title,
+.recent-doc-group-header:hover .recent-doc-group-count {
+  color: inherit;
 }
 
 .recent-doc-group-delete {
@@ -149,6 +165,10 @@
 }
 
 .recent-doc-item:hover .recent-doc-date {
+  color: var(--primary-color);
+}
+.recent-doc-item:hover .recent-doc-title,
+.recent-doc-item:hover .recent-doc-info {
   color: var(--primary-color);
 }
 

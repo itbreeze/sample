@@ -40,19 +40,21 @@ const TreeNode = ({ node, level, expandedNodes, onToggle, onSelect, selectedId }
           {hasChildren && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
         </span>
 
-        <span className="type-icon">
-          {isFolder ? (
-            isExpanded ? <FolderOpen size={16} /> : <FolderClosed size={16} />
-          ) : (
-            <FileText size={16} />
-          )}
-        </span>
-        <span
-          className={`node-name tree-typography ${typographyVariant}`}
-          title="선택"
-        >
-          {node.name}
-        </span>
+        <div className="tree-node-body">
+          <span className="type-icon">
+            {isFolder ? (
+              isExpanded ? <FolderOpen size={16} /> : <FolderClosed size={16} />
+            ) : (
+              <FileText size={16} />
+            )}
+          </span>
+          <span
+            className={`node-name tree-typography ${typographyVariant}`}
+            title="선택"
+          >
+            {node.name}
+          </span>
+        </div>
         {isSelected && (
           <span className="selected-check" title="선택됨">
             <Check size={14} />

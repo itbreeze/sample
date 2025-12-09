@@ -234,7 +234,7 @@ const ViewerWorkspace = ({
           onClick={(e) => e.stopPropagation()}
         >
           <button type="button" onClick={handleOpenInNewWindow}>새 창에서 열기</button>
-          <button type="button" onClick={handleCloseCurrent}>현재 도면 닫기</button>
+          <button type="button" onClick={handleCloseCurrent}>해당 도면 닫기</button>
           <button type="button" onClick={handleCloseAll}>모든 도면 닫기</button>
         </div>
       )}

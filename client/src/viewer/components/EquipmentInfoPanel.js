@@ -109,7 +109,7 @@ const EquipmentInfoPanel = ({
   const functions = useMemo(() => {
     const seen = new Map();
     entries.forEach((entry) => {
-      const func = entry.func || entry.FUNCTION || '기능 미정';
+      const func = entry.func || entry.FUNCTION || 'Unknown Function';
       if (!seen.has(func)) {
         seen.set(func, {
           func,
@@ -139,23 +139,21 @@ const EquipmentInfoPanel = ({
     if (!visible) {
       setSubmenuDirection('right');
       setSubmenuDirections({});
-      return;
+      return undefined;
     }
     const updateDirection = () => {
-      const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
-      const margin = 12;
-      const availableRight = vw - (position?.x || 0) - PANEL_WIDTH - margin;
-      const availableLeft = (position?.x || 0) - margin;
-      if (availableRight >= CONTEXT_MENU_WIDTH) {
-        setSubmenuDirection('right');
-      } else if (availableLeft >= CONTEXT_MENU_WIDTH) {
-        setSubmenuDirection('left');
-      } else {
-        setSubmenuDirection('right');
-      }
+      const rect = panelRef.current?.getBoundingClientRect();
+      setSubmenuDirection(calculateSubmenuDirection(rect));
     };
     updateDirection();
-  }, [position?.x, visible]);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', updateDirection);
+      return () => {
+        window.removeEventListener('resize', updateDirection);
+      };
+    }
+    return undefined;
+  }, [visible, calculateSubmenuDirection, position?.x]);
 
   useEffect(() => {
     if (!visible) {
